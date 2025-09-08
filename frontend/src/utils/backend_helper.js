@@ -1,7 +1,7 @@
-import { get, post, put, del } from "./api";
+import api, { get, post, put, del } from "./api";
 
-export const fetchUsers = () => get("/users");
-export const fetchUserById = (id) => get(`/users/${id}`);
-export const createUser = (data) => post("/users", data);
-export const updateUser = (id, data) => put(`/users/${id}`, data);
-export const deleteUser = (id) => del(`/users/${id}`);
+export const listTestCrud   = () => api.get("/api/test-crud");
+export const getTestCrud    = (id) => api.get(`/api/test-crud/${id}`);
+export const createTestCrud = (data) => api.post("/api/test-crud", data);
+export const updateTestCrud = (id, data) => api.put(`/api/test-crud/${id}`, data);
+export const deleteTestCrud = (id) => api.delete(`/api/test-crud/${id}`);

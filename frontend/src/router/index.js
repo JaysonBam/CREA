@@ -4,6 +4,7 @@ import AppLayout from "@/layout/AppLayout.vue";
 import Dashboard from "@/views/Dashboard.vue";
 import Login from "@/views/pages/auth/Login.vue";
 import NotFound from "@/views/pages/NotFound.vue";
+import Testcrud from "@/views/pages/testcrud/testcrud.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +21,7 @@ const router = createRouter({
         // IMPORTANT: no leading slash for children
         { path: "", redirect: { name: "dashboard" } },
         { path: "dashboard", name: "dashboard", component: Dashboard },
+        { path: "test-crud", name: "test-crud", component: Testcrud },
         
       ],
     },
