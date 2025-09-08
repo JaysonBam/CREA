@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const ctrl = require("../controllers/TestCrudController");
+const controller = require("../controllers/TestCrudController");
 
 // /api/test-crud
-router.get("/", ctrl.list);
-router.get("/:id", ctrl.getOne);
-router.post("/", ctrl.create);
-router.put("/:id", ctrl.update);
-router.delete("/:id", ctrl.remove);
+router.get("/", controller.list);
+router.get("/:id", controller.getOne);
+router.post("/", controller.create);
+router.put("/:id", controller.update);
+router.delete("/:id", controller.remove);
 
 module.exports = router;
