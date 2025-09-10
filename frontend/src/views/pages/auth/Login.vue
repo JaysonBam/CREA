@@ -28,8 +28,12 @@ const handleLogin = async () => {
     sessionStorage.setItem("token", res.data.token);
     sessionStorage.setItem("first_name", res.data.first_name);
     sessionStorage.setItem("last_name", res.data.last_name);
+    sessionStorage.setItem("JWT", res.data.jwt_token);
 
-    router.push("/"); //Redirect to home page
+    console.log(res.data);
+    const redirect = router.currentRoute.value.query.redirect || "/dashboard";
+
+    router.push(redirect);
   } catch (err) {
     console.error("Login failed:", err);
     alert("Invalid credentials");

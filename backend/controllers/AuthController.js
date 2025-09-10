@@ -1,5 +1,7 @@
-const { User } = require("../models"); // adjust path if needed
+const { User } = require("../models");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
 module.exports = {
   async verifyCredentials(request, response) {
@@ -21,6 +23,12 @@ module.exports = {
           .json({ error: "No user exists with this email. Please register" });
       }
 
+      const jwtToken = jwt.sign(
+        { user_id: user.id }, //So that we dont have to pass a user to the backend, the token is already associated with a user
+        JWT_SECRET,
+        { expiresIn: "24h" } // token expiry
+      );
+
       //Ensure correct password
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
@@ -29,14 +37,13 @@ module.exports = {
       //if password is indeed correct, return success with user details (to save in session storage)
       return response.status(200).json({
         message: "User verified successfully",
-        data: {
-          id: user.id,
-          role: user.role,
-          token: user.token,
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-        },
+        id: user.id,
+        role: user.role,
+        token: user.token,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        jwt_token: jwtToken,
       });
     } catch (e) {
       return response
