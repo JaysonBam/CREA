@@ -76,6 +76,8 @@
     </DataTable>
   </div>
 
+  
+
   <!-- Modal -->
   <Dialog v-model:visible="showDialog" modal :header="isEdit ? 'Edit Item' : 'New Item'" :style="{ width: '32rem' }">
     <div class="flex flex-col gap-3">
@@ -97,7 +99,62 @@
       <Button label="Cancel" outlined @click="showDialog = false" />
       <Button :label="isEdit ? 'Update' : 'Create'" @click="save" />
     </template>
+
+    
   </Dialog>
+
+  <!-- Staff Workload (Row Expansion) -->
+<div class="card mt-6">
+  <div class="font-semibold text-xl mb-4">Staff & Assigned Report Issues</div>
+
+  <DataTable
+    v-model:expandedRows="staffExpandedRows"
+    :value="staffRows"
+    dataKey="id"
+    showGridlines
+    tableStyle="min-width: 60rem"
+  >
+    <template #header>
+      <div class="flex flex-wrap justify-end gap-2">
+        <Button text icon="pi pi-plus" label="Expand All" @click="expandAllStaff" />
+        <Button text icon="pi pi-minus" label="Collapse All" @click="collapseAllStaff" />
+      </div>
+    </template>
+
+    <Column expander style="width:5rem" />
+    <Column field="name" header="Staff Member" />
+    <!-- <Column field="role" header="Role" /> -->
+    <Column field="workload" header="Workload" />
+    <Column header="Status">
+      <template #body="{ data }">
+        <Tag :value="data.status" :severity="getStaffSeverity(data.status)" />
+      </template>
+    </Column>
+
+    <template #expansion="{ data }">
+      <div class="p-4">
+        <h5 class="mb-3">Report Issues for {{ data.name }}</h5>
+        <DataTable :value="data.issues" showGridlines>
+          <Column field="id" header="Report ID" sortable />
+          <Column field="category" header="Category" sortable />
+          <Column field="status" header="Status" sortable>
+            <template #body="{ data: issue }">
+              <Tag :value="issue.status" :severity="getIssueSeverity(issue.status)" />
+            </template>
+          </Column>
+          <Column headerStyle="width:4rem">
+            <template #body>
+              <Button icon="pi pi-search" text />
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+    </template>
+  </DataTable>
+</div>
+
+
+  
 </template>
 
 <script setup>
@@ -195,6 +252,71 @@ const load = async () => {
 };
 
 onMounted(load);
+
+// Row expansion state + dummy data
+const staffExpandedRows = ref([]);
+
+const staffRows = ref([
+  {
+    id: 101,
+    name: 'David James',
+    role: 'Technician',
+    status: 'Active',
+    workload: 3,
+    issues: [
+      { id: 'RI-1000', category: 'Pothole',     status: 'in progress' },
+      { id: 'RI-1001', category: 'Streetlight', status: 'completed'   },
+      { id: 'RI-1002', category: 'Sewage',      status: 'pending'     },
+    ],
+  },
+  {
+    id: 102,
+    name: 'Leon Rodrigues',
+    role: 'Electrician',
+    status: 'Active',
+    workload: 2,
+    issues: [
+      { id: 'RI-1003', category: 'Streetlight', status: 'in progress' },
+      { id: 'RI-1004', category: 'Power',       status: 'pending'     },
+    ],
+  },
+  {
+    id: 103,
+    name: 'Claire Morrow',
+    role: 'Roads',
+    status: 'On Leave',
+    workload: 0,
+    issues: [],
+  },
+]);
+
+// Expand/Collapse helpers
+const expandAllStaff = () => {
+  // expand all rows by assigning the array of row objects (uses dataKey)
+  staffExpandedRows.value = staffRows.value.map((r) => r);
+};
+const collapseAllStaff = () => {
+  staffExpandedRows.value = [];
+};
+
+// Severity helpers for Tag components
+const getIssueSeverity = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'completed') return 'success';
+  if (s === 'in progress') return 'warn';
+  if (s === 'pending') return 'info';
+  if (s === 'blocked' || s === 'cancelled') return 'danger';
+  return undefined;
+};
+
+const getStaffSeverity = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'active') return 'success';
+  if (s === 'on leave') return 'warn';
+  if (s === 'inactive') return 'danger';
+  return undefined;
+};
+
 </script>
 
 <style scoped>
