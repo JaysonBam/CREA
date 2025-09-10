@@ -8,7 +8,7 @@
       :value="rows"
       :paginator="true"
       :rows="10"
-      dataKey="id"
+      dataKey="token"
       :rowHover="true"
       v-model:filters="filters"
       filterDisplay="menu"
@@ -32,7 +32,12 @@
       <template #empty>No records found.</template>
       <template #loading>Loading…</template>
 
-      <Column field="id" header="ID" style="min-width: 6rem" sortable />
+      <!-- Auto-numbered row -->
+      <Column header="#" style="min-width: 4rem">
+        <template #body="slotProps">
+          {{ rows.indexOf(slotProps.data) + 1 }}
+        </template>
+      </Column>
 
       <Column field="title" header="Title" style="min-width: 14rem" sortable>
         <template #body="{ data }">{{ data.title }}</template>
@@ -69,16 +74,14 @@
         <template #body="{ data }">
           <div class="flex gap-2 justify-center">
             <Button size="small" icon="pi pi-pencil" label="Edit" @click="openEdit(data)" />
-            <Button size="small" icon="pi pi-trash" label="Delete" severity="danger" @click="remove(data)" />
+            <Button size="small" icon="pi pi-trash" label="Delete" severity="danger" @click="confirmDelete(data)" />
           </div>
         </template>
       </Column>
     </DataTable>
   </div>
 
-  
-
-  <!-- Modal -->
+  <!-- Create/Edit Modal -->
   <Dialog v-model:visible="showDialog" modal :header="isEdit ? 'Edit Item' : 'New Item'" :style="{ width: '32rem' }">
     <div class="flex flex-col gap-3">
       <div>
@@ -99,62 +102,19 @@
       <Button label="Cancel" outlined @click="showDialog = false" />
       <Button :label="isEdit ? 'Update' : 'Create'" @click="save" />
     </template>
-
-    
   </Dialog>
 
-  <!-- Staff Workload (Row Expansion) -->
-<div class="card mt-6">
-  <div class="font-semibold text-xl mb-4">Staff & Assigned Report Issues</div>
-
-  <DataTable
-    v-model:expandedRows="staffExpandedRows"
-    :value="staffRows"
-    dataKey="id"
-    showGridlines
-    tableStyle="min-width: 60rem"
-  >
-    <template #header>
-      <div class="flex flex-wrap justify-end gap-2">
-        <Button text icon="pi pi-plus" label="Expand All" @click="expandAllStaff" />
-        <Button text icon="pi pi-minus" label="Collapse All" @click="collapseAllStaff" />
-      </div>
+  <!-- Delete Confirmation Dialog -->
+  <Dialog v-model:visible="deleteDialogVisible" modal header="Confirmation" :style="{ width: '350px' }">
+    <div class="flex items-center justify-center gap-4">
+      <i class="pi pi-exclamation-triangle" style="font-size: 2rem" />
+      <span>Are you sure you want to delete this record?</span>
+    </div>
+    <template #footer>
+      <Button label="No" icon="pi pi-times" text severity="secondary" @click="deleteDialogVisible = false" />
+      <Button label="Yes" icon="pi pi-check" outlined severity="danger" @click="deleteConfirmed" />
     </template>
-
-    <Column expander style="width:5rem" />
-    <Column field="name" header="Staff Member" />
-    <!-- <Column field="role" header="Role" /> -->
-    <Column field="workload" header="Workload" />
-    <Column header="Status">
-      <template #body="{ data }">
-        <Tag :value="data.status" :severity="getStaffSeverity(data.status)" />
-      </template>
-    </Column>
-
-    <template #expansion="{ data }">
-      <div class="p-4">
-        <h5 class="mb-3">Report Issues for {{ data.name }}</h5>
-        <DataTable :value="data.issues" showGridlines>
-          <Column field="id" header="Report ID" sortable />
-          <Column field="category" header="Category" sortable />
-          <Column field="status" header="Status" sortable>
-            <template #body="{ data: issue }">
-              <Tag :value="issue.status" :severity="getIssueSeverity(issue.status)" />
-            </template>
-          </Column>
-          <Column headerStyle="width:4rem">
-            <template #body>
-              <Button icon="pi pi-search" text />
-            </template>
-          </Column>
-        </DataTable>
-      </div>
-    </template>
-  </DataTable>
-</div>
-
-
-  
+  </Dialog>
 </template>
 
 <script setup>
@@ -166,7 +126,6 @@ import { listTestCrud, createTestCrud, updateTestCrud, deleteTestCrud } from '@/
 const rows = ref([]);
 const loading = ref(false);
 
-// ---- FIX: initialize filters immediately to avoid undefined access & loops
 const makeEmptyFilters = () => ({
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
   title: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] },
@@ -179,19 +138,14 @@ const booleanOptions = [
   { label: 'Yes', value: true },
   { label: 'No', value: false },
 ];
-const clearFilter = () => {
-  // reassign a fresh object only when user clicks "Clear"
-  filters.value = makeEmptyFilters();
-};
+const clearFilter = () => { filters.value = makeEmptyFilters(); };
 
 const toast = useToast();
 
-// dialog + form
 const showDialog = ref(false);
 const isEdit = ref(false);
-const form = reactive({ id: null, title: '', description: '', isActive: true });
-
-const blank = () => ({ id: null, title: '', description: '', isActive: true });
+const form = reactive({ token: '', title: '', description: '', isActive: true });
+const blank = () => ({ token: '', title: '', description: '', isActive: true });
 
 const openNew = () => {
   Object.assign(form, blank());
@@ -210,11 +164,12 @@ const save = async () => {
       toast.add({ severity: 'warn', summary: 'Validation', detail: 'Title is required', life: 2500 });
       return;
     }
-    if (isEdit.value) {
-      await updateTestCrud(form.id, { title: form.title, description: form.description, isActive: form.isActive });
+    if (isEdit.value && form.token) {
+      await updateTestCrud(form.token, { title: form.title, description: form.description, isActive: form.isActive });
       toast.add({ severity: 'success', summary: 'Updated', life: 1500 });
     } else {
-      await createTestCrud({ title: form.title, description: form.description, isActive: form.isActive });
+      const { data } = await createTestCrud({ title: form.title, description: form.description, isActive: form.isActive });
+      Object.assign(form, data);
       toast.add({ severity: 'success', summary: 'Created', life: 1500 });
     }
     showDialog.value = false;
@@ -224,17 +179,29 @@ const save = async () => {
   }
 };
 
-const remove = async (row) => {
-  if (!row?.id) return;
-  if (!confirm('Delete this item?')) return;
+/* ---------------- Delete with custom dialog ---------------- */
+const deleteDialogVisible = ref(false);
+const deleteTarget = ref(null);
+
+const confirmDelete = (row) => {
+  deleteTarget.value = row;
+  deleteDialogVisible.value = true;
+};
+
+const deleteConfirmed = async () => {
+  if (!deleteTarget.value?.token) return;
   try {
-    await deleteTestCrud(row.id);
+    await deleteTestCrud(deleteTarget.value.token);
     toast.add({ severity: 'success', summary: 'Deleted', life: 1500 });
     await load();
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Delete failed', detail: e.message, life: 3500 });
+  } finally {
+    deleteDialogVisible.value = false;
+    deleteTarget.value = null;
   }
 };
+/* ---------------------------------------------------------- */
 
 const load = async () => {
   loading.value = true;
@@ -252,73 +219,8 @@ const load = async () => {
 };
 
 onMounted(load);
-
-// Row expansion state + dummy data
-const staffExpandedRows = ref([]);
-
-const staffRows = ref([
-  {
-    id: 101,
-    name: 'David James',
-    role: 'Technician',
-    status: 'Active',
-    workload: 3,
-    issues: [
-      { id: 'RI-1000', category: 'Pothole',     status: 'in progress' },
-      { id: 'RI-1001', category: 'Streetlight', status: 'completed'   },
-      { id: 'RI-1002', category: 'Sewage',      status: 'pending'     },
-    ],
-  },
-  {
-    id: 102,
-    name: 'Leon Rodrigues',
-    role: 'Electrician',
-    status: 'Active',
-    workload: 2,
-    issues: [
-      { id: 'RI-1003', category: 'Streetlight', status: 'in progress' },
-      { id: 'RI-1004', category: 'Power',       status: 'pending'     },
-    ],
-  },
-  {
-    id: 103,
-    name: 'Claire Morrow',
-    role: 'Roads',
-    status: 'On Leave',
-    workload: 0,
-    issues: [],
-  },
-]);
-
-// Expand/Collapse helpers
-const expandAllStaff = () => {
-  // expand all rows by assigning the array of row objects (uses dataKey)
-  staffExpandedRows.value = staffRows.value.map((r) => r);
-};
-const collapseAllStaff = () => {
-  staffExpandedRows.value = [];
-};
-
-// Severity helpers for Tag components
-const getIssueSeverity = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s === 'completed') return 'success';
-  if (s === 'in progress') return 'warn';
-  if (s === 'pending') return 'info';
-  if (s === 'blocked' || s === 'cancelled') return 'danger';
-  return undefined;
-};
-
-const getStaffSeverity = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s === 'active') return 'success';
-  if (s === 'on leave') return 'warn';
-  if (s === 'inactive') return 'danger';
-  return undefined;
-};
-
 </script>
 
 <style scoped>
-/* optional tweaks */
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 </style>
