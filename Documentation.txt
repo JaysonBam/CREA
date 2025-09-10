@@ -1,0 +1,50 @@
+It is very useful to download chocolatey if you use windows, it allows you to install dependencies 
+via the terminal, then you can just ask chatgpt to download and install all dependencies and just run 
+the commands. But here are the steps anyway: 
+
+1. Install Node.js on your machine:
+
+Go to nodejs.org
+
+Download and install
+
+Verify it's installed by running in the terminal:
+node -v
+npm -v
+
+Install postgreSQL and pgadmin4. Pgadmin4 is the interface for the database. 
+Create a folder, in visual studio, open that folder. Open a terminal and type: 
+git clone https://repo.ee.up.ac.za/2025_epe321/g5-community-reporting-and-engagement-app/crea.git
+
+Run npm install in the root directory, frontend directory as well as backend directory. 
+NPM is a package manager that installs all the dependencies for the project and saves it in a package.json file. 
+This means if 1 person installs a dependency using NPM, the dependency will automatically be saved in the package.json file.
+When this package.json is pushed to main, everyone else will also have that dependency when they run npm install.
+
+Please let's stick with NPM and not use other package managers like yarn.
+
+An env.example is provided in both the frontend and backend folders. Please DO NOT JUST RENAME this file or delete it.
+Rather duplicate it and then rename the duplicated .env.example to just .env. For the backend .env, fill in the database
+name, user and password, the frontend one can stay the same. Also VERY IMPORTANT, we never push the .env file
+because it has sensitive information ( it is added to the gitignore), that is why we have a .env.example that we push to gitlab and never push
+the .env file. Also please never put sensitive information like API keys into the .env.example.
+
+Usually to start the servers, you would need to start both the frontend and the backend server.
+We use concurrently sothat in the root directory if we run :  npm run dev, it starts both the frontend
+and backend servers with one command, which is very useful. 
+
+To create the database with the name specified in the .env file run this command in the /backend folder: 
+npx sequelize-cli db:create
+
+To run all the migrations that have not been run yet run this command in the /backend folder: 
+npx sequelize-cli db:migrate
+
+To seed the database with the dummy content specified in the seeders run in the /backend folder:
+npx sequelize-cli db:seed:all
+
+To build the database over and run all the migrations again( we call this migrate fresh), again in the /backend folder: 
+npx sequelize-cli db:drop
+npx sequelize-cli db:create
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all 
+
