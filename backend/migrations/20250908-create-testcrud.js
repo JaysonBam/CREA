@@ -5,6 +5,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("test_cruds", {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
+      token: { type: Sequelize.STRING, allowNull: false, unique: true },
       title: { type: Sequelize.STRING, allowNull: false },
       description: { type: Sequelize.TEXT, allowNull: true },
       isActive: {
