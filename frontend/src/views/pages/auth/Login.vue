@@ -95,7 +95,9 @@ const handleLogin = async () => {
                 />
                 <label for="rememberme1">Remember me</label>
               </div>
-              <span class="cursor-pointer text-primary">Forgot password?</span>
+              <RouterLink to="/register" class="cursor-pointer text-primary">
+                Register account
+              </RouterLink>
             </div>
 
             <!-- call handleLogin on click -->
