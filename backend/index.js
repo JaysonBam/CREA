@@ -4,8 +4,8 @@ require("dotenv").config();
 
 const app = express();
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
+const BACKEND_HOST = process.env.BACKEND_HOST;
 const FRONTEND_URL = process.env.FRONTEND_URL;
-console.log(FRONTEND_URL);
 const allowedOrigins = [
   FRONTEND_URL,
   // "https://myapp.com",  //Any external apis
@@ -35,6 +35,6 @@ const authRoutes = require("./routes/AuthRoutes");
 app.use("/api/auth", authRoutes);
 
 // Start server
-app.listen(BACKEND_PORT, () => {
-  console.log(`✅ Server running on http://localhost:${BACKEND_PORT}`);
+app.listen(BACKEND_PORT, BACKEND_HOST, () => {
+  console.log(`✅ Server running on http://${BACKEND_HOST}:${BACKEND_PORT}`);
 });
