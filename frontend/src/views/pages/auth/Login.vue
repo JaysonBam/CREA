@@ -18,10 +18,10 @@ const handleLogin = async () => {
     });
     console.log(res);
 
-    // response from backend
     // console.log("Login response:", res.data);
 
     // store in sessionStorage (so data resets when tab/browser closes)
+    // We can do localStorage later if we dont want this
     sessionStorage.setItem("id", res.data.id);
     sessionStorage.setItem("email", res.data.email);
     sessionStorage.setItem("role", res.data.role);
