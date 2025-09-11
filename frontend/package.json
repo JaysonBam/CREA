@@ -9,13 +9,17 @@
   },
   "dependencies": {
     "@primeuix/themes": "^1.0.0",
+    "@vee-validate/zod": "^4.15.1",
+    "@vue/devtools-api": "^8.0.1",
     "axios": "^1.11.0",
     "chart.js": "3.3.2",
     "primeicons": "^7.0.0",
     "primevue": "^4.3.1",
     "tailwindcss-primeui": "^0.5.0",
+    "vee-validate": "^4.15.1",
     "vue": "^3.4.34",
-    "vue-router": "^4.4.0"
+    "vue-router": "^4.4.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@primevue/auto-import-resolver": "^4.3.1",
@@ -25,7 +29,9 @@
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.23.0",
+    "patch-package": "^8.0.0",
     "postcss": "^8.4.40",
+    "postinstall-postinstall": "^2.1.0",
     "prettier": "^3.2.5",
     "sass": "^1.55.0",
     "tailwindcss": "^3.4.6",
