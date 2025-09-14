@@ -1,3 +1,22 @@
+
+<script setup>
+import { ref, reactive, onMounted } from "vue";
+import { useToast } from "primevue/usetoast";
+import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
+import { z } from "zod";
+
+import {
+  listTestCrud,
+  createTestCrud,
+  updateTestCrud,
+  deleteTestCrud,
+} from "@/utils/backend_helper";
+
+import { sendToast } from "@/utils/sendToast";
+import { testCrudSchema } from "@/schemas/TestCrudSchema";
+
+</script>
+
 <template>
   <div class="card">
     <div class="font-semibold text-xl mb-4">TestCrud (filterable)</div>
@@ -17,12 +36,7 @@
       <template #header>
         <div class="flex justify-between items-center gap-2">
           <div class="flex gap-2">
-            <Button
-              type="button"
-              icon="pi pi-plus"
-              label="New"
-              @click="openNew"
-            />
+            <Button type="button" icon="pi pi-plus" label="New" @click="openNew" />
             <Button
               type="button"
               icon="pi pi-filter-slash"
@@ -33,10 +47,7 @@
           </div>
           <IconField>
             <InputIcon><i class="pi pi-search" /></InputIcon>
-            <InputText
-              v-model="filters.global.value"
-              placeholder="Keyword Search"
-            />
+            <InputText v-model="filters.global.value" placeholder="Keyword Search" />
           </IconField>
         </div>
       </template>
@@ -44,7 +55,6 @@
       <template #empty>No records found.</template>
       <template #loading>Loading…</template>
 
-      <!-- Auto-numbered row -->
       <Column header="#" style="min-width: 4rem">
         <template #body="slotProps">
           {{ rows.indexOf(slotProps.data) + 1 }}
@@ -61,24 +71,13 @@
       <Column field="description" header="Description" style="min-width: 18rem">
         <template #body="{ data }">{{ data.description }}</template>
         <template #filter="{ filterModel }">
-          <InputText
-            v-model="filterModel.value"
-            placeholder="Search description"
-          />
+          <InputText v-model="filterModel.value" placeholder="Search description" />
         </template>
       </Column>
 
-      <Column
-        field="isActive"
-        header="Active"
-        dataType="boolean"
-        style="min-width: 10rem"
-      >
+      <Column field="isActive" header="Active" dataType="boolean" style="min-width: 10rem">
         <template #body="{ data }">
-          <Tag
-            :value="data.isActive ? 'Yes' : 'No'"
-            :severity="data.isActive ? 'success' : 'danger'"
-          />
+          <Tag :value="data.isActive ? 'Yes' : 'No'" :severity="data.isActive ? 'success' : 'danger'" />
         </template>
         <template #filter="{ filterModel }">
           <Select
@@ -96,12 +95,7 @@
       <Column header="Actions" style="min-width: 12rem">
         <template #body="{ data }">
           <div class="flex gap-2 justify-center">
-            <Button
-              size="small"
-              icon="pi pi-pencil"
-              label="Edit"
-              @click="openEdit(data)"
-            />
+            <Button size="small" icon="pi pi-pencil" label="Edit" @click="openEdit(data)" />
             <Button
               size="small"
               icon="pi pi-trash"
@@ -116,25 +110,17 @@
   </div>
 
   <!-- Create/Edit Modal -->
-  <Dialog
-    v-model:visible="showDialog"
-    modal
-    :header="isEdit ? 'Edit Item' : 'New Item'"
-    :style="{ width: '32rem' }"
-  >
+  <Dialog v-model:visible="showDialog" modal :header="isEdit ? 'Edit Item' : 'New Item'" :style="{ width: '32rem' }">
     <div class="flex flex-col gap-3">
       <div>
         <label class="block text-sm mb-1">Title</label>
-        <InputText v-model.trim="form.title" class="w-full" autofocus />
+        <InputText v-model.trim="form.title" class="w-full" autofocus :invalid="!!fieldErrors.title" />
+        <small v-if="fieldErrors.title" class="text-red-500">{{ fieldErrors.title }}</small>
       </div>
       <div>
         <label class="block text-sm mb-1">Description</label>
-        <Textarea
-          v-model.trim="form.description"
-          autoResize
-          rows="3"
-          class="w-full"
-        />
+        <Textarea v-model.trim="form.description" autoResize rows="3" class="w-full" :invalid="!!fieldErrors.description" />
+        <small v-if="fieldErrors.description" class="text-red-500">{{ fieldErrors.description }}</small>
       </div>
       <div class="flex items-center gap-2">
         <Checkbox v-model="form.isActive" binary inputId="active" />
@@ -149,46 +135,21 @@
   </Dialog>
 
   <!-- Delete Confirmation Dialog -->
-  <Dialog
-    v-model:visible="deleteDialogVisible"
-    modal
-    header="Confirmation"
-    :style="{ width: '350px' }"
-  >
+  <Dialog v-model:visible="deleteDialogVisible" modal header="Confirmation" :style="{ width: '350px' }">
     <div class="flex items-center justify-center gap-4">
       <i class="pi pi-exclamation-triangle" style="font-size: 2rem" />
       <span>Are you sure you want to delete this record?</span>
     </div>
     <template #footer>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        text
-        severity="secondary"
-        @click="deleteDialogVisible = false"
-      />
-      <Button
-        label="Yes"
-        icon="pi pi-check"
-        outlined
-        severity="danger"
-        @click="deleteConfirmed"
-      />
+      <Button label="No" icon="pi pi-times" text severity="secondary" @click="deleteDialogVisible = false" />
+      <Button label="Yes" icon="pi pi-check" outlined severity="danger" @click="deleteConfirmed" />
     </template>
   </Dialog>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted } from "vue";
-import { useToast } from "primevue/usetoast";
-import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
-import {
-  listTestCrud,
-  createTestCrud,
-  updateTestCrud,
-  deleteTestCrud,
-} from "@/utils/backend_helper";
+<script> 
 
+// ---------------- Table state ----------------
 const rows = ref([]);
 const loading = ref(false);
 
@@ -214,8 +175,10 @@ const clearFilter = () => {
   filters.value = makeEmptyFilters();
 };
 
+// ---------------- Toast ----------------
 const toast = useToast();
 
+// ---------------- Form state ----------------
 const showDialog = ref(false);
 const isEdit = ref(false);
 const form = reactive({
@@ -224,45 +187,68 @@ const form = reactive({
   description: "",
   isActive: true,
 });
+const fieldErrors = reactive({
+  title: "",
+  description: "",
+});
+
 const blank = () => ({ token: "", title: "", description: "", isActive: true });
+const clearFieldErrors = () => {
+  fieldErrors.title = "";
+  fieldErrors.description = "";
+};
+function setZodErrors(issues) {
+  clearFieldErrors();
+  for (const i of issues) {
+    const f = String(i.path?.[0] ?? "");
+    if (f && fieldErrors[f] !== undefined) {
+      fieldErrors[f] = i.message;
+    }
+  }
+}
 
 const openNew = () => {
   Object.assign(form, blank());
   isEdit.value = false;
+  clearFieldErrors();
   showDialog.value = true;
 };
 const openEdit = (row) => {
   Object.assign(form, row);
   isEdit.value = true;
+  clearFieldErrors();
   showDialog.value = true;
 };
 
 const save = async () => {
+  const parsed = testCrudSchema.safeParse({
+    title: form.title,
+    description: form.description,
+    isActive: form.isActive,
+  });
+  if (!parsed.success) {
+    setZodErrors(parsed.error.issues);
+    toast.add({
+      severity: "warn",
+      summary: "Validation",
+      detail: "Please fix the highlighted fields.",
+      life: 2500,
+    });
+    return;
+  }
+  clearFieldErrors();
+
   try {
-    if (!form.title?.trim()) {
-      toast.add({
-        severity: "warn",
-        summary: "Validation",
-        detail: "Title is required",
-        life: 2500,
-      });
-      return;
-    }
     if (isEdit.value && form.token) {
-      await updateTestCrud(form.token, {
-        title: form.title,
-        description: form.description,
-        isActive: form.isActive,
-      });
-      toast.add({ severity: "success", summary: "Updated", life: 1500 });
+      await sendToast(
+        toast,
+        updateTestCrud(form.token, parsed.data)
+      );
     } else {
-      const { data } = await createTestCrud({
-        title: form.title,
-        description: form.description,
-        isActive: form.isActive,
-      });
-      Object.assign(form, data);
-      toast.add({ severity: "success", summary: "Created", life: 1500 });
+      await sendToast(
+        toast,
+        createTestCrud(parsed.data) 
+      );
     }
     showDialog.value = false;
     await load();
@@ -270,13 +256,13 @@ const save = async () => {
     toast.add({
       severity: "error",
       summary: "Save failed",
-      detail: e?.response?.data?.error || e.message,
+      detail: e?.response?.data?.message || e.message,
       life: 3500,
     });
   }
 };
 
-/* ---------------- Delete with custom dialog ---------------- */
+// ---------------- Delete with dialog + sendToast ----------------
 const deleteDialogVisible = ref(false);
 const deleteTarget = ref(null);
 
@@ -288,14 +274,13 @@ const confirmDelete = (row) => {
 const deleteConfirmed = async () => {
   if (!deleteTarget.value?.token) return;
   try {
-    await deleteTestCrud(deleteTarget.value.token);
-    toast.add({ severity: "success", summary: "Deleted", life: 1500 });
+    await sendToast(toast, deleteTestCrud(deleteTarget.value.token));
     await load();
   } catch (e) {
     toast.add({
       severity: "error",
       summary: "Delete failed",
-      detail: e.message,
+      detail: e?.response?.data?.message || e.message,
       life: 3500,
     });
   } finally {
@@ -303,8 +288,8 @@ const deleteConfirmed = async () => {
     deleteTarget.value = null;
   }
 };
-/* ---------------------------------------------------------- */
 
+// ---------------- Load ----------------
 const load = async () => {
   loading.value = true;
   try {
@@ -316,7 +301,7 @@ const load = async () => {
     toast.add({
       severity: "error",
       summary: "Load failed",
-      detail: e.message,
+      detail: e?.response?.data?.message || e.message,
       life: 3500,
     });
     rows.value = [];
@@ -334,4 +319,5 @@ code {
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     monospace;
 }
+.text-red-500 { color: var(--red-500); }
 </style>
