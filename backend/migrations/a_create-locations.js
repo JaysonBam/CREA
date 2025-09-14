@@ -4,11 +4,7 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("locations", {
-      id: {
-        type: Sequelize.UUID,
-        primaryKey: true,
-        defaultValue: Sequelize.UUIDV4,
-      },
+      id: { type: Sequelize.BIGINT, autoIncrement: true, primaryKey: true },
       token: {
         type: Sequelize.UUID,
         allowNull: false,

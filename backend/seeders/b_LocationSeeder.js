@@ -1,31 +1,31 @@
 "use strict";
 
-const { v4: uuidv4 } = require("uuid");
+// No longer need to require('uuid')
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.bulkInsert("locations", [
       {
-        id: uuidv4(),
-        address: "123 Main St, Cityville",
-        latitude: 40.7128,
-        longitude: -74.006,
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        address: "Corner of Lynnwood Rd & Roper St, Hatfield, Pretoria",
+        latitude: -25.7546,
+        longitude: 28.2314,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
       {
-        id: uuidv4(),
-        address: "456 Oak Ave, Townburg",
-        latitude: 34.0522,
-        longitude: -118.2437,
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        address: "Hilda Street, Hatfield, Pretoria",
+        latitude: -25.7522,
+        longitude: 28.235,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
       {
-        id: uuidv4(),
-        address: "789 Pine Ln, Villagetown",
-        latitude: 41.8781,
-        longitude: -87.6298,
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        address: "Jan Shoba Street, Brooklyn, Pretoria",
+        latitude: -25.758,
+        longitude: 28.2388,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

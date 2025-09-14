@@ -1,10 +1,7 @@
 "use strict";
 
-const { v4: uuidv4 } = require("uuid");
-
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Fetch users (residents) and locations to link them to issue reports
     const users = await queryInterface.sequelize.query(
       `SELECT id from USERS WHERE role = 'resident'`,
       { type: queryInterface.sequelize.QueryTypes.SELECT }
@@ -24,9 +21,9 @@ module.exports = {
 
     await queryInterface.bulkInsert("issue_reports", [
       {
-        id: uuidv4(),
-        title: "Large Pothole on Main St",
-        description: "There is a very large pothole causing traffic issues.",
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        title: "Large Pothole on Lynnwood Road",
+        description: "A deep pothole near the university entrance is causing traffic delays.",
         category: "POTHOLE",
         status: "NEW",
         votes_count: 1,
@@ -36,9 +33,9 @@ module.exports = {
         updatedAt: new Date(),
       },
       {
-        id: uuidv4(),
-        title: "Streetlight Out on Oak Ave",
-        description: "The streetlight at the corner of Oak and 5th is out.",
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        title: "Streetlight Out on Hilda Street",
+        description: "The main streetlight on Hilda Street is not working, making it dark and unsafe.",
         category: "STREETLIGHT_FAILURE",
         status: "ACKNOWLEDGED",
         votes_count: 0,
@@ -48,9 +45,9 @@ module.exports = {
         updatedAt: new Date(),
       },
       {
-        id: uuidv4(),
-        title: "Water Leak in Park",
-        description: "A sprinkler head appears to be broken and is leaking a lot of water.",
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
+        title: "Water Pipe Burst on Jan Shoba",
+        description: "There is a significant water leak on Jan Shoba street, flooding the pavement.",
         category: "WATER_LEAK",
         status: "IN_PROGRESS",
         votes_count: 0,

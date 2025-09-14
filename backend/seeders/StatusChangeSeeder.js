@@ -1,7 +1,5 @@
 "use strict";
 
-const { v4: uuidv4 } = require("uuid");
-
 module.exports = {
   async up(queryInterface, Sequelize) {
     const staffUser = await queryInterface.sequelize.query(
@@ -13,6 +11,8 @@ module.exports = {
       `SELECT id from "issue_reports" WHERE status = 'IN_PROGRESS' LIMIT 1`,
       { type: queryInterface.sequelize.QueryTypes.SELECT }
     );
+    console.log(issueReport.length);
+    console.log(staffUser.length);
 
     if (!staffUser.length || !issueReport.length) {
       console.log(
@@ -22,25 +22,23 @@ module.exports = {
     }
 
     await queryInterface.bulkInsert("status_changes", [
-      // Log the change from NEW -> ACKNOWLEDGED
       {
-        id: uuidv4(),
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         from_status: "NEW",
         to_status: "ACKNOWLEDGED",
         user_id: staffUser[0].id,
         issue_report_id: issueReport[0].id,
-        changed_at: new Date(new Date().setDate(new Date().getDate() - 1)), // 1 day ago
+        changed_at: new Date(new Date().setDate(new Date().getDate() - 1)),
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-      // Log the change from ACKNOWLEDGED -> IN_PROGRESS
       {
-        id: uuidv4(),
+        token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         from_status: "ACKNOWLEDGED",
         to_status: "IN_PROGRESS",
         user_id: staffUser[0].id,
         issue_report_id: issueReport[0].id,
-        changed_at: new Date(), // Now
+        changed_at: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
       },
