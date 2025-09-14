@@ -9,6 +9,12 @@ module.exports = {
         primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
       },
+      token: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        defaultValue: Sequelize.UUIDV4, //default -> autogenerate
+      },
       // In the diagram, value is int <<{+1 only}>>. This represents an upvote.
       // A more flexible design might allow -1 for downvotes.
       value: {

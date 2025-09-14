@@ -9,6 +9,12 @@ module.exports = {
         primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
       },
+      token: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        defaultValue: Sequelize.UUIDV4, //default -> autogenerate
+      },
       from_status: {
         type: Sequelize.ENUM(
           "NEW",

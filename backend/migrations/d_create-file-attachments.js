@@ -9,6 +9,12 @@ module.exports = {
         primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
       },
+      token: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        defaultValue: Sequelize.UUIDV4, //default -> autogenerate
+      },
       file_link: {
         type: Sequelize.STRING, // Or TEXT if URLs can be very long
         allowNull: false,
