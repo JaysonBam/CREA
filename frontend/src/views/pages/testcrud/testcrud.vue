@@ -1,22 +1,3 @@
-
-<script setup>
-import { ref, reactive, onMounted } from "vue";
-import { useToast } from "primevue/usetoast";
-import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
-import { z } from "zod";
-
-import {
-  listTestCrud,
-  createTestCrud,
-  updateTestCrud,
-  deleteTestCrud,
-} from "@/utils/backend_helper";
-
-import { sendToast } from "@/utils/sendToast";
-import { testCrudSchema } from "@/schemas/TestCrudSchema";
-
-</script>
-
 <template>
   <div class="card">
     <div class="font-semibold text-xl mb-4">TestCrud (filterable)</div>
@@ -147,7 +128,22 @@ import { testCrudSchema } from "@/schemas/TestCrudSchema";
   </Dialog>
 </template>
 
-<script> 
+
+<script setup>
+import { ref, reactive, onMounted } from "vue";
+import { useToast } from "primevue/usetoast";
+import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
+import { z } from "zod";
+
+import {
+  listTestCrud,
+  createTestCrud,
+  updateTestCrud,
+  deleteTestCrud,
+} from "@/utils/backend_helper";
+
+import { sendToast } from "@/utils/sendToast";
+import { testCrudSchema } from "@/schemas/TestCrudSchema";
 
 // ---------------- Table state ----------------
 const rows = ref([]);
