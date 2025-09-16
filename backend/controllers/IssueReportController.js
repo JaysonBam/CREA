@@ -1,7 +1,7 @@
-const { TestCrud } = require("../models");
+const { IssueReport } = require("../models");
 
 async function findByTokenOr404(token, res) {
-  const row = await TestCrud.findOne({ where: { token } });
+  const row = await IssueReport.findOne({ where: { token } });
   if (!row) {
     res.status(404).json({ error: "Not found" });
     return null;
@@ -10,8 +10,9 @@ async function findByTokenOr404(token, res) {
 }
 
 exports.list = async (_req, res) => {
+    console.log("Listing issue reports");
   try {
-    const rows = await TestCrud.findAll({ order: [["id", "ASC"]] });
+    const rows = await IssueReport.findAll({ order: [["id", "ASC"]] });
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -31,7 +32,7 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
-    const created = await TestCrud.create({ title, description, isActive });
+    const created = await IssueReport.create({ title, description, isActive });
     res.status(201).json(created);
   } catch (e) {
     res.status(400).json({ error: e.message });

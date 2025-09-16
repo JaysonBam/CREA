@@ -35,7 +35,7 @@ const authRoutes = require("./routes/AuthRoutes");
 app.use("/api/auth", authRoutes);
 
 const issueReportRoutes = require("./routes/IssueReportRoutes");
-app.use("/api/report-issue", issueReportRoutes);
+app.use("/api/issue-reports", issueReportRoutes);
 
 const fs = require("fs");
 const path = require("path");
