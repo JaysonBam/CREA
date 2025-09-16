@@ -6,6 +6,8 @@ import Login from "@/views/pages/auth/Login.vue";
 import NotFound from "@/views/pages/NotFound.vue";
 import Testcrud from "@/views/pages/testcrud/testcrud.vue";
 import Register from "@/views/pages/auth/Register.vue";
+
+import ReportIssue from "@/views/pages/report-issue/ReportIssue.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -34,6 +36,7 @@ const router = createRouter({
         { path: "", redirect: { name: "dashboard" } },
         { path: "dashboard", name: "dashboard", component: Dashboard },
         { path: "test-crud", name: "test-crud", component: Testcrud },
+        { path: "report-issue", name: "report-issue", component: Testcrud },
       ],
     },
 
