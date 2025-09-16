@@ -34,6 +34,9 @@ app.use("/api/test-crud", testCrudRoutes);
 const authRoutes = require("./routes/AuthRoutes");
 app.use("/api/auth", authRoutes);
 
+const issueReportRoutes = require("./routes/IssueReportRoutes");
+app.use("/api/report-issue", issueReportRoutes);
+
 const fs = require("fs");
 const path = require("path");
 
