@@ -10,25 +10,16 @@
       <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
       <l-marker :lat-lng="center" />
     </l-map>
-
-    <div v-if="center" style="margin-top: 1em;">
-      <strong>Selected Coordinates:</strong>
-      <div>Lat: {{ center.lat }}, Lng: {{ center.lng }}</div>
-      <div style="font-size: 0.9em; color: #888;">Move the map to select a location. The pin is always at the center.</div>
-    </div>
-
     <div v-else-if="locationNotFound" style="margin-top: 1em; color: #b00;">
       <strong>Location not found</strong>
       <div style="font-size: 0.9em; color: #888;">Unable to retrieve your device location. Check location permissions and try again.</div>
     </div>
-
-    <div v-else>Loading map... (waiting for device location)</div>
+    <div v-else style="margin-top: 1em;">Loading map... (waiting for device location)</div>
   </div>
 </template>
 
-
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineEmits } from 'vue'
 import { LMap, LTileLayer, LMarker } from '@vue-leaflet/vue-leaflet'
 import 'leaflet/dist/leaflet.css'
 import * as L from 'leaflet'
@@ -46,12 +37,14 @@ if (L.Icon && L.Icon.Default) {
 }
 
 const center = ref(null)
+const emit = defineEmits(['update:center'])
 const zoom = ref(16)
 const locationNotFound = ref(false)
 
 function onMapMove(e) {
   const { lat, lng } = e.target.getCenter()
   center.value = { lat, lng }
+  emit('update:center', { lat, lng })
 }
 
 onMounted(async () => {
@@ -77,7 +70,8 @@ onMounted(async () => {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       finished = true
-      center.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+  center.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+  emit('update:center', { lat: pos.coords.latitude, lng: pos.coords.longitude })
     },
     () => {
       finished = true
