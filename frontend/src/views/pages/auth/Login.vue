@@ -32,6 +32,9 @@ const handleLogin = async () => {
     sessionStorage.setItem("last_name", res.data.last_name);
     sessionStorage.setItem("JWT", res.data.jwt_token);
 
+    sessionStorage.setItem("lat", res.data.location?.latitude || "-25.757168");
+    sessionStorage.setItem("long", res.data.location?.longitude || "28.231682");
+
     console.log(res.data);
     const redirect = router.currentRoute.value.query.redirect || "/dashboard";
 

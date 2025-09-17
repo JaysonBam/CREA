@@ -9,7 +9,16 @@ export const deleteTestCrud = (token) => api.delete(`/api/test-crud/${token}`);
 
 
 // --- Issue Reports ---
-export const listIssueReports = () => api.get("/api/issue-reports");
+/**
+ * Lists issue reports.
+ * @param {object} [params] - Optional query parameters.
+ * @param {number} params.sw_lat - South-West corner latitude.
+ * @param {number} params.sw_lng - South-West corner longitude.
+ * @param {number} params.ne_lat - North-East corner latitude.
+ * @param {number} params.ne_lng - North-East corner longitude.
+ */
+export const listIssueReports = (params) =>
+  api.get("/api/issue-reports", { params });
 export const getIssueReport = (token) => api.get(`/api/issue-reports/${token}`);
 export const getUserIssueReports = (userToken) => api.get(`/api/issue-reports/user/${userToken}`);
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
