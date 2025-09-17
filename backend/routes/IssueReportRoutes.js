@@ -11,6 +11,7 @@ router.get("/", auth, controller.list);
 
 router.get("/", auth, controller.list);
 router.get("/:token", auth, controller.getOne);
+router.get("/user/:userToken", auth, controller.getUserReports);
 router.post("/", auth, controller.create);
 router.put("/:token", auth, controller.update);
 router.delete("/:token", auth, controller.remove);

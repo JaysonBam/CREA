@@ -26,6 +26,8 @@ const handleLogin = async () => {
     sessionStorage.setItem("email", res.data.email);
     sessionStorage.setItem("role", res.data.role);
     sessionStorage.setItem("token", res.data.token);
+    console.log("Token:", res.data.token);
+    console.log("Sessionstorage Token: ", sessionStorage.getItem("token"));
     sessionStorage.setItem("first_name", res.data.first_name);
     sessionStorage.setItem("last_name", res.data.last_name);
     sessionStorage.setItem("JWT", res.data.jwt_token);

@@ -1,4 +1,5 @@
 const { IssueReport } = require("../models");
+const { User } = require("../models");
 
 async function findByTokenOr404(token, res) {
   const row = await IssueReport.findOne({ where: { token } });
@@ -27,6 +28,24 @@ exports.getOne = async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+};
+
+exports.getUserReports = async (req, res) => {
+    try {
+        const userToken = req.params.userToken;
+        // find user id for given token
+        const currUser = await User.findOne({ where: { token: userToken } });
+        if (!currUser) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        const userId = currUser.id;
+
+        // find all issue reports for given user id
+        const reports = await IssueReport.findAll({ where: { user_id: userId }, order: [["id", "ASC"]] });
+        res.json(reports);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 };
 
 exports.create = async (req, res) => {

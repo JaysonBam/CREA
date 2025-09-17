@@ -11,6 +11,7 @@ export const deleteTestCrud = (token) => api.delete(`/api/test-crud/${token}`);
 // --- Issue Reports ---
 export const listIssueReports = () => api.get("/api/issue-reports");
 export const getIssueReport = (token) => api.get(`/api/issue-reports/${token}`);
+export const getUserIssueReports = (userToken) => api.get(`/api/issue-reports/user/${userToken}`);
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
 export const updateIssueReport = (token, data) =>
   api.put(`/api/issue-reports/${token}`, data);

@@ -246,6 +246,8 @@ import { useToast } from "primevue/usetoast";
 import { FilterMatchMode } from "@primevue/core/api";
 import {
   listIssueReports,
+  getIssueReport,
+  getUserIssueReports,
   createIssueReport,
   updateIssueReport,
   deleteIssueReport,
@@ -370,8 +372,10 @@ const deleteConfirmed = async () => {
 /* ---------------------------------------------------------- */
 const load = async () => {
   loading.value = true;
+  console.log("Loading user reports");
   try {
-    const { data } = await listIssueReports();
+    console.log("Token:", sessionStorage.getItem("token"));
+    const { data } = await getUserIssueReports(sessionStorage.getItem("token"));
     rows.value = Array.isArray(data) ? data : [];
   } catch (e) {
     toast.add({
