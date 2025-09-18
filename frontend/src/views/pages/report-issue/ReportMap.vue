@@ -1,12 +1,12 @@
 <template>
   <div class="card">
     <Toast />
-    <h5 class="m-0 text-xl font-semibold mb-4">Manage Issue Reports</h5>
+    <h5 class="m-0 text-xl font-semibold mb-4">Map View</h5>
 
-    <div class="grid-container">
+    <!-- <div class="grid-container"> -->
       <!-- Map Window Panel -->
       <div class="map-panel">
-        <Panel header="Issue Map" toggleable>
+        <!-- <Panel header="Report Map"> -->
           <div style="height: 600px; width: 100%">
             <l-map
               ref="map"
@@ -38,11 +38,11 @@
               </l-marker>
             </l-map>
           </div>
-        </Panel>
+        <!-- </Panel> -->
       </div>
 
       <!-- Data Table Panel -->
-      <div class="table-panel">
+      <!-- <div class="table-panel">
         <DataTable
           :value="rows"
           dataKey="id"
@@ -75,8 +75,8 @@
             </template>
           </Column>
         </DataTable>
-      </div>
-    </div>
+      </div> -->
+    <!-- </div> -->
 
     <!-- Dialogs remain the same but are not shown in this snippet for brevity -->
     <!-- Place your Edit/Delete Dialogs here if needed -->
@@ -100,7 +100,7 @@ const loading = ref(false);
 const toast = useToast();
 
 // --- Map Specific State ---
-const zoom = ref(13);
+const zoom = ref(15);
 const center = ref([-25.7546, 28.2314]); // Default center: Pretoria, SA
 
 // --- Data Fetching and Processing ---
@@ -144,7 +144,7 @@ onMounted(() => {
   if (lat && long) {
     center.value = [parseFloat(lat), parseFloat(long)];
   } else {
-    console.warn("User location not found in sessionStorage. Using default location.");
+    console.warn("User location not found. Using default location.");
   }
 
   // Load the issue report data
