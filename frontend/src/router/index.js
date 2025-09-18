@@ -6,9 +6,16 @@ import Login from "@/views/pages/auth/Login.vue";
 import NotFound from "@/views/pages/NotFound.vue";
 import Testcrud from "@/views/pages/testcrud/testcrud.vue";
 import Register from "@/views/pages/auth/Register.vue";
+import MapPickerTest from '@/views/MapPickerTest.vue';
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // Standalone test route for MapPicker
+    {
+      path: "/map-picker-test",
+      name: "map-picker-test",
+      component: MapPickerTest,
+    },
     // Public
     {
       path: "/login",
