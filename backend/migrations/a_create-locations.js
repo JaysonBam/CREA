@@ -11,6 +11,16 @@ module.exports = {
         unique: true,
         defaultValue: Sequelize.UUIDV4, //default -> autogenerate
       },
+      issue_report_id: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+        references: {
+          model: "issue_reports",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
       address: {
         type: Sequelize.STRING,
         allowNull: true,

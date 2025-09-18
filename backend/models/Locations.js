@@ -4,10 +4,10 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Location extends Model {
     static associate(models) {
-      // A Location can be tied to many issue reports
-      Location.hasMany(models.IssueReport, {
-        foreignKey: "location_id",
-        as: "issueReports",
+      // A Location belongs to one IssueReport
+      Location.belongsTo(models.IssueReport, {
+        foreignKey: "issue_report_id",
+        as : "issueReport",
       });
     }
   }
