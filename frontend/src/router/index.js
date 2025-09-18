@@ -10,9 +10,16 @@ import Register from "@/views/pages/auth/Register.vue";
 import ReportIssue from "@/views/pages/report-issue/ReportIssue.vue";
 import UserReports from "@/views/pages/report-issue/UserReports.vue";
 import ReportMap from "@/views/pages/report-issue/ReportMap.vue";
+import MapPickerTest from '@/views/MapPickerTest.vue';
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // Standalone test route for MapPicker
+    {
+      path: "/map-picker-test",
+      name: "map-picker-test",
+      component: MapPickerTest,
+    },
     // Public
     {
       path: "/login",
