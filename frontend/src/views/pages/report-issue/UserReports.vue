@@ -23,8 +23,14 @@
       <!-- Reports Grid -->
       <div v-else class="reports-grid">
         <Card v-for="report in reports" :key="report.token">
+          <!-- =================================================================== -->
+          <!-- START: IMAGE GALLERY SECTION                                        -->
+          <!-- =================================================================== -->
           <template #header>
-            <!-- Display the first attachment image in the header if it exists -->
+            <!--
+              This Galleria component will only be displayed if the report has attachments.
+              It creates a responsive image carousel.
+            -->
             <Galleria
               v-if="report.attachments && report.attachments.length"
               :value="report.attachments"
@@ -33,6 +39,7 @@
               :showThumbnails="false"
               :showIndicators="true"
             >
+              <!-- This template defines how each individual image is shown -->
               <template #item="slotProps">
                 <img
                   :src="slotProps.item.file_link"
@@ -42,6 +49,10 @@
               </template>
             </Galleria>
           </template>
+          <!-- =================================================================== -->
+          <!-- END: IMAGE GALLERY SECTION                                          -->
+          <!-- =================================================================== -->
+
           <template #title>
             <div class="flex justify-between items-start">
               <span class="truncate">{{ report.title }}</span>
@@ -84,23 +95,14 @@
       v-model:visible="showEditDialog"
       modal
       header="Edit Issue Report"
-      :style="{ width: '600px' }"
+      :style="{ width: '500px' }"
       class="p-fluid"
     >
-      <!-- The main container for the form fields -->
       <div class="flex flex-col gap-6 py-4">
-
-        <!-- Title Field -->
         <div class="field">
           <label for="title" class="font-semibold block mb-2">Title</label>
-          <InputText
-            id="title"
-            v-model="currentReport.title"
-            class="w-full"
-          />
+          <InputText id="title" v-model="currentReport.title" class="w-full" />
         </div>
-
-        <!-- Description Field -->
         <div class="field">
           <label for="description" class="font-semibold block mb-2">Description</label>
           <Textarea
@@ -133,7 +135,7 @@
           name="attachments"
           :url="`/api/file-attachments`"
           :multiple="true"
-          accept="image/*,application/pdf"
+          accept="image/*"
           :maxFileSize="5000000"
           @upload="onUploadSuccess"
           @before-send="setUploadParams"
@@ -148,14 +150,13 @@
 </template>
 
 <script setup>
+// Script section remains the same as before
 import { ref, reactive, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
   updateIssueReport,
-  // You will need a way to pass the token for uploads.
-  // We'll use the 'before-send' event on FileUpload for this.
-} from "@/utils/backend_helper"; 
+} from "@/utils/backend_helper";
 
 const reports = ref([]);
 const loading = ref(true);
@@ -169,12 +170,10 @@ const currentReport = reactive({
   description: "",
 });
 
-// --- Main Data Loading ---
 const loadReports = async () => {
   loading.value = true;
   try {
-    // IMPORTANT: Get user token from your auth store (Pinia, Vuex) or sessionStorage
-    const userToken = sessionStorage.getItem("token"); 
+    const userToken = sessionStorage.getItem("token");
     if (!userToken) {
       toast.add({ severity: "error", summary: "Authentication Error", detail: "User token not found.", life: 3000 });
       loading.value = false;
@@ -189,9 +188,7 @@ const loadReports = async () => {
   }
 };
 
-// --- Edit Dialog Logic ---
 const openEditDialog = (report) => {
-  // Use Object.assign to copy values to the reactive object
   Object.assign(currentReport, {
     token: report.token,
     title: report.title,
@@ -210,32 +207,27 @@ const saveReport = async () => {
     await updateIssueReport(currentReport.token, payload);
     toast.add({ severity: "success", summary: "Success", detail: "Report updated successfully.", life: 3000 });
     showEditDialog.value = false;
-    await loadReports(); // Refresh the list
+    await loadReports();
   } catch (e) {
     toast.add({ severity: "error", summary: "Update Failed", detail: e.message, life: 3000 });
   }
 };
 
-// --- Upload Dialog Logic ---
 const openUploadDialog = (report) => {
   Object.assign(currentReport, report);
   showUploadDialog.value = true;
 };
 
-// This hook adds the report token to the upload request before it's sent
 const setUploadParams = ({ formData }) => {
   formData.append("issue_report_token", currentReport.token);
 };
 
-// After a successful upload, show a toast and refresh the data
 const onUploadSuccess = () => {
   toast.add({ severity: "success", summary: "Success", detail: "File(s) uploaded.", life: 3000 });
   showUploadDialog.value = false;
-  loadReports(); // Refresh to show new attachments
+  loadReports();
 };
 
-
-// --- UI Helpers ---
 const getStatusSeverity = (status) => {
   switch (status) {
     case 'RESOLVED': return 'success';

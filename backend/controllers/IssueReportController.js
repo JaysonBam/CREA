@@ -1,4 +1,4 @@
-const { IssueReport, User, Location } = require("../models");
+const { IssueReport, User, Location, FileAttachment } = require("../models");
 const { Op } = require("sequelize"); // Import Sequelize's operators
 
 async function findByTokenOr404(token, res) {
@@ -89,7 +89,19 @@ exports.getUserReports = async (req, res) => {
         const userId = currUser.id;
 
         // find all issue reports for given user id
-        const reports = await IssueReport.findAll({ where: { user_id: userId }, order: [["id", "ASC"]] });
+        const reports = await IssueReport.findAll({
+            where: { user_id: userId },
+            // Include the associated FileAttachment model
+            include: [
+                {
+                    model: FileAttachment,
+                    as: 'attachments', // This alias MUST match what the frontend expects
+                    attributes: ['token', 'file_link', 'description'], // Only send necessary data
+                    required: false    // Use a LEFT JOIN to include reports even if they have no attachments
+                }
+            ],
+            order: [["createdAt", "DESC"]] // Order by newest first is generally better for user reports
+        });
         res.json(reports);
     } catch (e) {
         res.status(500).json({ error: e.message });

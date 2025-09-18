@@ -27,6 +27,9 @@ app.use(
 
 app.use(express.json());
 
+app.use('/uploads', express.static('uploads'));
+
+
 // Routes
 const testCrudRoutes = require("./routes/TestCrudRoutes");
 app.use("/api/test-crud", testCrudRoutes);
@@ -36,6 +39,8 @@ app.use("/api/auth", authRoutes);
 
 const issueReportRoutes = require("./routes/IssueReportRoutes");
 app.use("/api/issue-reports", issueReportRoutes);
+
+app.use('/api/file-attachments', require('./routes/FileAttachmentRoutes'));
 
 const fs = require("fs");
 const path = require("path");
