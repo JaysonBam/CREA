@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
 module.exports = function (req, res, next) {
+  console.log('Auth middleware hit for URL:', req.originalUrl);
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1]; // Format passed from frontend is : "Bearer <token>", thus I split with space
   //to extract everything after the space as the token

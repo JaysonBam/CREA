@@ -15,6 +15,7 @@ const upload = require('../controllers/FileAttachmentController').upload;
  * @access  Private
  */
 router.post('/', auth, upload.array('attachments', 5), controller.create);
+router.use(controller.handleUploadErrors);
 
 /**
  * @route   GET /api/file-attachments

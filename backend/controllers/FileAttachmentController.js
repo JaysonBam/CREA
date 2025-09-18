@@ -1,5 +1,6 @@
 const { FileAttachment, IssueReport, User } = require('../models');
 const multer = require('multer');
+const { MulterError } = require('multer');
 const path = require('path');
 const fs = require('fs');
 
@@ -33,6 +34,7 @@ exports.upload = upload;
  * CREATE a new file attachment and associate it with an IssueReport
  */
 exports.create = async (req, res) => {
+    console.log("Creating file attachment...");
   const { issue_report_token, description } = req.body;
   const files = req.files;
 
@@ -147,4 +149,20 @@ exports.remove = async (req, res) => {
     console.error("Failed to delete file:", e);
     res.status(500).json({ error: e.message });
   }
+};
+
+
+exports.handleUploadErrors = (err, req, res, next) => {
+  if (err instanceof MulterError) {
+    console.error("Multer Error:", err);
+    // Send a specific, helpful error message to the frontend
+    return res.status(400).json({
+      error: `File upload error: ${err.message}`,
+      field: err.field,
+    });
+  } else if (err) {
+    console.error("Unknown upload error:", err);
+    return res.status(500).json({ error: "An unknown error occurred during file upload." });
+  }
+  next();
 };

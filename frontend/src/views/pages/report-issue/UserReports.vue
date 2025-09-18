@@ -219,7 +219,7 @@ const openUploadDialog = (report) => {
 };
 
 const setUploadParams = ({ formData }) => {
-  formData.append("issue_report_token", currentReport.token);
+  formData.append("issue_report_id", currentReport.id);
 };
 
 const onUploadSuccess = () => {

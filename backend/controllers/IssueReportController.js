@@ -79,6 +79,7 @@ exports.getOne = async (req, res) => {
 };
 
 exports.getUserReports = async (req, res) => {
+  console.log("Fetching reports for user:", req.params.userToken);
     try {
         const userToken = req.params.userToken;
         // find user id for given token
@@ -87,6 +88,7 @@ exports.getUserReports = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
         const userId = currUser.id;
+        console.log("Found user ID:", userId);
 
         // find all issue reports for given user id
         const reports = await IssueReport.findAll({
@@ -103,6 +105,7 @@ exports.getUserReports = async (req, res) => {
             order: [["createdAt", "DESC"]] // Order by newest first is generally better for user reports
         });
         res.json(reports);
+        console.log(`Found ${reports.length} reports for user ${userToken}`);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
