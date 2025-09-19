@@ -3,19 +3,26 @@ import FloatingConfigurator from "@/components/FloatingConfigurator.vue";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { login } from "@/utils/auth_helper";
-
+import { sendToast } from "@/utils/sendToast";
+import { useToast } from "primevue/usetoast";
+import { loginSchema } from "@/schemas/LoginSchema";
+import { toRaw } from "vue";
 const email = ref("");
 const password = ref("");
 const checked = ref(false);
 const router = useRouter();
-
+const toast = useToast();
 const handleLogin = async () => {
+  const raw = { email: email.value, password: password.value };
+  const r = loginSchema.safeParse(raw);
+  if (!r.success) {
+    const msg = r.error.issues[0]?.message ?? "Invalid credentials";
+    toast.add({ severity: "error", summary: "Error", detail: msg, life: 3000 });
+    return;
+  }
+
   try {
-    // call backend
-    const res = await login({
-      email: email.value,
-      password: password.value,
-    });
+    const res = await sendToast(toast, login(raw));
     console.log(res);
 
     // console.log("Login response:", res.data);
@@ -41,7 +48,6 @@ const handleLogin = async () => {
     router.push(redirect);
   } catch (err) {
     console.error("Login failed:", err);
-    alert("Invalid credentials");
   }
 };
 </script>
