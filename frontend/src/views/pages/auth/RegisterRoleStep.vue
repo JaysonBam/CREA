@@ -7,36 +7,31 @@ import { useField } from "vee-validate";
 import { getAllWards } from "@/utils/ward_helper";
 defineEmits(["back", "register"]);
 
-// Role (unchanged)
 const { value: role, errorMessage: roleError } = useField("role", undefined, {
   keepValueOnUnmount: true,
 });
 
-// Resident-only fields (present in form state; required only when role === 'resident')
+//Address and ward_code are only required if role is resident
 const { value: address, errorMessage: addressError } = useField(
   "address",
   undefined,
   { keepValueOnUnmount: true }
 );
 
-// This is what gets submitted to the backend
 const { value: wardCode, errorMessage: wardCodeError } = useField(
   "ward_code",
   undefined,
   { keepValueOnUnmount: true }
 );
 
-// Wards dropdown state
 const wards = ref([]);
 const wardsLoading = ref(false);
 const wardsError = ref("");
 
-// Fetch wards on mount
 onMounted(async () => {
   try {
     wardsLoading.value = true;
     const res = await getAllWards();
-    // expecting { success, data: [{ id, name, code }, ...] }
     wards.value = Array.isArray(res?.data?.data) ? res.data.data : [];
   } catch (e) {
     wardsError.value =
@@ -65,7 +60,6 @@ onMounted(async () => {
     />
     <small class="text-red-500 block mb-4">{{ roleError }}</small>
 
-    <!-- Dynamic fields for Resident -->
     <template v-if="role === 'resident'">
       <label for="address" class="block text-xl mb-2">Address</label>
       <InputText
@@ -79,7 +73,7 @@ onMounted(async () => {
 
       <label for="ward_code" class="block text-xl mb-2">Ward</label>
 
-      <!-- Searchable Dropdown: filters on name and code; stores the ward's code in ward_code -->
+      <!-- Searchable Dropdown:-->
       <Dropdown
         id="ward_code"
         class="w-full md:w-[30rem] mb-1"
@@ -94,7 +88,6 @@ onMounted(async () => {
         placeholder="Select a ward"
         :disabled="!!wardsError || wardsLoading"
       >
-        <!-- Selected value template (shows name (code)) -->
         <template #value="{ value, placeholder }">
           <span v-if="!value">{{ placeholder }}</span>
           <span v-else>
@@ -107,7 +100,6 @@ onMounted(async () => {
           </span>
         </template>
 
-        <!-- Each item template -->
         <template #option="{ option }">
           <div class="flex flex-col">
             <span class="font-medium">{{ option.name }}</span>

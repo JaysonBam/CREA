@@ -9,6 +9,7 @@ module.exports = {
     const ward1Id = Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4());
     const ward2Id = Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4());
 
+    //Create wards
     await queryInterface.bulkInsert(
       "wards",
       [
@@ -32,9 +33,9 @@ module.exports = {
       {}
     );
 
-    // --- 2) Create Users (exactly as you had) ---
     const hashedPassword = await bcrypt.hash("password", 10);
 
+    //Create 2 users for each role (just to make it easier to test with)
     const users = [
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
@@ -128,12 +129,14 @@ module.exports = {
       },
     ];
 
+    // Create the users and save the IDs, to create a corresponding resident, communityleader and municipal_staff entry.
     const insertedUsers = await queryInterface.bulkInsert("users", users, {
       returning: ["id", "email", "role"],
     });
 
     const uid = (email) => insertedUsers.find((u) => u.email === email)?.id;
 
+    //Resident
     await queryInterface.bulkInsert(
       "residents",
       [

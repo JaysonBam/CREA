@@ -92,6 +92,9 @@ module.exports = {
         role: role,
       });
 
+      //If the user is a resident, the Resident can be provided based on the ward_code and address.
+      //For communityleader and staff, this will not happen at registration, as we will follow an invitation based setup
+
       if (role === "resident") {
         console.log(ward_code);
         const ward = await Ward.findOne({ where: { code: ward_code } });

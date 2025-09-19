@@ -1,4 +1,6 @@
 // schemas/Backend/RegisterSchema.js
+
+//This schema is used to validate the request body for user registration and is similar to the frontend schema
 const { z } = require("zod");
 
 const registerSchema = z.object({
