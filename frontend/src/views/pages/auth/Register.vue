@@ -29,6 +29,9 @@ const { values, errors, setErrors, setFieldError, handleSubmit } = useForm({
     firstName: "",
     lastName: "",
     role: "",
+    // Added for resident-specific step (only required when role === 'resident')
+    address: "",
+    ward_code: "",
   },
 });
 

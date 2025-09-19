@@ -1,4 +1,4 @@
-const { User } = require("../models");
+const { User, Resident, Ward } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
@@ -61,6 +61,7 @@ module.exports = {
   async register(request, response) {
     //Jayden
     try {
+      const { ward_code, address } = request.body;
       const result = registerSchema.safeParse(request.body);
 
       console.log(request.body);
@@ -91,6 +92,21 @@ module.exports = {
         role: role,
       });
 
+      if (role === "resident") {
+        console.log(ward_code);
+        const ward = await Ward.findOne({ where: { code: ward_code } });
+        if (!ward) {
+          return response.status(400).json({
+            success: false,
+            message: "Invalid ward code",
+          });
+        }
+        await Resident.create({
+          user_id: newUser.id,
+          address: address,
+          ward_id: ward.id,
+        });
+      }
       return response.status(201).json({
         success: true,
         message: "User registered successfully",
@@ -98,12 +114,10 @@ module.exports = {
       });
     } catch (e) {
       console.error(e);
-      return response
-        .status(500)
-        .json({
-          success: false,
-          message: "Registration was not successful. Please try again",
-        });
+      return response.status(500).json({
+        success: false,
+        message: "Registration was not successful. Please try again",
+      });
     }
   },
 };

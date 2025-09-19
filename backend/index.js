@@ -6,9 +6,7 @@ const app = express();
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
 const BACKEND_HOST = process.env.BACKEND_HOST;
 const FRONTEND_URL = process.env.FRONTEND_URL;
-const allowedOrigins = [
-  FRONTEND_URL,
-];
+const allowedOrigins = [FRONTEND_URL];
 
 app.use(
   cors({
@@ -30,7 +28,7 @@ const jsonParser = express.json();
 // CHANGE #2: REMOVE the global `app.use(express.json());`
 // app.use(express.json()); // <--- DELETE OR COMMENT OUT THIS LINE
 
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
 // Routes
 const testCrudRoutes = require("./routes/TestCrudRoutes");
@@ -43,10 +41,12 @@ app.use("/api/auth", jsonParser, authRoutes);
 const issueReportRoutes = require("./routes/IssueReportRoutes");
 app.use("/api/issue-reports", jsonParser, issueReportRoutes);
 
-const fileAttachmentRoutes = require('./routes/FileAttachmentRoutes');
-// NOTICE: This route does NOT get the jsonParser. It will be parsed by multer instead.
-app.use('/api/file-attachments', fileAttachmentRoutes);
+const wardRoutes = require("./routes/WardRoutes");
+app.use("/api/wards", jsonParser, wardRoutes);
 
+const fileAttachmentRoutes = require("./routes/FileAttachmentRoutes");
+// NOTICE: This route does NOT get the jsonParser. It will be parsed by multer instead.
+app.use("/api/file-attachments", fileAttachmentRoutes);
 
 const fs = require("fs");
 const path = require("path");
