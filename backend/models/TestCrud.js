@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   TestCrud.init(
     {
+      //Here you fill in all of the fields for the model
       token: { type: DataTypes.STRING(64), allowNull: false, unique: true },
       title: { type: DataTypes.STRING, allowNull: false },
       description: { type: DataTypes.TEXT, allowNull: true },
@@ -23,6 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       tableName: "test_cruds",
       hooks: {
         beforeValidate(instance) {
+          //Generate a token if not present (should only happen on create)
           if (!instance.token) instance.token = genToken();
         },
       },

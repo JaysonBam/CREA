@@ -3,11 +3,19 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
+// Load environment configuration
+// Note we reference the .env variables and not use hardcoded values here
+// This is important for security and flexibility
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
 const BACKEND_HOST = process.env.BACKEND_HOST;
 const FRONTEND_URL = process.env.FRONTEND_URL;
-const allowedOrigins = [FRONTEND_URL];
 
+// Define allowed origins for CORS (so only your frontend can access the backend)
+const allowedOrigins = [
+  FRONTEND_URL,
+];
+
+// Configure CORS middleware
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -22,17 +30,15 @@ app.use(
   })
 );
 
-// CHANGE #1: Create a variable for the JSON parser middleware
 const jsonParser = express.json();
 
-// CHANGE #2: REMOVE the global `app.use(express.json());`
-// app.use(express.json()); // <--- DELETE OR COMMENT OUT THIS LINE
 
 app.use("/uploads", express.static("uploads"));
 
-// Routes
+// Routes, each in their own file
+// Look specifically at TestCrudRoutes.js for an example of how routes are structured
+// We append /api/test-crud for example to make the full route /api/test-crud/create, /api/test-crud/list etc
 const testCrudRoutes = require("./routes/TestCrudRoutes");
-// CHANGE #3: Apply the jsonParser middleware specifically to routes that need it
 app.use("/api/test-crud", jsonParser, testCrudRoutes);
 
 const authRoutes = require("./routes/AuthRoutes");
@@ -51,19 +57,20 @@ app.use("/api/file-attachments", fileAttachmentRoutes);
 const fs = require("fs");
 const path = require("path");
 
-// ... your error logging and app.listen code remains the same ...
 app.use((err, req, res, next) => {
+  //Log errors to a file called error.log
   const logFile = path.join(__dirname, "error.log");
   const log = `[${new Date().toISOString()}] ${req.method} ${req.url}\n${
     err.stack
   }\n\n`;
 
   fs.appendFileSync(logFile, log, "utf8");
-
+//Log error to terminal
   console.error("❌ Internal server error:", err.message);
   res.status(500).json({ error: "Internal Server Error" });
 });
 
+// Start the server on configured host/port
 app.listen(BACKEND_PORT, BACKEND_HOST, () => {
   console.log(`✅ Server running on http://${BACKEND_HOST}:${BACKEND_PORT}`);
 });

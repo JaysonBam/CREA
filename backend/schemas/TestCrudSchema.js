@@ -1,5 +1,5 @@
 const { z } = require("zod");
-
+//This is a test schema for validating data for the test CRUD operations
 const testCrudSchema = z.object({
   title: z
     .string({ required_error: "Title is required" })

@@ -8,8 +8,6 @@ const controller = require("../controllers/TestCrudController");
 //If auth is specified as an argument
 const auth = require("../middleware/auth");
 router.get("/", auth, controller.list);
-
-router.get("/", auth, controller.list);
 router.get("/:token", auth, controller.getOne);
 router.post("/", auth, controller.create);
 router.put("/:token", auth, controller.update);
