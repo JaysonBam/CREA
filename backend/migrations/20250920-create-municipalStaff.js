@@ -19,7 +19,7 @@ module.exports = {
         onDelete: "CASCADE",
       },
       ward_id: {
-        type: Sequelize.UUID,
+        type: Sequelize.BIGINT,
         allowNull: false,
         references: { model: "wards", key: "id" },
         onUpdate: "CASCADE",

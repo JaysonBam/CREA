@@ -6,15 +6,11 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
 
-    const ward1Id = Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4());
-    const ward2Id = Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4());
-
-    //Create wards
-    await queryInterface.bulkInsert(
+    // 1) Insert wards WITHOUT providing 'id' (let BIGINT auto-increment)
+    const insertedWards = await queryInterface.bulkInsert(
       "wards",
       [
         {
-          id: ward1Id,
           token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
           name: "Ward 1",
           code: "W1",
@@ -22,7 +18,6 @@ module.exports = {
           updatedAt: now,
         },
         {
-          id: ward2Id,
           token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
           name: "Ward 2",
           code: "W2",
@@ -30,12 +25,29 @@ module.exports = {
           updatedAt: now,
         },
       ],
-      {}
+      // Use "returning" to get the generated IDs (Postgres supports this)
+      { returning: ["id", "code"] }
     );
 
+    // Map codes -> IDs
+    // If your dialect doesn’t support "returning", fall back to a SELECT by code.
+    const wardIdByCode = {};
+    for (const w of insertedWards || []) wardIdByCode[w.code] = w.id;
+
+    // Fallback (only if returning is unsupported and map is empty)
+    if (!wardIdByCode.W1 || !wardIdByCode.W2) {
+      const [rows] = await queryInterface.sequelize.query(
+        `SELECT id, code FROM wards WHERE code IN ('W1','W2')`
+      );
+      for (const r of rows) wardIdByCode[r.code] = r.id;
+    }
+
+    const ward1Id = wardIdByCode.W1;
+    const ward2Id = wardIdByCode.W2;
+
+    // 2) Users (unchanged shape)
     const hashedPassword = await bcrypt.hash("password", 10);
 
-    //Create 2 users for each role (just to make it easier to test with)
     const users = [
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
@@ -49,7 +61,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "resident",
@@ -62,7 +73,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "resident",
@@ -75,7 +85,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "staff",
@@ -88,7 +97,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "staff",
@@ -101,7 +109,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "admin",
@@ -114,7 +121,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-
       {
         token: Sequelize.Utils.toDefaultValue(Sequelize.UUIDV4()),
         role: "admin",
@@ -129,14 +135,13 @@ module.exports = {
       },
     ];
 
-    // Create the users and save the IDs, to create a corresponding resident, communityleader and municipal_staff entry.
     const insertedUsers = await queryInterface.bulkInsert("users", users, {
       returning: ["id", "email", "role"],
     });
 
     const uid = (email) => insertedUsers.find((u) => u.email === email)?.id;
 
-    //Resident
+    // 3) Profile rows using BIGINT ward IDs
     await queryInterface.bulkInsert(
       "residents",
       [
@@ -160,7 +165,6 @@ module.exports = {
       {}
     );
 
-    // Municipal Staff
     await queryInterface.bulkInsert(
       "municipal_staff",
       [
@@ -184,7 +188,6 @@ module.exports = {
       {}
     );
 
-    // Community Leaders
     await queryInterface.bulkInsert(
       "community_leaders",
       [

@@ -13,8 +13,8 @@ module.exports = (sequelize, DataTypes) => {
   Ward.init(
     {
       id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.BIGINT,
+        autoIncrement: true,
         primaryKey: true,
       },
       token: {
@@ -23,11 +23,6 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
         defaultValue: DataTypes.UUIDV4,
       },
-      autoinc: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        unique: true,
-      },
       name: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -35,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       code: {
         type: DataTypes.STRING,
         allowNull: false,
+        unique: true,
       },
     },
     {
