@@ -28,10 +28,11 @@ const { values, errors, setErrors, setFieldError, handleSubmit } = useForm({
     password: "",
     firstName: "",
     lastName: "",
-    role: "",
-    // Added for resident-specific step (only required when role === 'resident')
     address: "",
     ward_code: "",
+    address_lat: "",
+    address_lng: "",
+    address_place_id: "",
   },
 });
 

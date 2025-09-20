@@ -9,18 +9,22 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         unique: true,
-        defaultValue: Sequelize.UUIDV4, //default -> autogenerate
+        defaultValue: Sequelize.UUIDV4,
       },
       address: {
         type: Sequelize.STRING,
         allowNull: true,
       },
+      place_id: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
       latitude: {
-        type: Sequelize.DECIMAL(10, 8), // Precision for GPS coordinates
+        type: Sequelize.DECIMAL(10, 7),
         allowNull: false,
       },
       longitude: {
-        type: Sequelize.DECIMAL(11, 8), // Precision for GPS coordinates
+        type: Sequelize.DECIMAL(10, 7),
         allowNull: false,
       },
       createdAt: {
@@ -34,6 +38,11 @@ module.exports = {
         defaultValue: Sequelize.fn("NOW"),
       },
     });
+
+    // Helpful lookups
+    await queryInterface.addIndex("locations", ["token"], { unique: true });
+    await queryInterface.addIndex("locations", ["place_id"]);
+    await queryInterface.addIndex("locations", ["latitude", "longitude"]);
   },
 
   async down(queryInterface) {

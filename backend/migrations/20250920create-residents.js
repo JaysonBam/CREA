@@ -25,7 +25,15 @@ module.exports = {
         onUpdate: "CASCADE",
         onDelete: "CASCADE",
       },
-      address: { type: Sequelize.STRING, allowNull: false },
+
+      location_id: {
+        type: Sequelize.BIGINT,
+        allowNull: true, // set to false if you want to enforce having a location
+        references: { model: "locations", key: "id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
@@ -40,6 +48,7 @@ module.exports = {
 
     await queryInterface.addIndex("residents", ["user_id"]);
     await queryInterface.addIndex("residents", ["ward_id"]);
+    await queryInterface.addIndex("residents", ["location_id"]);
   },
 
   async down(queryInterface) {

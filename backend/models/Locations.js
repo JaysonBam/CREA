@@ -9,6 +9,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "location_id",
         as: "issueReports",
       });
+
+      // A Location can be used by many Residents
+      Location.hasMany(models.Resident, {
+        foreignKey: "location_id",
+        as: "residents",
+      });
     }
   }
   Location.init(
@@ -28,12 +34,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      place_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       latitude: {
-        type: DataTypes.DECIMAL(10, 8),
+        type: DataTypes.DECIMAL(10, 7),
         allowNull: false,
       },
       longitude: {
-        type: DataTypes.DECIMAL(11, 8),
+        type: DataTypes.DECIMAL(10, 7),
         allowNull: false,
       },
     },
