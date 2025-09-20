@@ -30,6 +30,23 @@
                   <div class="map-popup">
                     <div class="font-bold">{{ report.title }}</div>
                     <div>
+                      
+                      <Galleria
+                        v-if="report.attachments && report.attachments.length"
+                        :value="report.attachments"
+                        :numVisible="1"
+                        containerStyle="max-width: 100%"
+                        :showThumbnails="false"
+                        :showIndicators="true"
+                      >
+                        <template #item="slotProps">
+                          <img
+                            :src="slotProps.item.file_link"
+                            :alt="slotProps.item.description || 'Report image'"
+                            style="width: 100%; display: block; height: 200px; object-fit: cover;"
+                          />
+                        </template>
+                      </Galleria>
                       <Tag :value="report.category" class="mr-2" />
                       <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
                     </div>

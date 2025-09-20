@@ -35,11 +35,14 @@ exports.upload = upload;
  */
 exports.create = async (req, res) => {
     console.log("Creating file attachment...");
+    console.log(req.body);
+    console.log(req.files);
   const { issue_report_token, description } = req.body;
   const files = req.files;
 
   // Validation
   if (!files || files.length === 0) {
+    console.error("No files were uploaded.");
     return res.status(400).json({ error: 'No files were uploaded.' });
   }
   if (!issue_report_token) {
@@ -58,7 +61,7 @@ exports.create = async (req, res) => {
       file_link: `/uploads/${file.filename}`, // The path where the file is served
       description: description || file.originalname,
       issue_report_id: issueReport.id,
-      user_id: req.user.id, // Assumes auth middleware provides req.user
+      user_id: req.user.user_id, // Assumes auth middleware provides req.user
     }));
 
     // Create all attachments in the database in a single transaction

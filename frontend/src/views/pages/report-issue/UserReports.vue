@@ -27,10 +27,6 @@
           <!-- START: IMAGE GALLERY SECTION                                        -->
           <!-- =================================================================== -->
           <template #header>
-            <!--
-              This Galleria component will only be displayed if the report has attachments.
-              It creates a responsive image carousel.
-            -->
             <Galleria
               v-if="report.attachments && report.attachments.length"
               :value="report.attachments"
@@ -39,7 +35,6 @@
               :showThumbnails="false"
               :showIndicators="true"
             >
-              <!-- This template defines how each individual image is shown -->
               <template #item="slotProps">
                 <img
                   :src="slotProps.item.file_link"
@@ -133,12 +128,11 @@
         </p>
         <FileUpload
           name="attachments"
-          :url="`/api/file-attachments`"
+          customUpload
           :multiple="true"
           accept="image/*"
           :maxFileSize="5000000"
-          @upload="onUploadSuccess"
-          @before-send="setUploadParams"
+          @uploader="uploadFiles"
         >
           <template #empty>
             <p>Drag and drop files here to upload.</p>
@@ -150,12 +144,12 @@
 </template>
 
 <script setup>
-// Script section remains the same as before
 import { ref, reactive, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
   updateIssueReport,
+  createFileAttachment
 } from "@/utils/backend_helper";
 
 const reports = ref([]);
@@ -165,6 +159,7 @@ const toast = useToast();
 const showEditDialog = ref(false);
 const showUploadDialog = ref(false);
 const currentReport = reactive({
+  id: null,
   token: null,
   title: "",
   description: "",
@@ -190,6 +185,7 @@ const loadReports = async () => {
 
 const openEditDialog = (report) => {
   Object.assign(currentReport, {
+    id: report.id,
     token: report.token,
     title: report.title,
     description: report.description,
@@ -218,14 +214,23 @@ const openUploadDialog = (report) => {
   showUploadDialog.value = true;
 };
 
-const setUploadParams = ({ formData }) => {
-  formData.append("issue_report_id", currentReport.id);
-};
+// Custom upload handler using backend_helper
+const uploadFiles = async (event) => {
+  try {
+    const formData = new FormData();
+    event.files.forEach(file => {
+      formData.append("attachments", file);
+    });
+    formData.append("issue_report_token", currentReport.token);
 
-const onUploadSuccess = () => {
-  toast.add({ severity: "success", summary: "Success", detail: "File(s) uploaded.", life: 3000 });
-  showUploadDialog.value = false;
-  loadReports();
+    await createFileAttachment(formData);
+    toast.add({ severity: "success", summary: "Success", detail: "File(s) uploaded.", life: 3000 });
+    showUploadDialog.value = false;
+    await loadReports();
+  } catch (e) {
+    console.error(e);
+    toast.add({ severity: "error", summary: "Upload Failed", detail: e.message, life: 3000 });
+  }
 };
 
 const getStatusSeverity = (status) => {

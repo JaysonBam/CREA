@@ -41,8 +41,16 @@ export const deleteLocation = (token) => api.delete(`/api/locations/${token}`);
 export const listFileAttachments = () => api.get("/api/file-attachments");
 export const getFileAttachment = (token) =>
   api.get(`/api/file-attachments/${token}`);
-export const createFileAttachment = (data) =>
-  api.post("/api/file-attachments", data);
+export const createFileAttachment = (formData) => {
+  if (!(formData instanceof FormData)) {
+    throw new Error("createFileAttachment expects FormData");
+  }
+  return api.post("/api/file-attachments", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+  });
+};
 export const updateFileAttachment = (token, data) =>
   api.put(`/api/file-attachments/${token}`, data);
 export const deleteFileAttachment = (token) =>

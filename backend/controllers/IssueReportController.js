@@ -104,6 +104,20 @@ exports.getUserReports = async (req, res) => {
             ],
             order: [["createdAt", "DESC"]] // Order by newest first is generally better for user reports
         });
+
+        const plainReports = reports.map(report => report.get({ plain: true }));
+        const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
+
+        // Loop through the reports and attachments to create full URLs
+        plainReports.forEach(report => {
+            if (report.attachments) {
+                report.attachments.forEach(attachment => {
+                    attachment.file_link = `${baseUrl}${attachment.file_link}`;
+                });
+            }
+        });
+
+
         res.json(reports);
         console.log(`Found ${reports.length} reports for user ${userToken}`);
     } catch (e) {
