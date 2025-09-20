@@ -5,6 +5,21 @@ const JWT_SECRET = process.env.JWT_SECRET || "secret";
 const { registerSchema } = require("../schemas/RegisterSchema");
 
 module.exports = {
+  // Get current user info
+  async me(request, response) {
+    try {
+      const userId = request.user.user_id;
+      const user = await User.findByPk(userId, {
+        attributes: { exclude: ["password"] },
+      });
+      if (!user) {
+        return response.status(404).json({ success: false, message: "User not found" });
+      }
+      return response.status(200).json({ success: true, user });
+    } catch (e) {
+      return response.status(500).json({ success: false, message: "Failed to fetch user info" });
+    }
+  },
   async verifyCredentials(request, response) {
     try {
       const email = request.body.email;
