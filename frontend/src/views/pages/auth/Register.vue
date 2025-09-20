@@ -28,7 +28,11 @@ const { values, errors, setErrors, setFieldError, handleSubmit } = useForm({
     password: "",
     firstName: "",
     lastName: "",
-    role: "",
+    address: "",
+    ward_code: "",
+    address_lat: "",
+    address_lng: "",
+    address_place_id: "",
   },
 });
 

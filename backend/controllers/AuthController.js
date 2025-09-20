@@ -1,4 +1,4 @@
-const { User } = require("../models");
+const { User, Resident, Ward, Location  } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
@@ -61,9 +61,9 @@ module.exports = {
   async register(request, response) {
     //Jayden
     try {
-      const result = registerSchema.safeParse(request.body);
-
       console.log(request.body);
+      const { ward_code, address,  address_lat,address_lng, address_place_id, } = request.body;
+      const result = registerSchema.safeParse(request.body);
       const { firstName, lastName, email, password, role, phone } = result.data;
 
       if (!firstName || !lastName || !email || !password || !role) {
@@ -91,19 +91,56 @@ module.exports = {
         role: role,
       });
 
+      //If the user is a resident, the Resident can be provided based on the ward_code and address.
+      //For communityleader and staff, this will not happen at registration, as we will follow an invitation based setup
+
+      if (role === "resident") {
+        console.log(ward_code);
+        const ward = await Ward.findOne({ where: { code: ward_code } });
+        if (!ward) {
+          return response.status(400).json({
+            success: false,
+            message: "Invalid ward code",
+          });
+        }
+
+        let locationId = null;
+        if (address_lat && address_lng) {
+          // Optional: try to find by place_id first (if provided), else by lat/lng
+          const where = address_place_id
+            ? { place_id: address_place_id }
+            : { latitude: address_lat, longitude: address_lng };
+
+          let location = await Location.findOne({ where });
+
+          if (!location) {
+            location = await Location.create({
+              address: address || null,
+              place_id: address_place_id || null,
+              latitude: address_lat,
+              longitude: address_lng,
+            });
+          }
+          locationId = location.id;
+        }
+        await Resident.create({
+          user_id: newUser.id,
+          ward_id: ward.id,
+          location_id: locationId,
+
+        });
+      }
       return response.status(201).json({
         success: true,
         message: "User registered successfully",
         user: newUser,
       });
     } catch (e) {
-      console.error(e);
-      return response
-        .status(500)
-        .json({
-          success: false,
-          message: "Registration was not successful. Please try again",
-        });
+      console.error("Register error:", e?.message, e?.stack);
+      return response.status(500).json({
+        success: false,
+        message: "Registration was not successful. Please try again",
+      });
     }
   },
 };

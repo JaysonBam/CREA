@@ -72,7 +72,7 @@
           />
         </template>
       </Column>
-
+    <!-- Action Column -->
       <Column header="Actions" style="min-width: 12rem">
         <template #body="{ data }">
           <div class="flex gap-2 justify-center">
@@ -135,6 +135,7 @@ import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
 import { z } from "zod";
 
+// All the imports we need from backend_helper.js
 import {
   listTestCrud,
   createTestCrud,
@@ -142,14 +143,15 @@ import {
   deleteTestCrud,
 } from "@/utils/backend_helper";
 
+//Toast helper
 import { sendToast } from "@/utils/sendToast";
 import { testCrudSchema } from "@/schemas/TestCrudSchema";
 
-// ---------------- Table state ----------------
 const rows = ref([]);
 const loading = ref(false);
 
 const makeEmptyFilters = () => ({
+  //Clear all of the filters like contains, equals, etc
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
   title: {
     operator: FilterOperator.AND,
@@ -171,10 +173,10 @@ const clearFilter = () => {
   filters.value = makeEmptyFilters();
 };
 
-// ---------------- Toast ----------------
+//Toast
 const toast = useToast();
 
-// ---------------- Form state ----------------
+// Form state 
 const showDialog = ref(false);
 const isEdit = ref(false);
 const form = reactive({
@@ -202,13 +204,14 @@ function setZodErrors(issues) {
     }
   }
 }
-
+//Create dialog
 const openNew = () => {
   Object.assign(form, blank());
   isEdit.value = false;
   clearFieldErrors();
   showDialog.value = true;
 };
+//Edit dialog
 const openEdit = (row) => {
   Object.assign(form, row);
   isEdit.value = true;
@@ -258,10 +261,9 @@ const save = async () => {
   }
 };
 
-// ---------------- Delete with dialog + sendToast ----------------
 const deleteDialogVisible = ref(false);
 const deleteTarget = ref(null);
-
+//Confirm dialog for delete
 const confirmDelete = (row) => {
   deleteTarget.value = row;
   deleteDialogVisible.value = true;
@@ -285,10 +287,10 @@ const deleteConfirmed = async () => {
   }
 };
 
-// ---------------- Load ----------------
 const load = async () => {
   loading.value = true;
   try {
+    //ListTestCrud comes from backend_helper.js and calls the backend API
     const { data } = await listTestCrud();
     rows.value = Array.isArray(data)
       ? data.map((r) => ({ ...r, isActiveText: r.isActive ? "Yes" : "No" }))
@@ -308,7 +310,6 @@ const load = async () => {
 
 onMounted(load);
 </script>
-
 <style scoped>
 code {
   font-family:

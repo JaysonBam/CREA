@@ -1,8 +1,5 @@
-// backend/controllers/TestCrudController.js
 const { TestCrud } = require("../models");
 const { testCrudSchema } = require("../schemas/TestCrudSchema");
-
-/** Map Zod issues -> {field: message} bag */
 function zodIssuesToBag(issues = []) {
   const bag = {};
   for (const i of issues) {
@@ -14,6 +11,7 @@ function zodIssuesToBag(issues = []) {
 }
 
 async function findByTokenOr404(token, res) {
+  // Helper to find a record by token or return a 404 response
   const row = await TestCrud.findOne({ where: { token } });
   if (!row) {
     res.status(404).json({
@@ -27,7 +25,7 @@ async function findByTokenOr404(token, res) {
 
 exports.list = async (_req, res) => {
   try {
-    // Keep list as an array to avoid breaking existing consumers
+    // List all records, ordered by ID ascending
     const rows = await TestCrud.findAll({ order: [["id", "ASC"]] });
     res.json(rows);
   } catch (e) {
@@ -37,6 +35,7 @@ exports.list = async (_req, res) => {
 
 exports.getOne = async (req, res) => {
   try {
+    // Get one record by token
     const row = await findByTokenOr404(req.params.token, res);
     if (!row) return;
     res.json({ success: true, message: "Loaded", data: row });
@@ -47,6 +46,7 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    // Validate input using the Zod schema to make sure all data is passed correctly
     const parsed = testCrudSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(422).json({
@@ -57,8 +57,10 @@ exports.create = async (req, res) => {
     }
 
     const { title, description = "", isActive } = parsed.data;
+    // Create the record
     const created = await TestCrud.create({ title, description, isActive });
 
+    // Return a success response with the created record
     return res.status(201).json({
       success: true,
       message: "Item created successfully",
@@ -71,6 +73,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    // Find the record to update
     const row = await findByTokenOr404(req.params.token, res);
     if (!row) return;
 
@@ -84,6 +87,7 @@ exports.update = async (req, res) => {
     }
 
     const { title, description = "", isActive } = parsed.data;
+    // Update the record
     await row.update({ title, description, isActive });
 
     return res.json({
@@ -98,9 +102,10 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
+    // Find the record to delete
     const row = await findByTokenOr404(req.params.token, res);
     if (!row) return;
-
+    // Delete the record
     await row.destroy();
     return res.status(200).json({
       success: true,
