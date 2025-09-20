@@ -2,19 +2,20 @@
 import { useLayout } from "@/layout/composables/layout";
 import AppConfigurator from "./AppConfigurator.vue";
 import { ref } from "vue";
+import { useRouter } from 'vue-router';
 const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
 //Jayden
 //I am using the overlayMenu from the template under "menu" and prettier for formatting
 
 const menu = ref(null);
+const router = useRouter();
 
 const overlayProfileMenuItems = ref([
   {
     label: "Profile",
     icon: "pi pi-user",
     command: () => {
-      // router.push('/profile');
-      console.log("Navigate to profile page");
+      router.push({ name: 'profile' });
     },
   },
   {
