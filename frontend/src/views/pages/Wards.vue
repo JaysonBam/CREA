@@ -84,7 +84,7 @@ const createInitialFilters = () => ({
 const filters1 = ref(createInitialFilters())
 const loading1 = ref(false)
 
-// Leader names for the MultiSelect filter
+// Leader names for the multiselect filter
 const leaderNameOptions = computed(() => {
     return people.value.filter(p => p.role === 'communityleader').map(l => l.name)
 })
