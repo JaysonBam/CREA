@@ -27,6 +27,20 @@ export const updateIssueReport = (token, data) =>
 export const deleteIssueReport = (token) =>
   api.delete(`/api/issue-reports/${token}`);
 
+// --- Issue Messages ---
+export const listIssueMessages = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/messages`);
+export const postIssueMessage = (issueToken, content) =>
+  api.post(`/api/issue-reports/${issueToken}/messages`, { content });
+export const getIssueMessageRead = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/messages/read`);
+export const setIssueMessageRead = (issueToken, last_seen_at) =>
+  api.put(`/api/issue-reports/${issueToken}/messages/read`, { last_seen_at });
+export const getIssueUnreadCounts = (tokens) => {
+  const q = Array.isArray(tokens) ? tokens.join(',') : String(tokens || '');
+  return api.get(`/api/issue-reports/unread`, { params: { tokens: q } });
+};
+
 
 // --- Locations ---
 export const listLocations = () => api.get("/api/locations");

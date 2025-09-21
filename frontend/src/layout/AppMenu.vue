@@ -11,6 +11,7 @@ const model = ref([
             { label: 'Report Issue', icon: 'pi pi-fw pi-exclamation-triangle', to: { name: 'report-issue' } },
             { label: 'Your Reports', icon: 'pi pi-fw pi-list', to: { name: 'user-reports' } },
             { label: 'Map View', icon: 'pi pi-fw pi-map', to: { name: 'report-map' } },
+            { label: 'Wards', icon: 'pi pi-briefcase', to: '/wards' },
         ]
     },
     {
