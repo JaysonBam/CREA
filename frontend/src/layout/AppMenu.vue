@@ -9,6 +9,7 @@ const model = ref([
         items: [
             { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' },
             { label: 'Report Issue', icon: 'pi pi-fw pi-exclamation-triangle', to: { name: 'report-issue' } },
+            { label: 'Reports', icon: 'pi pi-fw pi-file', to: { name: 'reports' } },
             { label: 'Your Reports', icon: 'pi pi-fw pi-list', to: { name: 'user-reports' } },
             { label: 'Map View', icon: 'pi pi-fw pi-map', to: { name: 'report-map' } },
             { label: 'Wards', icon: 'pi pi-briefcase', to: '/wards' },

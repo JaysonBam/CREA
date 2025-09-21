@@ -1,5 +1,7 @@
 const { IssueReport, User, Location, FileAttachment } = require("../models");
 const { Op } = require("sequelize"); // Import Sequelize's operators
+const issueReportSchema = require('../schemas/issueReportSchema');
+const { ZodError } = require('zod'); // Import ZodError for catching validation errors
 
 async function findByTokenOr404(token, res) {
   const row = await IssueReport.findOne({ where: { token } });
@@ -10,6 +12,14 @@ async function findByTokenOr404(token, res) {
   return row;
 }
 
+/**
+ * List issue reports
+ * Supports optional filtering via query params:
+ * - category: enum string
+ * - status: enum string
+ * - title or q: substring (case-insensitive) on title
+ * - sw_lat, sw_lng, ne_lat, ne_lng: optional location bounding box
+ */
 exports.list = async (req, res) => {
   // Destructure the bounding box coordinates and filters from the request query
   const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
@@ -28,6 +38,12 @@ exports.list = async (req, res) => {
           model: Location,
           as: "location",
           required: false, // Use LEFT JOIN to include reports without a location
+        },
+        {
+            model: FileAttachment,
+            as: 'attachments', // This alias MUST match what the frontend expects
+            attributes: ['token', 'file_link', 'description'], // Only send necessary data
+            required: false    // Use a LEFT JOIN to include reports even if they have no attachments
         },
       ],
       order: [["id", "DESC"]], // Order by most recent
@@ -67,15 +83,28 @@ exports.list = async (req, res) => {
     }
 
     // Execute the query with the constructed options
-    const rows = await IssueReport.findAll(options);
+    const reports = await IssueReport.findAll(options);
+    
+    const plainReports = reports.map(report => report.get({ plain: true }));
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
 
-    res.json(rows);
+    // Loop through the reports and attachments to create full URLs
+    plainReports.forEach(report => {
+        if (report.attachments) {
+            report.attachments.forEach(attachment => {
+                attachment.file_link = `${baseUrl}${attachment.file_link}`;
+            });
+        }
+    });
+
+    res.json(reports);
   } catch (e) {
     console.error("Failed to list issue reports:", e);
     res.status(500).json({ error: e.message });
   }
 };
 
+/** Fetch a single issue report by token */
 exports.getOne = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -86,6 +115,11 @@ exports.getOne = async (req, res) => {
   }
 };
 
+/**
+ * Get reports created by a specific user (by user token).
+ * Optional filters: category, status, title or q.
+ * Includes attachments with normalized file URLs.
+ */
 exports.getUserReports = async (req, res) => {
   console.log("Fetching reports for user:", req.params.userToken);
   try {
@@ -140,6 +174,10 @@ exports.getUserReports = async (req, res) => {
   }
 };
 
+/**
+ * Title suggestions limited to a given user's reports.
+ * Query param: q (partial title).
+ */
 exports.titleSuggestionsForUser = async (req, res) => {
   try {
     const userToken = req.params.userToken;
@@ -161,16 +199,25 @@ exports.titleSuggestionsForUser = async (req, res) => {
   }
 };
 
+/** Create a new issue report (basic fields only) */
 exports.create = async (req, res) => {
   try {
-    const { title, description, isActive } = req.body;
-    const created = await IssueReport.create({ title, description, isActive });
+    console.log("Creating issue report with data:", req.body);
+    const validatedData = issueReportSchema.parse(req.body);
+    const { user_id, title, description, isActive, category, location_id } = validatedData;
+    const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
     res.status(201).json(created);
   } catch (e) {
+    console.error("Error creating issue report:", e);
+    if (e instanceof ZodError) {
+      // Respond with a structured list of errors
+      return res.status(400).json({ errors: e.treeifyError().fieldErrors });
+    }
     res.status(400).json({ error: e.message });
   }
 };
 
+/** Update an existing issue report's basic fields */
 exports.update = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -184,6 +231,7 @@ exports.update = async (req, res) => {
   }
 };
 
+/** Delete an issue report by token */
 exports.remove = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -196,6 +244,10 @@ exports.remove = async (req, res) => {
 };
 
 // Title suggestions for autocomplete
+/**
+ * Global title suggestions across all reports.
+ * Query param: q (partial title), returns up to 10 unique matches.
+ */
 exports.titleSuggestions = async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();

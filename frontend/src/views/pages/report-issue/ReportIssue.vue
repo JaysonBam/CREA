@@ -281,6 +281,7 @@ const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIG
 const statusOptions = ref(['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED']);
 
 // Client-side displayed rows (fallback to ensure UI filters instantly)
+// Compute rows to display client-side as an immediate fallback to server filtering
 const displayedRows = computed(() => {
   let list = Array.isArray(rows.value) ? rows.value : [];
   const q = (titleQuery.value || '').trim().toLowerCase();
@@ -300,6 +301,7 @@ const getStatusSeverity = (status) => {
   }
 };
 
+// Clear UI filters and reload all reports
 const clearFilters = () => {
   categoryFilter.value = null;
   statusFilter.value = null;
@@ -406,6 +408,7 @@ const openChat = (row) => {
 };
 
 /* ---------------------------------------------------------- */
+// Load reports from server with optional filters; resets paginator and refreshes unread counts
 const load = async () => {
   loading.value = true;
   try {
@@ -430,6 +433,7 @@ const load = async () => {
   }
 };
 
+// Refresh unread message counts for the currently listed reports
 const refreshUnread = async () => {
   try {
     const tokens = rows.value.map(r => r.token);
@@ -475,6 +479,7 @@ onUnmounted(() => {
 // Title search input handlers
 let titleDebounce;
 let lastSuggestReq = 0;
+// Debounced title input: fetch suggestions and reload list; hide on clear
 const onTitleInput = async () => {
   const q = titleQuery.value?.trim() || "";
   if (titleDebounce) clearTimeout(titleDebounce);
@@ -513,6 +518,7 @@ const onTitleInput = async () => {
   }, 250);
 };
 
+// Apply a clicked suggestion and reload
 const applyTitleSuggestion = (t) => {
   titleQuery.value = t;
   showTitleSuggestions.value = false;
