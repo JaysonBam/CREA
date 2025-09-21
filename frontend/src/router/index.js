@@ -11,7 +11,10 @@ import ReportIssue from "@/views/pages/report-issue/ReportIssue.vue";
 import UserReports from "@/views/pages/report-issue/UserReports.vue";
 import ReportMap from "@/views/pages/report-issue/ReportMap.vue";
 import MapPickerTest from '@/views/MapPickerTest.vue';
+
 import Profile from '@/views/pages/Profile.vue';
+
+import Wards from "@/views/pages/Wards.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -49,7 +52,8 @@ const router = createRouter({
         { path: "report-issue", name: "report-issue", component: ReportIssue },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
-        { path: "profile", name: "profile", component: Profile }
+        { path: "profile", name: "profile", component: Profile },
+        { path: "wards", name: "wards", component: Wards },
       ],
     },
 
