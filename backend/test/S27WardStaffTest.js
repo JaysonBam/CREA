@@ -1,3 +1,14 @@
+
+// Test Output Meaning:
+//  - 200: Successful retrieval of ward details.
+//  - 500: An unexpected server error occurred during listDetailed().
+
+// These tests ensure:
+//  - Wards return correct leader and staff data when associations exist.
+//  - The controller handles missing/null leader/staff associations.
+//  - The scope 'withPeople' is used when available, otherwise it falls back to include-path.
+//  - Errors are caught and return a proper 500 with error message.
+
 const httpMocks = require("node-mocks-http");
 const { expect } = require("chai");
 const sinon = require("sinon");
@@ -6,7 +17,7 @@ const sinon = require("sinon");
 const models = require("../models");
 const { Ward } = models;
 
-// Controller under test
+// Controller tested
 const controller = require("../controllers/WardController");
 
 function makeReqRes() {
@@ -21,7 +32,7 @@ describe("SCRUM 27 — Staff list by ward via listDetailed()", () => {
 
   afterEach(() => {
     sinon.restore();
-    // Clean any properties we temporarily added
+    // Clean any properties temporarily added
     if (Ward && Ward.options) {
       // leave existing options untouched
     }
@@ -29,7 +40,7 @@ describe("SCRUM 27 — Staff list by ward via listDetailed()", () => {
 
   it("composes leader + staff correctly for each ward", async () => {
     // Force the non-scope path
-    sinon.stub(Ward, "scope"); // undefined or stubbed -> scopeExists = false if no scopes
+    sinon.stub(Ward, "scope"); // undefined or stubbed 
     sinon.stub(Ward, "options").value({}); // no scopes defined
     findAllStub = sinon.stub(Ward, "findAll").resolves([
       {
@@ -103,7 +114,7 @@ describe("SCRUM 27 — Staff list by ward via listDetailed()", () => {
   });
 
   it("uses Ward.scope('withPeople').findAll() when scope is available", async () => {
-    // Arrange: create a faux scoped object with its own findAll stub
+    // Arrange
     const scoped = { findAll: sinon.stub().resolves([]) };
 
     // Simulate presence of a scope named 'withPeople'

@@ -1,3 +1,13 @@
+// Test Output Meaning:
+//  - 200: Successful staff assignment to a ward.
+//  - 400: Invalid input 
+//  - 404: Ward not found in the database.
+ 
+//  These tests ensure:
+//  - Staff can only belong to one ward at a time.
+//  - Invalid inputs or missing wards return correct error codes.
+//  - Moving staff between wards removes them from previous assignments.
+ 
 const httpMocks = require("node-mocks-http");
 const { expect } = require("chai");
 const sinon = require("sinon");
@@ -6,9 +16,9 @@ const sinon = require("sinon");
 const models = require("../models");
 const { Ward } = models;
 
-// We will access MunicipalStaff dynamically inside tests to avoid circular requires
+// access MunicipalStaff dynamically inside tests to avoid circular requires
 
-// Controller under test
+// Controller
 const controller = require("../controllers/WardController");
 
 function makeReqRes({ method = "POST", url = "/api/wards/:id/staff", body = {}, params = {} } = {}) {
@@ -17,7 +27,7 @@ function makeReqRes({ method = "POST", url = "/api/wards/:id/staff", body = {}, 
   return { req, res };
 }
 
-// Helper to get Op.notIn without importing Op at top-level (mirrors controller usage)
+// Helper to get Op.notIn without importing Op at top-level
 const { Op } = require("sequelize");
 
 describe("SCRUM 26 — One-ward-per-staff via setStaff", () => {
@@ -28,7 +38,6 @@ describe("SCRUM 26 — One-ward-per-staff via setStaff", () => {
   it("returns 400 when staffUserIds is not an array", async () => {
     const { req, res } = makeReqRes({ params: { id: "wardA" }, body: { staffUserIds: "not-an-array" } });
 
-    // No DB stubs needed — should short-circuit
     await controller.setStaff(req, res);
     expect(res.statusCode).to.equal(400);
     const payload = res._getJSONData();
@@ -46,7 +55,7 @@ describe("SCRUM 26 — One-ward-per-staff via setStaff", () => {
   });
 
   it("assigns staff to Ward A, then moves same staff to Ward B (never duplicates)", async () => {
-    // Arrange: two wards exist
+    // Arrange - two wards exist
     const wardA = { id: "wardA" };
     const wardB = { id: "wardB" };
 
@@ -54,7 +63,7 @@ describe("SCRUM 26 — One-ward-per-staff via setStaff", () => {
     findByPkSeq.onFirstCall().resolves(wardA); // for first setStaff
     findByPkSeq.onSecondCall().resolves(wardB); // for second setStaff
 
-    // MunicipalStaff model methods — resolve from models dynamically (avoid import ordering issues)
+    // MunicipalStaff model methods — resolve from models dynamically
     const { MunicipalStaff } = require("../models");
     destroyStaffStub = sinon.stub(MunicipalStaff, "destroy").resolves(1);
     bulkCreateStaffStub = sinon.stub(MunicipalStaff, "bulkCreate").resolves([{ ward_id: "wardA", user_id: "u1" }]);
