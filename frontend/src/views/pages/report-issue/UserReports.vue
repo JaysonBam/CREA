@@ -79,6 +79,14 @@
                 class="w-full"
                 @click="openUploadDialog(report)"
               />
+              <Button
+                label="Chat"
+                icon="pi pi-comments"
+                severity="help"
+                outlined
+                class="w-full"
+                @click="openChat(report)"
+              />
             </div>
           </template>
         </Card>
@@ -140,6 +148,11 @@
         </FileUpload>
       </div>
     </Dialog>
+
+    <!-- Chat Dialog -->
+    <Dialog v-model:visible="showChatDialog" modal header="Report Chat" :style="{ width: '650px' }">
+      <ChatRoom v-if="currentReport.token" :issueToken="currentReport.token" />
+    </Dialog>
   </div>
 </template>
 
@@ -151,6 +164,7 @@ import {
   updateIssueReport,
   createFileAttachment
 } from "@/utils/backend_helper";
+import ChatRoom from "@/components/ChatRoom.vue";
 
 const reports = ref([]);
 const loading = ref(true);
@@ -158,6 +172,7 @@ const toast = useToast();
 
 const showEditDialog = ref(false);
 const showUploadDialog = ref(false);
+const showChatDialog = ref(false);
 const currentReport = reactive({
   id: null,
   token: null,
@@ -212,6 +227,11 @@ const saveReport = async () => {
 const openUploadDialog = (report) => {
   Object.assign(currentReport, report);
   showUploadDialog.value = true;
+};
+
+const openChat = (report) => {
+  Object.assign(currentReport, report);
+  showChatDialog.value = true;
 };
 
 // Custom upload handler using backend_helper

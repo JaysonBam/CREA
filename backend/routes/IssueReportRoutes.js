@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers//IssueReportController");
+const messageController = require("../controllers/MessageController");
 
 //The following line ensures a user has to have a valid JWT token to be able to access the routes
 //If auth is specified as an argument
@@ -22,5 +23,9 @@ router.get("/:token", auth, controller.getOne);
 router.post("/", auth, controller.create);
 router.put("/:token", auth, controller.update);
 router.delete("/:token", auth, controller.remove);
+
+// Messages for an Issue Report
+router.get("/:token/messages", auth, messageController.listForIssue);
+router.post("/:token/messages", auth, messageController.createForIssue);
 
 module.exports = router;

@@ -34,6 +34,12 @@ module.exports = (sequelize, DataTypes) => {
         as: "attachments",
       });
 
+      // An Issue Report can have many Messages (chat)
+      IssueReport.hasMany(models.Message, {
+        foreignKey: "issue_report_id",
+        as: "messages",
+      });
+
       // An Issue Report has one Message Thread
       // IssueReport.hasOne(models.MessageThread, {
       //   foreignKey: "issue_report_id",

@@ -154,6 +154,14 @@
             severity="danger"
             @click="confirmDelete(slotProps.data)"
           />
+          <Button
+            icon="pi pi-comments"
+            outlined
+            rounded
+            severity="help"
+            class="ml-2"
+            @click="openChat(slotProps.data)"
+          />
         </template>
       </Column>
     </DataTable>
@@ -237,6 +245,11 @@
         />
       </template>
     </Dialog>
+
+    <!-- Chat Dialog -->
+    <Dialog v-model:visible="chatDialogVisible" modal header="Report Chat" :style="{ width: '700px' }">
+      <ChatRoom v-if="chatTarget?.token" :issueToken="chatTarget.token" />
+    </Dialog>
   </div>
 </template>
 
@@ -250,6 +263,7 @@ import {
   updateIssueReport,
   deleteIssueReport,
 } from "@/utils/backend_helper"; // <-- IMPORTANT: UPDATE THIS PATH AND FUNCTIONS
+import ChatRoom from "@/components/ChatRoom.vue";
 
 const rows = ref([]);
 const loading = ref(false);
@@ -342,6 +356,8 @@ const save = async () => {
 /* ---------------- Delete with custom dialog ---------------- */
 const deleteDialogVisible = ref(false);
 const deleteTarget = ref(null);
+const chatDialogVisible = ref(false);
+const chatTarget = ref(null);
 
 const confirmDelete = (row) => {
   deleteTarget.value = row;
@@ -365,6 +381,11 @@ const deleteConfirmed = async () => {
     deleteDialogVisible.value = false;
     deleteTarget.value = null;
   }
+};
+
+const openChat = (row) => {
+  chatTarget.value = row;
+  chatDialogVisible.value = true;
 };
 
 /* ---------------------------------------------------------- */

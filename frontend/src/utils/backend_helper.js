@@ -27,6 +27,12 @@ export const updateIssueReport = (token, data) =>
 export const deleteIssueReport = (token) =>
   api.delete(`/api/issue-reports/${token}`);
 
+// --- Issue Messages ---
+export const listIssueMessages = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/messages`);
+export const postIssueMessage = (issueToken, content) =>
+  api.post(`/api/issue-reports/${issueToken}/messages`, { content });
+
 
 // --- Locations ---
 export const listLocations = () => api.get("/api/locations");
