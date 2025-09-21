@@ -61,7 +61,7 @@ const router = createRouter({
           name: "ward-requests",
           component: WardRequests,
           meta: { requiresAuth: true, adminOnly: true },
-        }
+        },
 
         { path: "wards", name: "wards", component: Wards },
 
