@@ -33,16 +33,16 @@ const idValidator = [param("id").isInt().withMessage("id must be an integer")];
 
 // Routes
 router.get("/", UserController.list);
-router.get("/:id", idValidator, UserController.get);
-router.post("/", createValidators, UserController.create);
-router.put("/:id", idValidator.concat(updateValidators), UserController.update);
-router.delete("/:id", idValidator, UserController.remove);
-
 
 router.post(
   "/login",
   [body("email").isEmail(), body("password").notEmpty()],
   UserController.login
 );
+
+router.get("/:id", idValidator, UserController.get);
+router.post("/", createValidators, UserController.create);
+router.put("/:id", idValidator.concat(updateValidators), UserController.update);
+router.delete("/:id", idValidator, UserController.remove);
 
 module.exports = router;
