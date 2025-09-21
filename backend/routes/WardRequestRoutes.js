@@ -5,5 +5,6 @@ const auth = require("../middleware/auth");
 
 router.post("/", auth, WardRequestController.create);
 router.get("/", auth, WardRequestController.list);
+router.get("/chain/:userId", auth, WardRequestController.chain);
 
 module.exports = router;

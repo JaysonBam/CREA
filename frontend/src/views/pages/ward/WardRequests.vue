@@ -69,15 +69,16 @@ async function respondToRequest(req, type) {
       ward_id: req.ward_id,
       job_description: req.job_description || 'staff description',
     });
-    alert('Response submitted!');
     adminMessages.value[req.id] = '';
     expanded.value[req.id] = false;
+    await fetchRequests();
   } catch (e) {
-    alert(e?.response?.data?.message || e?.message || 'Failed to submit response.');
+    error.value = e?.response?.data?.message || e?.message || 'Failed to submit response.';
   }
 }
 
-onMounted(async () => {
+async function fetchRequests() {
+  loading.value = true;
   try {
     const res = await get('/api/ward-requests');
     if (res.data && res.data.success) {
@@ -90,5 +91,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(fetchRequests);
 </script>

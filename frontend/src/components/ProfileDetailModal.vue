@@ -33,12 +33,16 @@
         <span class="text-gray-900 dark:text-gray-100">{{ formatDate(user.updatedAt) }}</span>
       </div>
       <WardAssignmentModal v-if="user.role !== 'admin'" :user="user" />
+      <div v-if="user.role === 'staff' || user.role === 'communityleader'" class="mt-6">
+        <WardRequestChain :userId="user.id" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import WardAssignmentModal from './WardAssignmentModal.vue';
+import WardRequestChain from './WardRequestChain.vue';
 //Expects a user
 const props = defineProps({
   user: { type: Object, required: true }

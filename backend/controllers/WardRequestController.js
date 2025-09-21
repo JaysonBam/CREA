@@ -90,4 +90,22 @@ module.exports = {
       return response.status(500).json({ success: false, message: 'Failed to fetch ward requests' });
     }
   },
+  // GET /api/ward-requests/chain/:userId
+  async chain(request, response) {
+    try {
+      const { userId } = request.params;
+      const { User, Ward } = require("../models");
+      const allRequests = await WardRequest.findAll({
+        where: { person_id: userId },
+        order: [['created_at', 'ASC']],
+        include: [
+          { model: User, as: 'person', attributes: ['id', 'first_name', 'last_name'] },
+          { model: Ward, as: 'ward', attributes: ['id', 'name', 'code'] }
+        ],
+      });
+      return response.status(200).json({ success: true, requests: allRequests });
+    } catch (e) {
+      return response.status(500).json({ success: false, message: 'Failed to fetch ward request chain' });
+    }
+  },
 };
