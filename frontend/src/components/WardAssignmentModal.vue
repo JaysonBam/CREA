@@ -30,6 +30,7 @@ import { ref, onMounted, computed } from 'vue';
 import { getAllWards } from '@/utils/ward_helper';
 import Dropdown from 'primevue/dropdown';
 import Button from 'primevue/button';
+import { post } from '@/utils/api';
 
 const props = defineProps({
   user: { type: Object, required: true }
@@ -84,8 +85,22 @@ onMounted(async () => {
   }
 });
 
-function submitRequest() {
-  // For now, just show a message (no backend)
-  requestMessage.value = 'Ward join request submitted!';
+async function submitRequest() {
+  try {
+    requestMessage.value = '';
+    const res = await post('/api/ward-requests', {
+      message: motivation.value,
+      type: 'request',
+    });
+    if (res.data && res.data.success) {
+      requestMessage.value = 'Ward join request submitted!';
+      motivation.value = '';
+      selectedWard.value = '';
+    } else {
+      requestMessage.value = 'Failed to submit request.';
+    }
+  } catch (e) {
+    requestMessage.value = e?.response?.data?.message || e?.message || 'Failed to submit request.';
+  }
 }
 </script>

@@ -54,6 +54,9 @@ const fileAttachmentRoutes = require("./routes/FileAttachmentRoutes");
 // NOTICE: This route does NOT get the jsonParser. It will be parsed by multer instead.
 app.use("/api/file-attachments", fileAttachmentRoutes);
 
+const wardRequestRoutes = require("./routes/WardRequestRoutes");
+app.use("/api/ward-requests", jsonParser, wardRequestRoutes);
+
 const fs = require("fs");
 const path = require("path");
 
