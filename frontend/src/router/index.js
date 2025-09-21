@@ -52,10 +52,7 @@ const router = createRouter({
         { path: "report-issue", name: "report-issue", component: ReportIssue },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
-<<<<<<< HEAD
         { path: "profile", name: "profile", component: Profile },
-=======
->>>>>>> bbfa4cc (	modified:   frontend/src/layout/AppMenu.vue)
         { path: "wards", name: "wards", component: Wards },
       ],
     },
