@@ -41,14 +41,10 @@ module.exports = {
       const userId = req.user?.user_id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-      // Authorization: allow owner or privileged roles to post
+      // Authorization policy: allow any authenticated user to post on a report
+      // If you want to restrict, re-enable checks for owner/privileged roles.
       const user = await User.findByPk(userId);
       if (!user) return res.status(401).json({ error: "Unauthorized" });
-      const isOwner = issue.user_id === userId;
-      const isPrivileged = ["staff", "communityleader", "admin"].includes(user.role);
-      if (!isOwner && !isPrivileged) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
 
       const { content } = req.body;
       if (!content || !content.trim()) {

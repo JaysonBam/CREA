@@ -32,6 +32,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { useToast } from 'primevue/usetoast';
 import { listIssueMessages, postIssueMessage } from '@/utils/backend_helper';
 
 const props = defineProps({
@@ -46,6 +47,7 @@ const draft = ref('');
 const messagesBox = ref(null);
 
 const currentUserToken = sessionStorage.getItem('token');
+const toast = useToast();
 
 const isMine = (m) => m?.author?.token === currentUserToken;
 const displayName = (u) => {
@@ -80,8 +82,9 @@ const send = async () => {
     draft.value = '';
     await load();
   } catch (e) {
-    // noop; page will have a toast higher level if needed
     console.error(e);
+    const detail = e?.response?.data?.error || e?.message || 'Failed to send message';
+    toast.add({ severity: 'error', summary: 'Send failed', detail, life: 3000 });
   } finally {
     sending.value = false;
   }
