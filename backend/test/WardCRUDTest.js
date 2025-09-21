@@ -5,8 +5,6 @@ const sinon = require("sinon");
 const models = require("../models");
 const { Ward } = models;
 
-// Adjust this path if your controller file is named differently
-// e.g. "../controllers/WardsController" or similar
 const controller = require("../controllers/WardController");
 
 function pickMethod(controller, names) {
@@ -19,7 +17,7 @@ function pickMethod(controller, names) {
 function resolveMethod(controller, primaryNames, fallbackRegexes) {
   const picked = pickMethod(controller, primaryNames);
   if (picked) return picked;
-  // fallback: try to find any function whose key matches any regex
+  // fallback: try to find any function whose key matches
   const entries = Object.entries(controller).filter(([, v]) => typeof v === 'function');
   for (const [key, fn] of entries) {
     if (fallbackRegexes.some(rx => rx.test(key))) return fn;
@@ -59,8 +57,7 @@ const removeFn = resolveMethod(
   [/remov/i, /destroy/i, /del/i]
 );
 
-// This suite covers basic CRUD for Wards using the same style as UserTest.js
-// Endpoints (controller methods assumed):
+// Endpoints:
 //  - index   => list all wards
 //  - show    => get one ward by :id
 //  - create  => create a ward
@@ -80,7 +77,7 @@ describe("WardController CRUD", () => {
     sinon.restore();
   });
 
-  // LIST (GET /api/wards)
+  // LIST
   it("lists wards (index) and returns minimal fields", async () => {
     findAllStub = sinon.stub(Ward, "findAll").resolves([
       { id: "w1", name: "Ward 1", code: "W1" },
@@ -98,7 +95,7 @@ describe("WardController CRUD", () => {
     expect(payload).to.be.an("array");
     if (payload[0]) {
       expect(payload[0]).to.include.keys(["id", "name"]);
-      // `code` field is optional in some schemas; if present, it should be a string
+    
       if (Object.prototype.hasOwnProperty.call(payload[0], 'code')) {
         expect(payload[0].code).to.be.a('string');
       }
@@ -123,7 +120,7 @@ describe("WardController CRUD", () => {
       const payload = data?.data || data?.ward || data || {};
       expect(payload).to.have.property("id");
       expect(payload.name).to.equal("Ward 3");
-      // Response may omit `code` depending on model attributes; only assert if present
+    
       if (Object.prototype.hasOwnProperty.call(payload, 'code')) {
         expect(payload.code).to.equal("W3");
       }
@@ -135,7 +132,6 @@ describe("WardController CRUD", () => {
   });
 
   it("returns 400 on create when name missing", async () => {
-    // No need to stub create; controller should validate and early-return 400
     const { req, res } = makeReqRes({ method: "POST", url: "/api/wards", body: {} });
     await createFn(req, res);
     const data = res._getJSONData();
@@ -143,7 +139,7 @@ describe("WardController CRUD", () => {
     expect(res.statusCode).to.equal(400);
   });
 
-  // UPDATE (PUT /api/wards/:id)
+  // UPDATE
   it("updates a ward name (update)", async () => {
     const updateFnStub = sinon.stub().resolves({ id: "w1", name: "Ward 1 Updated" });
     findByPkStub = sinon.stub(Ward, "findByPk").resolves({ id: "w1", name: "Ward 1", update: updateFnStub });
@@ -166,7 +162,7 @@ describe("WardController CRUD", () => {
     expect(res.statusCode).to.equal(404);
   });
 
-  // DELETE (DELETE /api/wards/:id)
+  // DELETE
   it("deletes a ward (remove)", async () => {
     const destroyFn = sinon.stub().resolves(1);
     findByPkStub = sinon.stub(Ward, "findByPk").resolves({ id: "w2", name: "Ward 2", destroy: destroyFn });
@@ -174,7 +170,6 @@ describe("WardController CRUD", () => {
     const { req, res } = makeReqRes({ method: "DELETE", url: "/api/wards/w2", params: { id: "w2" } });
     await removeFn(req, res);
 
-    // Some controllers send 204 No Content; others 200 with a payload.
     expect(res.statusCode).to.equal(200);
     expect(destroyFn.calledOnce).to.equal(true);
   });

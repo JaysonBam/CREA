@@ -1,3 +1,15 @@
+
+// Test Output Meaning:
+//  - 401: Unauthorized — request missing or has invalid token.
+//  - 403: Forbidden — user is not allowed (either not a Leader, or Leader of a different ward).
+//  - 200: Success — correct Leader performed a valid action on their ward.
+
+// These tests ensure:
+//  - Only authenticated users with valid JWT tokens can access ward management endpoints.
+//  - Only a Leader role can manage staff/leader assignments for a ward.
+//  - A Leader can only modify their own ward, not other wards.
+//  - Staff/Leader updates call the expected model methods (destroy, create, bulkCreate).
+ 
 const express = require('express');
 const bodyParser = require('body-parser');
 const request = require('supertest');
@@ -10,9 +22,9 @@ const models = require('../models');
 const { Ward } = models;
 const controller = require('../controllers/WardController');
 
-const JWT_SECRET = 'secret'; // align with your .env for tests
+const JWT_SECRET = 'secret';
 
-// ---- Tiny auth + RBAC middlewares for the test app ----
+// Tiny auth + RBAC middlewares for the test app
 function auth(req, res, next) {
   try {
     const hdr = req.get('Authorization') || '';
@@ -36,7 +48,7 @@ function ensureWardLeader(req, res, next) {
   return next();
 }
 
-// ---- Build a minimal app that mounts WardController with the RBAC middlewares ----
+// Build a minimal app that mounts WardController with the RBAC middlewares
 function makeApp() {
   const app = express();
   app.use(bodyParser.json());
@@ -77,10 +89,9 @@ describe('SCRUM 29 — RBAC (only Leader of a ward may manage it)', () => {
 
   afterEach(() => sinon.restore());
 
-  // ---------- Helpers ----------
   const as = (t) => (t ? { Authorization: `Bearer ${t}` } : {});
 
-  // ---------- setStaff ----------
+  // setStaff
   it('401 when no token on setStaff', async () => {
     const res = await request(app).put('/api/wards/w1/staff').send({ staffUserIds: ['u1'] });
     expect(res.status).to.equal(401);
@@ -110,7 +121,7 @@ describe('SCRUM 29 — RBAC (only Leader of a ward may manage it)', () => {
     expect(bulkCreateStaff.calledOnce).to.equal(true);
   });
 
-  // ---------- setLeader ----------
+  // setLeader
   it('401 when no token on setLeader', async () => {
     const res = await request(app).put('/api/wards/w1/leader').send({ leaderUserId: 'L1' });
     expect(res.status).to.equal(401);
