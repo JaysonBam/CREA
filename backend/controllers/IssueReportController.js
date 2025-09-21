@@ -1,8 +1,18 @@
 const { IssueReport, User, Location, FileAttachment } = require("../models");
-const { Op } = require("sequelize"); // Import Sequelize's operators
+// Import Sequelize's operators (e.g., Op.iLike, Op.between) for more complex queries.
+const { Op } = require("sequelize");
+// Import the Zod schema for validation.
 const issueReportSchema = require('../schemas/issueReportSchema');
-const { ZodError } = require('zod'); // Import ZodError for catching validation errors
+// Import Zod's error class to specifically catch validation errors.
+const { ZodError } = require('zod');
 
+/**
+ * A helper function to find a record by its token.
+ * If not found, it automatically sends a 404 response, reducing code duplication.
+ * @param {string} token - The unique token of the IssueReport to find.
+ * @param {object} res - The Express response object.
+ * @returns {Promise<IssueReport|null>} The found model instance or null if not found.
+ */
 async function findByTokenOr404(token, res) {
   const row = await IssueReport.findOne({ where: { token } });
   if (!row) {
@@ -13,82 +23,74 @@ async function findByTokenOr404(token, res) {
 }
 
 /**
- * List issue reports
- * Supports optional filtering via query params:
- * - category: enum string
- * - status: enum string
- * - title or q: substring (case-insensitive) on title
- * - sw_lat, sw_lng, ne_lat, ne_lng: optional location bounding box
+ * List issue reports with powerful, optional filtering capabilities.
+ * Supports filtering by category, status, title, and a geographic bounding box.
  */
 exports.list = async (req, res) => {
-  // Destructure the bounding box coordinates and filters from the request query
+  // Destructure filter parameters from the request's query string (e.g., /issues?status=OPEN).
   const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
 
   try {
-    // Base options for the Sequelize query.
-    // We always want to include User and Location data.
+    // --- Base Query Configuration ---
+    // Start with a base options object for the Sequelize query.
     const options = {
       include: [
         {
           model: User,
           as: "user",
-          attributes: ["token", "first_name", "last_name", "email"], // Specify attributes for security
+          attributes: ["token", "first_name", "last_name", "email"], // Only include necessary, non-sensitive user fields.
         },
         {
           model: Location,
           as: "location",
-          required: false, // Use LEFT JOIN to include reports without a location
+          required: false, // Use a LEFT JOIN to include reports that may not have a location.
         },
         {
             model: FileAttachment,
-            as: 'attachments', // This alias MUST match what the frontend expects
-            attributes: ['token', 'file_link', 'description'], // Only send necessary data
-            required: false    // Use a LEFT JOIN to include reports even if they have no attachments
+            as: 'attachments',
+            attributes: ['token', 'file_link', 'description'], // Select specific attachment fields.
+            required: false    // LEFT JOIN to include reports even if they have no attachments.
         },
       ],
-      order: [["id", "DESC"]], // Order by most recent
+      order: [["id", "DESC"]], // Default order: newest reports first.
     };
 
-    // Apply simple filters (category, status, title)
+    // --- Dynamic Filter Construction ---
+    // Build the `where` clause based on provided query parameters.
     const where = {};
     if (category) where.category = category;
     if (status) where.status = status;
-  const titleTerm = (q || title);
-  if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+    const titleTerm = (q || title); // Allow either 'q' or 'title' for searching.
+    if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` }; // `iLike` is a case-insensitive search.
+    
+    // Add the constructed where clause to the main options if any filters were applied.
     if (Object.keys(where).length) options.where = where;
 
-    // Check if all four coordinates for the bounding box are provided
+    // --- Geospatial Filter ---
+    // If all four bounding box coordinates are provided, add a location filter.
     if (sw_lat && sw_lng && ne_lat && ne_lng) {
-      // console.log("Listing issue reports with location filter");
-
-      // Add a WHERE clause to the Location model include
+      // Add a `where` clause specifically to the included Location model.
       options.include[1].where = {
         [Op.and]: [
-          {
-            latitude: {
-              [Op.between]: [parseFloat(sw_lat), parseFloat(ne_lat)],
-            },
-          },
-          {
-            longitude: {
-              [Op.between]: [parseFloat(sw_lng), parseFloat(ne_lng)],
-            },
-          },
+          { latitude: { [Op.between]: [parseFloat(sw_lat), parseFloat(ne_lat)] } },
+          { longitude: { [Op.between]: [parseFloat(sw_lng), parseFloat(ne_lng)] } },
         ],
       };
-      // Make the join required since we are filtering by it
+      // Change the join to an INNER JOIN. This ensures only reports *with* a location inside the box are returned.
       options.include[1].required = true; 
-    } else {
-      // console.log("Listing all issue reports (no filter)");
     }
 
-    // Execute the query with the constructed options
+    // Execute the final query with all constructed options.
     const reports = await IssueReport.findAll(options);
     
+    // --- Post-Query Processing ---
+    // Convert Sequelize model instances to plain JavaScript objects for manipulation.
     const plainReports = reports.map(report => report.get({ plain: true }));
+    // Determine the base URL for constructing full file links.
     const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
 
-    // Loop through the reports and attachments to create full URLs
+    // The database stores relative paths (`/uploads/file.png`). We must prepend the server's
+    // base URL to make them accessible to the client.
     plainReports.forEach(report => {
         if (report.attachments) {
             report.attachments.forEach(attachment => {
@@ -104,11 +106,12 @@ exports.list = async (req, res) => {
   }
 };
 
-/** Fetch a single issue report by token */
+/** Fetch a single issue report by its token. */
 exports.getOne = async (req, res) => {
   try {
+    // Use the helper to find the record or send a 404 response.
     const row = await findByTokenOr404(req.params.token, res);
-    if (!row) return;
+    if (!row) return; // Stop execution if the helper already sent a response.
     res.json(row);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -116,41 +119,35 @@ exports.getOne = async (req, res) => {
 };
 
 /**
- * Get reports created by a specific user (by user token).
- * Optional filters: category, status, title or q.
- * Includes attachments with normalized file URLs.
+ * Get all reports created by a specific user, identified by their token.
  */
 exports.getUserReports = async (req, res) => {
-  // console.log("Fetching reports for user:", req.params.userToken);
     try {
         const userToken = req.params.userToken;
-        // find user id for given token
+        // First, find the user's internal ID from their public token.
         const currUser = await User.findOne({ where: { token: userToken } });
         if (!currUser) {
             return res.status(404).json({ error: "User not found" });
         }
         const userId = currUser.id;
-        // console.log("Found user ID:", userId);
 
-        // find all issue reports for given user id
+        // Then, find all reports where `user_id` matches.
         const reports = await IssueReport.findAll({
             where: { user_id: userId },
-            // Include the associated FileAttachment model
-            include: [
+            include: [ // Also include any file attachments for these reports.
                 {
                     model: FileAttachment,
-                    as: 'attachments', // This alias MUST match what the frontend expects
-                    attributes: ['token', 'file_link', 'description'], // Only send necessary data
-                    required: false    // Use a LEFT JOIN to include reports even if they have no attachments
+                    as: 'attachments',
+                    attributes: ['token', 'file_link', 'description'],
+                    required: false
                 }
             ],
-            order: [["createdAt", "DESC"]] // Order by newest first is generally better for user reports
+            order: [["createdAt", "DESC"]]
         });
 
+        // Normalize attachment URLs to be absolute, just like in the main `list` function.
         const plainReports = reports.map(report => report.get({ plain: true }));
         const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
-
-        // Loop through the reports and attachments to create full URLs
         plainReports.forEach(report => {
             if (report.attachments) {
                 report.attachments.forEach(attachment => {
@@ -159,32 +156,33 @@ exports.getUserReports = async (req, res) => {
             }
         });
 
-
         res.json(plainReports);
-        // console.log(`Found ${plainReports.length} reports for user ${userToken}`);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 };
 
 /**
- * Title suggestions limited to a given user's reports.
- * Query param: q (partial title).
+ * Provide title suggestions for an autocomplete feature, scoped to a specific user's reports.
+ * Responds to a query parameter 'q' (e.g., /suggestions/user/abc?q=road).
  */
 exports.titleSuggestionsForUser = async (req, res) => {
   try {
     const userToken = req.params.userToken;
-    const q = String(req.query.q || "").trim();
+    const q = String(req.query.q || "").trim(); // Get and sanitize the search term.
     if (!q) return res.json({ titles: [] });
+
     const currUser = await User.findOne({ where: { token: userToken } });
     if (!currUser) return res.status(404).json({ error: "User not found" });
     const userId = currUser.id;
+
     const rows = await IssueReport.findAll({
-      where: { user_id: userId, title: { [Op.iLike]: `%${q}%` } },
-      attributes: ["title"],
+      where: { user_id: userId, title: { [Op.iLike]: `%${q}%` } }, // Filter by user AND title.
+      attributes: ["title"], // Only fetch the title field for efficiency.
       order: [["title", "ASC"]],
       limit: 25,
     });
+    // De-duplicate the results and limit to the top 10.
     const titles = Array.from(new Set(rows.map(r => r.title))).slice(0, 10);
     res.json({ titles });
   } catch (e) {
@@ -192,26 +190,25 @@ exports.titleSuggestionsForUser = async (req, res) => {
   }
 };
 
-/** Create a new issue report (basic fields only) */
+/** Create a new issue report using data validated by a Zod schema. */
 exports.create = async (req, res) => {
   try {
-    // console.log("Creating issue report with data:", req.body);
+    // `parse` will throw a `ZodError` if the request body doesn't match the schema.
     const validatedData = issueReportSchema.parse(req.body);
-    // console.log("Validated data:", validatedData);
     const { user_id, title, description, isActive, category, location_id } = validatedData;
     const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
     res.status(201).json(created);
   } catch (e) {
-    console.error("Error creating issue report:", e);
+    // If the error is from Zod, format it into a user-friendly response.
     if (e instanceof ZodError) {
-      // Respond with a structured list of errors
       return res.status(400).json({ errors: e.flatten().fieldErrors });
     }
+    // Handle other potential errors (e.g., database constraint violations).
     res.status(400).json({ error: e.message });
   }
 };
 
-/** Update an existing issue report's basic fields */
+/** Update an existing issue report's basic fields. */
 exports.update = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -225,7 +222,7 @@ exports.update = async (req, res) => {
   }
 };
 
-/** Delete an issue report by token */
+/** Delete an issue report by its token. */
 exports.remove = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -237,10 +234,8 @@ exports.remove = async (req, res) => {
   }
 };
 
-// Title suggestions for autocomplete
 /**
- * Global title suggestions across all reports.
- * Query param: q (partial title), returns up to 10 unique matches.
+ * Provide global title suggestions for an autocomplete feature across all reports.
  */
 exports.titleSuggestions = async (req, res) => {
   try {
@@ -252,7 +247,6 @@ exports.titleSuggestions = async (req, res) => {
       order: [["title", "ASC"]],
       limit: 25,
     });
-    // De-duplicate titles
     const titles = Array.from(new Set(rows.map((r) => r.title))).slice(0, 10);
     res.json({ titles });
   } catch (e) {
