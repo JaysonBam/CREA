@@ -13,6 +13,7 @@ const auth = require("../middleware/auth");
 router.get("/", auth, controller.list);
 // Place non-:token routes BEFORE token routes to avoid matching issues
 router.get("/unread", auth, messageController.unreadCounts);
+// Title autocomplete suggestions (global)
 router.get("/title-suggestions", auth, controller.titleSuggestions);
 
 router.get("/user/:userToken", auth, controller.getUserReports);

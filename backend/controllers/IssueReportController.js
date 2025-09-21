@@ -10,6 +10,14 @@ async function findByTokenOr404(token, res) {
   return row;
 }
 
+/**
+ * List issue reports
+ * Supports optional filtering via query params:
+ * - category: enum string
+ * - status: enum string
+ * - title or q: substring (case-insensitive) on title
+ * - sw_lat, sw_lng, ne_lat, ne_lng: optional location bounding box
+ */
 exports.list = async (req, res) => {
   // Destructure the bounding box coordinates and filters from the request query
   const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
@@ -76,6 +84,7 @@ exports.list = async (req, res) => {
   }
 };
 
+/** Fetch a single issue report by token */
 exports.getOne = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -86,6 +95,11 @@ exports.getOne = async (req, res) => {
   }
 };
 
+/**
+ * Get reports created by a specific user (by user token).
+ * Optional filters: category, status, title or q.
+ * Includes attachments with normalized file URLs.
+ */
 exports.getUserReports = async (req, res) => {
   console.log("Fetching reports for user:", req.params.userToken);
   try {
@@ -140,6 +154,10 @@ exports.getUserReports = async (req, res) => {
   }
 };
 
+/**
+ * Title suggestions limited to a given user's reports.
+ * Query param: q (partial title).
+ */
 exports.titleSuggestionsForUser = async (req, res) => {
   try {
     const userToken = req.params.userToken;
@@ -161,6 +179,7 @@ exports.titleSuggestionsForUser = async (req, res) => {
   }
 };
 
+/** Create a new issue report (basic fields only) */
 exports.create = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
@@ -171,6 +190,7 @@ exports.create = async (req, res) => {
   }
 };
 
+/** Update an existing issue report's basic fields */
 exports.update = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -184,6 +204,7 @@ exports.update = async (req, res) => {
   }
 };
 
+/** Delete an issue report by token */
 exports.remove = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -196,6 +217,10 @@ exports.remove = async (req, res) => {
 };
 
 // Title suggestions for autocomplete
+/**
+ * Global title suggestions across all reports.
+ * Query param: q (partial title), returns up to 10 unique matches.
+ */
 exports.titleSuggestions = async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();

@@ -216,6 +216,7 @@ const currentReport = reactive({
   description: "",
 });
 
+// Load the current user's reports with optional filters and refresh unread counts
 const loadReports = async () => {
   loading.value = true;
   try {
@@ -239,6 +240,7 @@ const loadReports = async () => {
   }
 };
 
+// Refresh unread counts for the user's report tokens
 const refreshUnread = async () => {
   try {
     const tokens = reports.value.map(r => r.token);
@@ -270,6 +272,7 @@ const refreshUnread = async () => {
   }
 };
 
+// Prefill and open the Edit dialog
 const openEditDialog = (report) => {
   Object.assign(currentReport, {
     id: report.id,
@@ -280,6 +283,7 @@ const openEditDialog = (report) => {
   showEditDialog.value = true;
 };
 
+// Save report title/description edits, then reload list
 const saveReport = async () => {
   if (!currentReport.token) return;
   try {
@@ -296,11 +300,13 @@ const saveReport = async () => {
   }
 };
 
+// Open the file upload dialog for a report
 const openUploadDialog = (report) => {
   Object.assign(currentReport, report);
   showUploadDialog.value = true;
 };
 
+// Open Chat dialog and clear local unread chip for that thread
 const openChat = (report) => {
   Object.assign(currentReport, report);
   showChatDialog.value = true;
@@ -309,6 +315,7 @@ const openChat = (report) => {
 };
 
 // Custom upload handler using backend_helper
+// Upload file attachments for the current report
 const uploadFiles = async (event) => {
   try {
     const formData = new FormData();
@@ -337,6 +344,7 @@ const getStatusSeverity = (status) => {
   }
 };
 
+// Initial load and periodic unread refresh
 onMounted(async () => {
   await loadReports();
   unreadTimer = setInterval(refreshUnread, 5000);
@@ -346,6 +354,7 @@ onUnmounted(() => {
   if (unreadTimer) clearInterval(unreadTimer);
 });
 
+// Clear UI filters and reload user reports
 const clearFilters = () => {
   categoryFilter.value = null;
   statusFilter.value = null;
@@ -356,6 +365,7 @@ const clearFilters = () => {
 };
 
 let titleDebounce;
+// Debounced title input: fetch suggestions for this user and reload list
 const onTitleInput = async () => {
   const q = titleQuery.value?.trim() || "";
   // When cleared, hide suggestions and reload all
@@ -378,6 +388,7 @@ const onTitleInput = async () => {
   }, 250);
 };
 
+// Apply a clicked suggestion and reload
 const applyTitleSuggestion = (t) => {
   titleQuery.value = t;
   showTitleSuggestions.value = false;
