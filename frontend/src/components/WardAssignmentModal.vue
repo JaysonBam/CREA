@@ -17,7 +17,10 @@
         :disabled="wardsLoading"
       />
       <textarea v-model="motivation" rows="3" class="w-full p-2 border rounded mb-2" placeholder="Write your motivation..."></textarea>
-      <Button label="Submit Request" class="w-full" :disabled="!selectedWard || !motivation || wardsLoading" @click="submitRequest" />
+      <div v-if="props.user.role === 'staff'">
+        <input v-model="jobDescription" type="text" class="w-full p-2 border rounded mb-2" placeholder="Enter your job description" />
+      </div>
+      <Button label="Submit Request" class="w-full" :disabled="!selectedWard || !motivation || (props.user.role === 'staff' && !jobDescription) || wardsLoading" @click="submitRequest" />
       <div v-if="requestMessage" class="mt-2 text-green-600">{{ requestMessage }}</div>
       <div v-if="wardsError" class="mt-2 text-red-500">{{ wardsError }}</div>
     </template>
@@ -41,6 +44,8 @@ const wardsLoading = ref(false);
 const wardsError = ref('');
 const selectedWard = ref('');
 const motivation = ref('');
+
+const jobDescription = ref('');
 const requestMessage = ref('');
 
 
@@ -88,14 +93,23 @@ onMounted(async () => {
 async function submitRequest() {
   try {
     requestMessage.value = '';
+    let jobDesc = '';
+    if (props.user.role === 'staff') {
+      jobDesc = jobDescription.value || 'staff description';
+    } else if (props.user.role === 'communityleader') {
+      jobDesc = 'community leader';
+    }
     const res = await post('/api/ward-requests', {
       message: motivation.value,
       type: 'request',
+      ward_id: wards.value.find(w => w.code === selectedWard.value)?.id,
+      job_description: jobDesc,
     });
     if (res.data && res.data.success) {
       requestMessage.value = 'Ward join request submitted!';
       motivation.value = '';
       selectedWard.value = '';
+      jobDescription.value = '';
     } else {
       requestMessage.value = 'Failed to submit request.';
     }

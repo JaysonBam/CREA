@@ -16,6 +16,14 @@ module.exports = {
         type: Sequelize.BIGINT,
         allowNull: false,
       },
+      ward_id: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+      },
+      job_description: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
       message: {
         type: Sequelize.TEXT,
         allowNull: false,

@@ -4,7 +4,8 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class WardRequest extends Model {
     static associate(models) {
-      WardRequest.belongsTo(models.User, { foreignKey: 'person_id', as: 'person' });
+  WardRequest.belongsTo(models.User, { foreignKey: 'person_id', as: 'person' });
+  WardRequest.belongsTo(models.Ward, { foreignKey: 'ward_id', as: 'ward' });
     }
   }
   WardRequest.init(
@@ -24,6 +25,14 @@ module.exports = (sequelize, DataTypes) => {
       },
       message: {
         type: DataTypes.TEXT,
+        allowNull: false,
+      },
+      job_description: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      ward_id: {
+        type: DataTypes.BIGINT,
         allowNull: false,
       },
       type: {
