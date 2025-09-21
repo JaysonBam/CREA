@@ -8,11 +8,14 @@ import Testcrud from "@/views/pages/testcrud/testcrud.vue";
 import Register from "@/views/pages/auth/Register.vue";
 
 import ReportIssue from "@/views/pages/report-issue/ReportIssue.vue";
+import Report from "@/views/pages/report/Report.vue";
 import UserReports from "@/views/pages/report-issue/UserReports.vue";
 import ReportMap from "@/views/pages/report-issue/ReportMap.vue";
 import MapPickerTest from '@/views/MapPickerTest.vue';
+
 import Profile from '@/views/pages/Profile.vue';
 import WardRequests from '@/views/pages/ward/WardRequests.vue';
+import Wards from "@/views/pages/Wards.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -47,16 +50,21 @@ const router = createRouter({
         { path: "", redirect: { name: "dashboard" } },
         { path: "dashboard", name: "dashboard", component: Dashboard },
         { path: "test-crud", name: "test-crud", component: Testcrud },
-        { path: "report-issue", name: "report-issue", component: ReportIssue },
+  { path: "report-issue", name: "report-issue", component: ReportIssue },
+  { path: "reports", name: "reports", component: Report },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
         { path: "profile", name: "profile", component: Profile },
+
         {
           path: "ward-requests",
           name: "ward-requests",
           component: WardRequests,
           meta: { requiresAuth: true, adminOnly: true },
         }
+
+        { path: "wards", name: "wards", component: Wards },
+
       ],
     },
 

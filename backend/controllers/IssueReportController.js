@@ -1,5 +1,7 @@
 const { IssueReport, User, Location, FileAttachment } = require("../models");
 const { Op } = require("sequelize"); // Import Sequelize's operators
+const issueReportSchema = require('../schemas/issueReportSchema');
+const { ZodError } = require('zod'); // Import ZodError for catching validation errors
 
 async function findByTokenOr404(token, res) {
   const row = await IssueReport.findOne({ where: { token } });
@@ -10,9 +12,17 @@ async function findByTokenOr404(token, res) {
   return row;
 }
 
-exports.list = async (_req, res) => {
-  // Destructure the bounding box coordinates from the request query
-  const { sw_lat, sw_lng, ne_lat, ne_lng } = _req.query;
+/**
+ * List issue reports
+ * Supports optional filtering via query params:
+ * - category: enum string
+ * - status: enum string
+ * - title or q: substring (case-insensitive) on title
+ * - sw_lat, sw_lng, ne_lat, ne_lng: optional location bounding box
+ */
+exports.list = async (req, res) => {
+  // Destructure the bounding box coordinates and filters from the request query
+  const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
 
   try {
     // Base options for the Sequelize query.
@@ -29,13 +39,27 @@ exports.list = async (_req, res) => {
           as: "location",
           required: false, // Use LEFT JOIN to include reports without a location
         },
+        {
+            model: FileAttachment,
+            as: 'attachments', // This alias MUST match what the frontend expects
+            attributes: ['token', 'file_link', 'description'], // Only send necessary data
+            required: false    // Use a LEFT JOIN to include reports even if they have no attachments
+        },
       ],
       order: [["id", "DESC"]], // Order by most recent
     };
 
+    // Apply simple filters (category, status, title)
+    const where = {};
+    if (category) where.category = category;
+    if (status) where.status = status;
+  const titleTerm = (q || title);
+  if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+    if (Object.keys(where).length) options.where = where;
+
     // Check if all four coordinates for the bounding box are provided
     if (sw_lat && sw_lng && ne_lat && ne_lng) {
-      console.log("Listing issue reports with location filter");
+      // console.log("Listing issue reports with location filter");
 
       // Add a WHERE clause to the Location model include
       options.include[1].where = {
@@ -55,19 +79,32 @@ exports.list = async (_req, res) => {
       // Make the join required since we are filtering by it
       options.include[1].required = true; 
     } else {
-      console.log("Listing all issue reports (no filter)");
+      // console.log("Listing all issue reports (no filter)");
     }
 
     // Execute the query with the constructed options
-    const rows = await IssueReport.findAll(options);
+    const reports = await IssueReport.findAll(options);
+    
+    const plainReports = reports.map(report => report.get({ plain: true }));
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
 
-    res.json(rows);
+    // Loop through the reports and attachments to create full URLs
+    plainReports.forEach(report => {
+        if (report.attachments) {
+            report.attachments.forEach(attachment => {
+                attachment.file_link = `${baseUrl}${attachment.file_link}`;
+            });
+        }
+    });
+
+    res.json(reports);
   } catch (e) {
     console.error("Failed to list issue reports:", e);
     res.status(500).json({ error: e.message });
   }
 };
 
+/** Fetch a single issue report by token */
 exports.getOne = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -78,8 +115,13 @@ exports.getOne = async (req, res) => {
   }
 };
 
+/**
+ * Get reports created by a specific user (by user token).
+ * Optional filters: category, status, title or q.
+ * Includes attachments with normalized file URLs.
+ */
 exports.getUserReports = async (req, res) => {
-  console.log("Fetching reports for user:", req.params.userToken);
+  // console.log("Fetching reports for user:", req.params.userToken);
     try {
         const userToken = req.params.userToken;
         // find user id for given token
@@ -88,7 +130,7 @@ exports.getUserReports = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
         const userId = currUser.id;
-        console.log("Found user ID:", userId);
+        // console.log("Found user ID:", userId);
 
         // find all issue reports for given user id
         const reports = await IssueReport.findAll({
@@ -118,23 +160,58 @@ exports.getUserReports = async (req, res) => {
         });
 
 
-        res.json(reports);
-        console.log(`Found ${reports.length} reports for user ${userToken}`);
+        res.json(plainReports);
+        // console.log(`Found ${plainReports.length} reports for user ${userToken}`);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 };
 
+/**
+ * Title suggestions limited to a given user's reports.
+ * Query param: q (partial title).
+ */
+exports.titleSuggestionsForUser = async (req, res) => {
+  try {
+    const userToken = req.params.userToken;
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ titles: [] });
+    const currUser = await User.findOne({ where: { token: userToken } });
+    if (!currUser) return res.status(404).json({ error: "User not found" });
+    const userId = currUser.id;
+    const rows = await IssueReport.findAll({
+      where: { user_id: userId, title: { [Op.iLike]: `%${q}%` } },
+      attributes: ["title"],
+      order: [["title", "ASC"]],
+      limit: 25,
+    });
+    const titles = Array.from(new Set(rows.map(r => r.title))).slice(0, 10);
+    res.json({ titles });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+/** Create a new issue report (basic fields only) */
 exports.create = async (req, res) => {
   try {
-    const { title, description, isActive } = req.body;
-    const created = await IssueReport.create({ title, description, isActive });
+    // console.log("Creating issue report with data:", req.body);
+    const validatedData = issueReportSchema.parse(req.body);
+    // console.log("Validated data:", validatedData);
+    const { user_id, title, description, isActive, category, location_id } = validatedData;
+    const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
     res.status(201).json(created);
   } catch (e) {
+    console.error("Error creating issue report:", e);
+    if (e instanceof ZodError) {
+      // Respond with a structured list of errors
+      return res.status(400).json({ errors: e.flatten().fieldErrors });
+    }
     res.status(400).json({ error: e.message });
   }
 };
 
+/** Update an existing issue report's basic fields */
 exports.update = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
@@ -148,12 +225,36 @@ exports.update = async (req, res) => {
   }
 };
 
+/** Delete an issue report by token */
 exports.remove = async (req, res) => {
   try {
     const row = await findByTokenOr404(req.params.token, res);
     if (!row) return;
     await row.destroy();
     res.status(204).end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// Title suggestions for autocomplete
+/**
+ * Global title suggestions across all reports.
+ * Query param: q (partial title), returns up to 10 unique matches.
+ */
+exports.titleSuggestions = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ titles: [] });
+    const rows = await IssueReport.findAll({
+      where: { title: { [Op.iLike]: `%${q}%` } },
+      attributes: ["title"],
+      order: [["title", "ASC"]],
+      limit: 25,
+    });
+    // De-duplicate titles
+    const titles = Array.from(new Set(rows.map((r) => r.title))).slice(0, 10);
+    res.json({ titles });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

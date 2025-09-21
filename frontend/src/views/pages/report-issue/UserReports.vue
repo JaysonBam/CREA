@@ -2,7 +2,20 @@
   <div class="card">
     <Toast />
     <div class="p-4">
-      <h1 class="text-2xl font-bold mb-4">My Reported Issues</h1>
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <h1 class="text-2xl font-bold">My Reported Issues</h1>
+        <!-- <div class="flex items-center gap-2">
+          <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
+          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
+          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+          <div class="relative">
+            <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
+            <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
+              <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
+            </ul>
+          </div>
+        </div> -->
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-16">
@@ -49,9 +62,12 @@
           <!-- =================================================================== -->
 
           <template #title>
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start gap-2">
               <span class="truncate">{{ report.title }}</span>
-              <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
+              <div class="flex items-center gap-2">
+                <span v-if="unread[report.token] > 0" class="unread-chip" :title="`${unread[report.token]} unread`">{{ unread[report.token] }}</span>
+                <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
+              </div>
             </div>
           </template>
           <template #subtitle>
@@ -79,6 +95,22 @@
                 class="w-full"
                 @click="openUploadDialog(report)"
               />
+              <span class="relative w-full">
+                <Button
+                  label="Chat"
+                  icon="pi pi-comments"
+                  severity="help"
+                  outlined
+                  class="w-full"
+                  @click="openChat(report)"
+                />
+                <span
+                  v-if="unread[report.token] > 0"
+                  class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
+                >
+                  {{ unread[report.token] }}
+                </span>
+              </span>
             </div>
           </template>
         </Card>
@@ -140,24 +172,43 @@
         </FileUpload>
       </div>
     </Dialog>
+
+    <!-- Chat Dialog -->
+    <Dialog v-model:visible="showChatDialog" modal header="Report Chat" :style="{ width: '650px' }">
+      <ChatRoom v-if="currentReport.token" :issueToken="currentReport.token" />
+    </Dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
   updateIssueReport,
   createFileAttachment
 } from "@/utils/backend_helper";
+import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
+import { getUserIssueTitleSuggestions } from "@/utils/backend_helper";
+import ChatRoom from "@/components/ChatRoom.vue";
 
 const reports = ref([]);
 const loading = ref(true);
 const toast = useToast();
+const unread = ref({});
+let unreadTimer = null;
+
+const categoryOptions = ['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER'];
+const statusOptions = ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+const categoryFilter = ref(null);
+const statusFilter = ref(null);
+const titleQuery = ref("");
+const titleSuggestions = ref([]);
+const showTitleSuggestions = ref(false);
 
 const showEditDialog = ref(false);
 const showUploadDialog = ref(false);
+const showChatDialog = ref(false);
 const currentReport = reactive({
   id: null,
   token: null,
@@ -165,6 +216,7 @@ const currentReport = reactive({
   description: "",
 });
 
+// Load the current user's reports with optional filters and refresh unread counts
 const loadReports = async () => {
   loading.value = true;
   try {
@@ -174,8 +226,13 @@ const loadReports = async () => {
       loading.value = false;
       return;
     }
-    const { data } = await getUserReports(userToken);
+    const params = {};
+    if (categoryFilter.value) params.category = categoryFilter.value;
+    if (statusFilter.value) params.status = statusFilter.value;
+    if (titleQuery.value?.trim()) params.title = titleQuery.value.trim();
+    const { data } = await getUserReports(userToken, params);
     reports.value = Array.isArray(data) ? data : [];
+    await refreshUnread();
   } catch (e) {
     toast.add({ severity: "error", summary: "Failed to load reports", detail: e.message, life: 3000 });
   } finally {
@@ -183,6 +240,39 @@ const loadReports = async () => {
   }
 };
 
+// Refresh unread counts for the user's report tokens
+const refreshUnread = async () => {
+  try {
+    const tokens = reports.value.map(r => r.token);
+    if (!tokens.length) { unread.value = {}; return; }
+    const { data } = await getIssueUnreadCounts(tokens);
+    const counts = data?.counts || {};
+    let obj = {};
+    for (const t of tokens) obj[t] = counts[t] || 0;
+    const allZero = Object.values(obj).every(v => v === 0);
+    if (allZero) {
+      const currentUserToken = sessionStorage.getItem('token');
+      const perToken = await Promise.all(tokens.map(async (t) => {
+        try {
+          const [{ data: r }, { data: msgs }] = await Promise.all([
+            getIssueMessageRead(t),
+            listIssueMessages(t),
+          ]);
+          const last = r?.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+          const list = Array.isArray(msgs) ? msgs : [];
+          const cnt = list.filter(m => m?.author?.token !== currentUserToken && (!last || new Date(m.createdAt).getTime() > last)).length;
+          return [t, cnt];
+        } catch { return [t, 0]; }
+      }));
+      obj = Object.fromEntries(perToken);
+    }
+    unread.value = obj;
+  } catch (e) {
+    // silent fail
+  }
+};
+
+// Prefill and open the Edit dialog
 const openEditDialog = (report) => {
   Object.assign(currentReport, {
     id: report.id,
@@ -193,6 +283,7 @@ const openEditDialog = (report) => {
   showEditDialog.value = true;
 };
 
+// Save report title/description edits, then reload list
 const saveReport = async () => {
   if (!currentReport.token) return;
   try {
@@ -209,12 +300,22 @@ const saveReport = async () => {
   }
 };
 
+// Open the file upload dialog for a report
 const openUploadDialog = (report) => {
   Object.assign(currentReport, report);
   showUploadDialog.value = true;
 };
 
+// Open Chat dialog and clear local unread chip for that thread
+const openChat = (report) => {
+  Object.assign(currentReport, report);
+  showChatDialog.value = true;
+  // Optimistically clear badge; ChatRoom will mark read on bottom
+  if (unread.value[report.token] > 0) unread.value[report.token] = 0;
+};
+
 // Custom upload handler using backend_helper
+// Upload file attachments for the current report
 const uploadFiles = async (event) => {
   try {
     const formData = new FormData();
@@ -243,7 +344,64 @@ const getStatusSeverity = (status) => {
   }
 };
 
-onMounted(loadReports);
+// Initial load and periodic unread refresh
+onMounted(async () => {
+  await loadReports();
+  unreadTimer = setInterval(refreshUnread, 5000);
+});
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer);
+});
+
+// Clear UI filters and reload user reports
+const clearFilters = () => {
+  categoryFilter.value = null;
+  statusFilter.value = null;
+  titleQuery.value = "";
+  titleSuggestions.value = [];
+  showTitleSuggestions.value = false;
+  loadReports();
+};
+
+let titleDebounce;
+// Debounced title input: fetch suggestions for this user and reload list
+const onTitleInput = async () => {
+  const q = titleQuery.value?.trim() || "";
+  // When cleared, hide suggestions and reload all
+  if (!q) {
+    showTitleSuggestions.value = false;
+    titleSuggestions.value = [];
+    if (titleDebounce) clearTimeout(titleDebounce);
+    await loadReports();
+    return;
+  }
+  showTitleSuggestions.value = true;
+  if (titleDebounce) clearTimeout(titleDebounce);
+  titleDebounce = setTimeout(async () => {
+    try {
+      const userToken = sessionStorage.getItem("token");
+      const { data } = await getUserIssueTitleSuggestions(userToken, q);
+      titleSuggestions.value = data?.titles || [];
+    } catch { titleSuggestions.value = []; }
+    loadReports();
+  }, 250);
+};
+
+// Apply a clicked suggestion and reload
+const applyTitleSuggestion = (t) => {
+  titleQuery.value = t;
+  showTitleSuggestions.value = false;
+  loadReports();
+};
+
+// Auto-reload when dropdown filters change (including clear)
+watch(categoryFilter, () => {
+  loadReports();
+});
+watch(statusFilter, () => {
+  loadReports();
+});
 </script>
 
 <style scoped>
@@ -252,4 +410,5 @@ onMounted(loadReports);
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
 }
+.unread-chip { background: var(--primary-500); color: white; border-radius: 9999px; padding: 0 0.5rem; font-size: 0.75rem; }
 </style>

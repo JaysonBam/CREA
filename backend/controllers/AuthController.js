@@ -1,8 +1,9 @@
-const { User, Resident, Ward, Location  } = require("../models");
+const { User, Resident, Ward, Location } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 const { registerSchema } = require("../schemas/RegisterSchema");
+const { sendEmailAsync } = require("../services/emailService");
 
 module.exports = {
   // Get current user info
@@ -13,7 +14,9 @@ module.exports = {
         attributes: { exclude: ["password"] },
       });
       if (!user) {
-        return response.status(404).json({ success: false, message: "User not found" });
+        return response
+          .status(404)
+          .json({ success: false, message: "User not found" });
       }
 
       let profile = null;
@@ -49,7 +52,9 @@ module.exports = {
       }
       return response.status(200).json({ success: true, user: userJson });
     } catch (e) {
-      return response.status(500).json({ success: false, message: "Failed to fetch user info" });
+      return response
+        .status(500)
+        .json({ success: false, message: "Failed to fetch user info" });
     }
   },
   async verifyCredentials(request, response) {
@@ -85,7 +90,22 @@ module.exports = {
           .status(400)
           .json({ success: false, message: "Password is incorrect" });
       }
-      //if password is indeed correct, return success with user details (to save in session storage)
+
+      //The following
+      // sendEmailAsync({
+      //   to: "jayden.bailie@gmail.com",
+      //   subject: `Test email`,
+      //   html: `
+      //     <h3>Test</h3>
+      //     <p><b>Title:</b> Test</p>
+      //     <p><b>Description:</b> Test </p>
+      //     <p><b>Active:</b> Test</p>
+      //     <hr/>
+      //     <small>Sent by CREA via Brevo API</small>
+      //   `,
+      // });
+      // console.log("email sent async");
+
       return response.status(200).json({
         success: true,
         message: "User verified successfully",
@@ -109,7 +129,8 @@ module.exports = {
     //Jayden
     try {
       console.log(request.body);
-      const { ward_code, address,  address_lat,address_lng, address_place_id, } = request.body;
+      const { ward_code, address, address_lat, address_lng, address_place_id } =
+        request.body;
       const result = registerSchema.safeParse(request.body);
       const { firstName, lastName, email, password, role, phone } = result.data;
 
@@ -174,7 +195,6 @@ module.exports = {
           user_id: newUser.id,
           ward_id: ward.id,
           location_id: locationId,
-
         });
       }
       return response.status(201).json({
