@@ -73,7 +73,7 @@ module.exports = {
       }
 
       const jwtToken = jwt.sign(
-        { user_id: user.id, role: user.roles }, //So that we dont have to pass a user to the backend, the token is already associated with a user
+        { user_id: user.id, role: user.role }, //So that we dont have to pass a user to the backend, the token is already associated with a user
         JWT_SECRET,
         { expiresIn: "24h" } // token expiry
       );
