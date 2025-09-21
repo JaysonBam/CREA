@@ -29,6 +29,12 @@ exports.list = async (_req, res) => {
           as: "location",
           required: false, // Use LEFT JOIN to include reports without a location
         },
+        {
+            model: FileAttachment,
+            as: 'attachments', // This alias MUST match what the frontend expects
+            attributes: ['token', 'file_link', 'description'], // Only send necessary data
+            required: false    // Use a LEFT JOIN to include reports even if they have no attachments
+        },
       ],
       order: [["id", "DESC"]], // Order by most recent
     };
@@ -59,9 +65,21 @@ exports.list = async (_req, res) => {
     }
 
     // Execute the query with the constructed options
-    const rows = await IssueReport.findAll(options);
+    const reports = await IssueReport.findAll(options);
+    
+    const plainReports = reports.map(report => report.get({ plain: true }));
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
 
-    res.json(rows);
+    // Loop through the reports and attachments to create full URLs
+    plainReports.forEach(report => {
+        if (report.attachments) {
+            report.attachments.forEach(attachment => {
+                attachment.file_link = `${baseUrl}${attachment.file_link}`;
+            });
+        }
+    });
+
+    res.json(reports);
   } catch (e) {
     console.error("Failed to list issue reports:", e);
     res.status(500).json({ error: e.message });

@@ -136,6 +136,9 @@ const load = async () => {
 
 // Computed property to filter for reports that have location data
 const reportsWithLocation = computed(() => {
+  console.log(rows.value.filter(
+    (report) => report.location && report.location.latitude && report.location.longitude
+  ));
   return rows.value.filter(
     (report) => report.location && report.location.latitude && report.location.longitude
   );
