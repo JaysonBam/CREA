@@ -3,6 +3,17 @@ import { ref } from 'vue';
 
 import AppMenuItem from './AppMenuItem.vue';
 
+function isAdmin() {
+    const token = sessionStorage.getItem('JWT');
+    if (!token) return false;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role === 'admin';
+    } catch {
+        return false;
+    }
+}
+
 const model = ref([
     {
         label: 'Home',
@@ -17,6 +28,9 @@ const model = ref([
         label: 'UI Components',
         items: [
             { label: 'Test CRUD', icon: 'pi pi-fw pi-database', to: { name: 'test-crud' } },
+            ...(isAdmin() ? [
+              { label: 'Ward Requests', icon: 'pi pi-fw pi-inbox', to: { name: 'ward-requests' } }
+            ] : [])
         ]
     },
     {

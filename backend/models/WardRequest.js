@@ -4,7 +4,7 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class WardRequest extends Model {
     static associate(models) {
-      // Optionally, add associations later
+      WardRequest.belongsTo(models.User, { foreignKey: 'person_id', as: 'person' });
     }
   }
   WardRequest.init(

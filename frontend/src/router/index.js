@@ -12,6 +12,7 @@ import UserReports from "@/views/pages/report-issue/UserReports.vue";
 import ReportMap from "@/views/pages/report-issue/ReportMap.vue";
 import MapPickerTest from '@/views/MapPickerTest.vue';
 import Profile from '@/views/pages/Profile.vue';
+import WardRequests from '@/views/pages/ward/WardRequests.vue';
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -49,7 +50,13 @@ const router = createRouter({
         { path: "report-issue", name: "report-issue", component: ReportIssue },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
-        { path: "profile", name: "profile", component: Profile }
+        { path: "profile", name: "profile", component: Profile },
+        {
+          path: "ward-requests",
+          name: "ward-requests",
+          component: WardRequests,
+          meta: { requiresAuth: true, adminOnly: true },
+        }
       ],
     },
 
@@ -63,10 +70,13 @@ router.beforeEach((to) => {
   const isAuthenticated = !!token;
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
   const guestOnly = to.matched.some((r) => r.meta.guestOnly);
+  const adminOnly = to.matched.some((r) => r.meta.adminOnly);
 
+  let userRole = null;
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
+      userRole = payload.role;
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
         sessionStorage.removeItem("token");
@@ -83,6 +93,9 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
+    return { name: "dashboard" };
+  }
+  if (adminOnly && userRole !== 'admin') {
     return { name: "dashboard" };
   }
 });
