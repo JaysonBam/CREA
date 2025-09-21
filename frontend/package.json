@@ -8,6 +8,7 @@
     "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "@fawmi/vue-google-maps": "^0.9.79",
     "@googlemaps/js-api-loader": "^1.16.10",
     "@primeuix/themes": "^1.0.0",
     "@vee-validate/zod": "^4.15.1",
