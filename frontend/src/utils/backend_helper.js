@@ -20,7 +20,11 @@ export const deleteTestCrud = (token) => api.delete(`/api/test-crud/${token}`);
 export const listIssueReports = (params) =>
   api.get("/api/issue-reports", { params });
 export const getIssueReport = (token) => api.get(`/api/issue-reports/${token}`);
-export const getUserReports = (userToken) => api.get(`/api/issue-reports/user/${userToken}`);
+export const getIssueTitleSuggestions = (q) => api.get(`/api/issue-reports/title-suggestions`, { params: { q } });
+export const getUserReports = (userToken, params) =>
+  api.get(`/api/issue-reports/user/${userToken}`, { params });
+export const getUserIssueTitleSuggestions = (userToken, q) =>
+  api.get(`/api/issue-reports/user/${userToken}/title-suggestions`, { params: { q } });
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
 export const updateIssueReport = (token, data) =>
   api.put(`/api/issue-reports/${token}`, data);

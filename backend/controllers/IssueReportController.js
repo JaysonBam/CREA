@@ -10,9 +10,9 @@ async function findByTokenOr404(token, res) {
   return row;
 }
 
-exports.list = async (_req, res) => {
-  // Destructure the bounding box coordinates from the request query
-  const { sw_lat, sw_lng, ne_lat, ne_lng } = _req.query;
+exports.list = async (req, res) => {
+  // Destructure the bounding box coordinates and filters from the request query
+  const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
 
   try {
     // Base options for the Sequelize query.
@@ -32,6 +32,14 @@ exports.list = async (_req, res) => {
       ],
       order: [["id", "DESC"]], // Order by most recent
     };
+
+    // Apply simple filters (category, status, title)
+    const where = {};
+    if (category) where.category = category;
+    if (status) where.status = status;
+  const titleTerm = (q || title);
+  if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+    if (Object.keys(where).length) options.where = where;
 
     // Check if all four coordinates for the bounding box are provided
     if (sw_lat && sw_lng && ne_lat && ne_lng) {
@@ -80,49 +88,77 @@ exports.getOne = async (req, res) => {
 
 exports.getUserReports = async (req, res) => {
   console.log("Fetching reports for user:", req.params.userToken);
-    try {
-        const userToken = req.params.userToken;
-        // find user id for given token
-        const currUser = await User.findOne({ where: { token: userToken } });
-        if (!currUser) {
-            return res.status(404).json({ error: "User not found" });
-        }
-        const userId = currUser.id;
-        console.log("Found user ID:", userId);
-
-        // find all issue reports for given user id
-        const reports = await IssueReport.findAll({
-            where: { user_id: userId },
-            // Include the associated FileAttachment model
-            include: [
-                {
-                    model: FileAttachment,
-                    as: 'attachments', // This alias MUST match what the frontend expects
-                    attributes: ['token', 'file_link', 'description'], // Only send necessary data
-                    required: false    // Use a LEFT JOIN to include reports even if they have no attachments
-                }
-            ],
-            order: [["createdAt", "DESC"]] // Order by newest first is generally better for user reports
-        });
-
-        const plainReports = reports.map(report => report.get({ plain: true }));
-        const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
-
-        // Loop through the reports and attachments to create full URLs
-        plainReports.forEach(report => {
-            if (report.attachments) {
-                report.attachments.forEach(attachment => {
-                    attachment.file_link = `${baseUrl}${attachment.file_link}`;
-                });
-            }
-        });
-
-
-        res.json(reports);
-        console.log(`Found ${reports.length} reports for user ${userToken}`);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+  try {
+    const userToken = req.params.userToken;
+  const { category, status, title, q } = req.query;
+    // find user id for given token
+    const currUser = await User.findOne({ where: { token: userToken } });
+    if (!currUser) {
+      return res.status(404).json({ error: "User not found" });
     }
+    const userId = currUser.id;
+    console.log("Found user ID:", userId);
+
+    // Build where with filters
+    const where = { user_id: userId };
+    if (category) where.category = category;
+    if (status) where.status = status;
+  const titleTerm = (q || title);
+  if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+
+    // find all issue reports for given user id and filters
+    const reports = await IssueReport.findAll({
+      where,
+      // Include the associated FileAttachment model
+      include: [
+        {
+          model: FileAttachment,
+          as: 'attachments',
+          attributes: ['token', 'file_link', 'description'],
+          required: false
+        }
+      ],
+      order: [["createdAt", "DESC"]]
+    });
+
+    const plainReports = reports.map(report => report.get({ plain: true }));
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
+    plainReports.forEach(report => {
+      if (report.attachments) {
+        report.attachments.forEach(attachment => {
+          if (attachment.file_link && !/^[a-z]+:\/\//i.test(attachment.file_link)) {
+            attachment.file_link = `${baseUrl}${attachment.file_link}`;
+          }
+        });
+      }
+    });
+
+    res.json(plainReports);
+    console.log(`Found ${plainReports.length} reports for user ${userToken}`);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.titleSuggestionsForUser = async (req, res) => {
+  try {
+    const userToken = req.params.userToken;
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ titles: [] });
+    const currUser = await User.findOne({ where: { token: userToken } });
+    if (!currUser) return res.status(404).json({ error: "User not found" });
+    const userId = currUser.id;
+    const rows = await IssueReport.findAll({
+      where: { user_id: userId, title: { [Op.iLike]: `%${q}%` } },
+      attributes: ["title"],
+      order: [["title", "ASC"]],
+      limit: 25,
+    });
+    const titles = Array.from(new Set(rows.map(r => r.title))).slice(0, 10);
+    res.json({ titles });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 exports.create = async (req, res) => {
@@ -154,6 +190,25 @@ exports.remove = async (req, res) => {
     if (!row) return;
     await row.destroy();
     res.status(204).end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// Title suggestions for autocomplete
+exports.titleSuggestions = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ titles: [] });
+    const rows = await IssueReport.findAll({
+      where: { title: { [Op.iLike]: `%${q}%` } },
+      attributes: ["title"],
+      order: [["title", "ASC"]],
+      limit: 25,
+    });
+    // De-duplicate titles
+    const titles = Array.from(new Set(rows.map((r) => r.title))).slice(0, 10);
+    res.json({ titles });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -47,6 +47,11 @@ module.exports = {
       const user = await User.findByPk(userId);
       if (!user) return res.status(401).json({ error: "Unauthorized" });
 
+      // Business rule: if the issue is resolved, treat the thread as closed
+      if (issue.status === "RESOLVED") {
+        return res.status(409).json({ error: "Thread is closed for resolved issue" });
+      }
+
       const { content } = req.body;
       if (!content || !content.trim()) {
         return res.status(400).json({ error: "Message content is required" });

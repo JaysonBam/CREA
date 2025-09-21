@@ -15,8 +15,7 @@
     </Toolbar>
 
     <DataTable
-      :value="rows"
-      v-model:filters="filters"
+      :value="displayedRows"
       dataKey="id"
       :loading="loading"
       :paginator="true"
@@ -24,27 +23,35 @@
       :rowsPerPageOptions="[5, 10, 25]"
       paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
       currentPageReportTemplate="Showing {first} to {last} of {totalRecords} issue reports"
-      :globalFilterFields="['title', 'description', 'category', 'status']"
       responsiveLayout="scroll"
+      :first="first"
     >
       <template #header>
         <div class="flex flex-col gap-2 text-left md:flex-row md:items-center md:justify-between">
           <h5 class="m-0 text-xl font-semibold">Manage Issue Reports</h5>
           <div class="flex items-center gap-2">
-            <Button
-              text
-              plain
-              rounded
-              icon="pi pi-filter-slash"
-              @click="clearFilter"
-            />
+            <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
+            <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
+            <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
             <span class="relative">
               <i class="pi pi-search absolute top-2/4 -mt-2 left-3 text-surface-400 dark:text-surface-600" />
-              <InputText
-                v-model="filters['global'].value"
-                placeholder="Search..."
-                class="pl-10 font-normal"
-              />
+              <div class="relative">
+                <InputText
+                  v-model="titleQuery"
+                  placeholder="Search title..."
+                  class="pl-10 font-normal w-72"
+                  @input="onTitleInput"
+                />
+                <ul v-if="showTitleSuggestions" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
+                  <li
+                    v-for="t in titleSuggestions"
+                    :key="t"
+                    class="px-3 py-2 hover:bg-surface-100 cursor-pointer"
+                    @click="applyTitleSuggestion(t)"
+                  >{{ t }}</li>
+                  <li v-if="suggestionsLoaded && !titleSuggestions.length" class="px-3 py-2 text-surface-500">No matches found</li>
+                </ul>
+              </div>
             </span>
           </div>
         </div>
@@ -80,20 +87,9 @@
         header="Category"
         :sortable="true"
         style="min-width: 10rem"
-        :showFilterMatchModes="false"
       >
         <template #body="{ data }">
           {{ data.category }}
-        </template>
-        <template #filter="{ filterModel }">
-          <Dropdown
-            v-model="filterModel.value"
-            :options="categoryOptions"
-            placeholder="Any"
-            class="p-column-filter"
-            :showClear="true"
-          >
-          </Dropdown>
         </template>
       </Column>
 
@@ -105,16 +101,6 @@
       >
         <template #body="{ data }">
           <Tag :value="data.status" :severity="getStatusSeverity(data.status)" />
-        </template>
-         <template #filter="{ filterModel }">
-          <Dropdown
-            v-model="filterModel.value"
-            :options="statusOptions"
-            placeholder="Any"
-            class="p-column-filter"
-            :showClear="true"
-          >
-          </Dropdown>
         </template>
       </Column>
 
@@ -265,33 +251,44 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed, watchEffect } from "vue";
 import { useToast } from "primevue/usetoast";
-import { FilterMatchMode } from "@primevue/core/api";
 import {
   listIssueReports,
   createIssueReport,
   updateIssueReport,
   deleteIssueReport,
 } from "@/utils/backend_helper"; // <-- IMPORTANT: UPDATE THIS PATH AND FUNCTIONS
-import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
+import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages, getIssueTitleSuggestions } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 
 const rows = ref([]);
 const loading = ref(false);
 const unread = ref({});
 let unreadTimer = null;
+const first = ref(0);
 
-const makeEmptyFilters = () => ({
-  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  title: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  category: { value: null, matchMode: FilterMatchMode.EQUALS },
-  status: { value: null, matchMode: FilterMatchMode.EQUALS },
-});
-
-const filters = ref(makeEmptyFilters());
+// UI filter state
+const categoryFilter = ref(null);
+const statusFilter = ref(null);
+const titleQuery = ref("");
+const titleSuggestions = ref([]);
+const showTitleSuggestions = ref(false);
+const suggestionsLoaded = ref(false);
+const suggestionsLoading = ref(false);
+const suggestionsError = ref(false);
 const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER']);
 const statusOptions = ref(['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED']);
+
+// Client-side displayed rows (fallback to ensure UI filters instantly)
+const displayedRows = computed(() => {
+  let list = Array.isArray(rows.value) ? rows.value : [];
+  const q = (titleQuery.value || '').trim().toLowerCase();
+  if (q) list = list.filter(r => (r.title || '').toLowerCase().includes(q));
+  if (categoryFilter.value) list = list.filter(r => r.category === categoryFilter.value);
+  if (statusFilter.value) list = list.filter(r => r.status === statusFilter.value);
+  return list;
+});
 
 const getStatusSeverity = (status) => {
   switch (status) {
@@ -303,8 +300,13 @@ const getStatusSeverity = (status) => {
   }
 };
 
-const clearFilter = () => {
-  filters.value = makeEmptyFilters();
+const clearFilters = () => {
+  categoryFilter.value = null;
+  statusFilter.value = null;
+  titleQuery.value = "";
+  titleSuggestions.value = [];
+  showTitleSuggestions.value = false;
+  load();
 };
 
 const toast = useToast();
@@ -407,8 +409,13 @@ const openChat = (row) => {
 const load = async () => {
   loading.value = true;
   try {
-    const { data } = await listIssueReports();
+    const params = {};
+    if (categoryFilter.value) params.category = categoryFilter.value;
+    if (statusFilter.value) params.status = statusFilter.value;
+    if (titleQuery.value?.trim()) params.title = titleQuery.value.trim();
+    const { data } = await listIssueReports(params);
     rows.value = Array.isArray(data) ? data : [];
+    first.value = 0; // Reset paginator to first page after filtering/search
     await refreshUnread();
   } catch (e) {
     toast.add({
@@ -463,6 +470,69 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unreadTimer) clearInterval(unreadTimer);
+});
+
+// Title search input handlers
+let titleDebounce;
+let lastSuggestReq = 0;
+const onTitleInput = async () => {
+  const q = titleQuery.value?.trim() || "";
+  if (titleDebounce) clearTimeout(titleDebounce);
+
+  // When cleared, hide suggestions and reload full list
+  if (!q) {
+    showTitleSuggestions.value = false;
+    titleSuggestions.value = [];
+    suggestionsLoaded.value = false;
+    suggestionsError.value = false;
+    await load();
+    return;
+  }
+
+  showTitleSuggestions.value = true;
+  titleDebounce = setTimeout(async () => {
+    const reqId = Date.now();
+    lastSuggestReq = reqId;
+    suggestionsLoaded.value = false;
+    suggestionsLoading.value = true;
+    suggestionsError.value = false;
+    try {
+      const { data } = await getIssueTitleSuggestions(q);
+      if (lastSuggestReq !== reqId) return; // stale
+      titleSuggestions.value = data?.titles || [];
+      suggestionsLoaded.value = true;
+      suggestionsLoading.value = false;
+    } catch {
+      if (lastSuggestReq !== reqId) return; // stale
+      titleSuggestions.value = [];
+      suggestionsLoaded.value = true;
+      suggestionsLoading.value = false;
+      suggestionsError.value = true;
+    }
+    load();
+  }, 250);
+};
+
+const applyTitleSuggestion = (t) => {
+  titleQuery.value = t;
+  showTitleSuggestions.value = false;
+  load();
+};
+
+// Auto-reload when dropdown filters change (including clear)
+watch(categoryFilter, () => {
+  load();
+  first.value = 0;
+});
+watch(statusFilter, () => {
+  load();
+  first.value = 0;
+});
+
+// Also reset paginator on title changes for better UX
+watchEffect(() => {
+  void titleQuery.value;
+  first.value = 0;
 });
 </script>
 

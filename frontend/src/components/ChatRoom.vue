@@ -31,10 +31,21 @@
       </div>
     </div>
 
+    <div v-if="isResolved" class="mt-3 p-3 text-sm rounded border border-yellow-200 bg-yellow-50 text-yellow-800">
+      This thread is closed because the report has been resolved. You can't send new messages.
+    </div>
+
     <div class="composer mt-3 flex gap-2 items-start">
       <span v-if="unreadCount > 0" class="unread-badge" :title="`${unreadCount} unread`">{{ unreadCount }}</span>
-      <Textarea v-model="draft" rows="2" class="flex-1" placeholder="Type a message…" @keydown.enter.exact.prevent="send" />
-      <Button label="Send" icon="pi pi-send" :disabled="!draft.trim() || sending" @click="send" />
+      <Textarea
+        v-model="draft"
+        rows="2"
+        class="flex-1"
+        :disabled="isResolved"
+        :placeholder="isResolved ? 'Thread closed — resolved' : 'Type a message…'"
+        @keydown.enter.exact.prevent="send"
+      />
+      <Button label="Send" icon="pi pi-send" :disabled="isResolved || !draft.trim() || sending" @click="send" />
     </div>
   </div>
   
@@ -43,7 +54,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 import { useToast } from 'primevue/usetoast';
-import { listIssueMessages, postIssueMessage, getIssueMessageRead, setIssueMessageRead } from '@/utils/backend_helper';
+import { listIssueMessages, postIssueMessage, getIssueMessageRead, setIssueMessageRead, getIssueReport } from '@/utils/backend_helper';
 
 const props = defineProps({
   issueToken: { type: String, required: true },
@@ -59,6 +70,7 @@ const atBottom = ref(true);
 const scrollOnNextLoad = ref(false);
 const initialized = ref(false);
 const lastSeenAt = ref(null); // ISO string or null
+const isResolved = ref(false);
 const unreadCount = computed(() => {
   // Count only messages from others that are newer than last_seen_at
   if (!messages.value.length) return 0;
@@ -195,6 +207,10 @@ const markReadIfAtBottom = async () => {
 };
 
 const send = async () => {
+  if (isResolved.value) {
+    toast.add({ severity: 'warn', summary: 'Thread closed', detail: 'This report is resolved. New messages are not allowed.', life: 3000 });
+    return;
+  }
   if (!draft.value.trim()) return;
   sending.value = true;
   try {
@@ -208,8 +224,15 @@ const send = async () => {
     await markReadIfAtBottom();
   } catch (e) {
     console.error(e);
-    const detail = e?.response?.data?.error || e?.message || 'Failed to send message';
-    toast.add({ severity: 'error', summary: 'Send failed', detail, life: 3000 });
+    const status = e?.response?.status;
+    if (status === 409) {
+      isResolved.value = true;
+      const detail = e?.response?.data?.error || 'Thread is closed for resolved issue';
+      toast.add({ severity: 'warn', summary: 'Thread closed', detail, life: 3500 });
+    } else {
+      const detail = e?.response?.data?.error || e?.message || 'Failed to send message';
+      toast.add({ severity: 'error', summary: 'Send failed', detail, life: 3000 });
+    }
   } finally {
     sending.value = false;
   }
@@ -222,6 +245,11 @@ onMounted(async () => {
   try {
     const { data } = await getIssueMessageRead(props.issueToken);
     lastSeenAt.value = data?.last_seen_at || null;
+  } catch {}
+  // Fetch report to know if it's resolved (closed)
+  try {
+    const { data: issue } = await getIssueReport(props.issueToken);
+    isResolved.value = issue?.status === 'RESOLVED';
   } catch {}
   await load();
   timer = setInterval(load, props.pollMs);

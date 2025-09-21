@@ -2,7 +2,20 @@
   <div class="card">
     <Toast />
     <div class="p-4">
-      <h1 class="text-2xl font-bold mb-4">My Reported Issues</h1>
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <h1 class="text-2xl font-bold">My Reported Issues</h1>
+        <div class="flex items-center gap-2">
+          <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
+          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
+          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+          <div class="relative">
+            <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
+            <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
+              <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-16">
@@ -168,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
@@ -176,6 +189,7 @@ import {
   createFileAttachment
 } from "@/utils/backend_helper";
 import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
+import { getUserIssueTitleSuggestions } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 
 const reports = ref([]);
@@ -183,6 +197,14 @@ const loading = ref(true);
 const toast = useToast();
 const unread = ref({});
 let unreadTimer = null;
+
+const categoryOptions = ['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER'];
+const statusOptions = ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+const categoryFilter = ref(null);
+const statusFilter = ref(null);
+const titleQuery = ref("");
+const titleSuggestions = ref([]);
+const showTitleSuggestions = ref(false);
 
 const showEditDialog = ref(false);
 const showUploadDialog = ref(false);
@@ -203,7 +225,11 @@ const loadReports = async () => {
       loading.value = false;
       return;
     }
-    const { data } = await getUserReports(userToken);
+    const params = {};
+    if (categoryFilter.value) params.category = categoryFilter.value;
+    if (statusFilter.value) params.status = statusFilter.value;
+    if (titleQuery.value?.trim()) params.title = titleQuery.value.trim();
+    const { data } = await getUserReports(userToken, params);
     reports.value = Array.isArray(data) ? data : [];
     await refreshUnread();
   } catch (e) {
@@ -318,6 +344,52 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unreadTimer) clearInterval(unreadTimer);
+});
+
+const clearFilters = () => {
+  categoryFilter.value = null;
+  statusFilter.value = null;
+  titleQuery.value = "";
+  titleSuggestions.value = [];
+  showTitleSuggestions.value = false;
+  loadReports();
+};
+
+let titleDebounce;
+const onTitleInput = async () => {
+  const q = titleQuery.value?.trim() || "";
+  // When cleared, hide suggestions and reload all
+  if (!q) {
+    showTitleSuggestions.value = false;
+    titleSuggestions.value = [];
+    if (titleDebounce) clearTimeout(titleDebounce);
+    await loadReports();
+    return;
+  }
+  showTitleSuggestions.value = true;
+  if (titleDebounce) clearTimeout(titleDebounce);
+  titleDebounce = setTimeout(async () => {
+    try {
+      const userToken = sessionStorage.getItem("token");
+      const { data } = await getUserIssueTitleSuggestions(userToken, q);
+      titleSuggestions.value = data?.titles || [];
+    } catch { titleSuggestions.value = []; }
+    loadReports();
+  }, 250);
+};
+
+const applyTitleSuggestion = (t) => {
+  titleQuery.value = t;
+  showTitleSuggestions.value = false;
+  loadReports();
+};
+
+// Auto-reload when dropdown filters change (including clear)
+watch(categoryFilter, () => {
+  loadReports();
+});
+watch(statusFilter, () => {
+  loadReports();
 });
 </script>
 
