@@ -1,7 +1,7 @@
 // router/index.js
 import { createRouter, createWebHistory } from "vue-router";
 import AppLayout from "@/layout/AppLayout.vue";
-import Dashboard from "@/views/Dashboard.vue";
+// import Dashboard from "@/views/Dashboard.vue";
 import Login from "@/views/pages/auth/Login.vue";
 import NotFound from "@/views/pages/NotFound.vue";
 import Testcrud from "@/views/pages/testcrud/testcrud.vue";
@@ -46,9 +46,8 @@ const router = createRouter({
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
-        // IMPORTANT: no leading slash for children
-        { path: "", redirect: { name: "dashboard" } },
-        { path: "dashboard", name: "dashboard", component: Dashboard },
+    // IMPORTANT: no leading slash for children
+    { path: "", redirect: { name: "report-issue" } },
         { path: "test-crud", name: "test-crud", component: Testcrud },
   { path: "report-issue", name: "report-issue", component: ReportIssue },
   { path: "reports", name: "reports", component: Report },
@@ -101,10 +100,10 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-    return { name: "dashboard" };
+  return { name: "reports" };
   }
   if (adminOnly && userRole !== 'admin') {
-    return { name: "dashboard" };
+  return { name: "reports" };
   }
 });
 

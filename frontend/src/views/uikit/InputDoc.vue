@@ -122,8 +122,7 @@ function searchCountry(event) {
                         <Rating v-model="ratingValue" />
                     </div>
                     <div class="flex flex-col gap-4 w-1/2">
-                        <div class="font-semibold text-xl">ColorPicker</div>
-                        <ColorPicker style="width: 2rem" v-model="colorValue" />
+                        <!-- ColorPicker demo removed for CREA branding cleanup -->
                     </div>
                 </div>
 

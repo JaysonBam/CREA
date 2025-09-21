@@ -19,7 +19,7 @@ npm run dev</code></pre>
         <p class="text-lg mb-4">Templates consists of a couple folders, demos and layout have been separated so that you can easily remove what is not necessary for your application.</p>
         <ul class="leading-normal list-disc pl-8 text-lg mb-4">
             <li><span class="text-primary font-medium">src/layout</span>: Main layout files, needs to be present.</li>
-            <li><span class="text-primary font-medium">src/views</span>: Demo pages like Dashboard.</li>
+            <li><span class="text-primary font-medium">src/views</span>: Demo pages like Reports.</li>
             <li><span class="text-primary font-medium">public/demo</span>: Assets used in demos</li>
             <li><span class="text-primary font-medium">src/assets/demo</span>: Styles used in demos</li>
             <li><span class="text-primary font-medium">src/assets/layout</span>: SCSS files of the main layout</li>
