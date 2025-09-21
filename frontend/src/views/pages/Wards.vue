@@ -60,7 +60,7 @@ function clearFilter () {
   filters1.value = createInitialFilters()
 }
 
-// Add Ward 
+// Add Ward
 const showCreate = ref(false)
 const newName = ref('')
 const toast = useToast()
