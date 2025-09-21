@@ -7,6 +7,7 @@
       <div class="report-layout">
         <!-- Left Panel: Form Details -->
         <div class="form-panel p-fluid">
+          <!-- Panel for inputting report title, description and category -->
           <Panel header="1. Describe the Issue">
             <div class="flex flex-col gap-6">
               <div class="field">
@@ -25,10 +26,12 @@
           </Panel>
         </div>
 
-        <!-- Right Panel: Map and Location -->
+        <!-- Map and Location. User device location will be used as default
+              User can drag pin or click on map to change location. -->
         <div class="map-panel">
           <Panel header="2. Pinpoint the Location">
             <div class="flex flex-col gap-4">
+              <!-- Address geocoding -->
               <div class="field">
                 <label for="address" class="font-semibold">Address</label>
                 <div class="relative">
@@ -68,6 +71,7 @@
           </Panel>
         </div>
         <div class="map-panel">
+          <!-- Attachment uploading -->
         <Panel header="3. Upload Attachments (Optional)" class="mt-6">
             <FileUpload
               ref="fileUploader"
@@ -75,7 +79,6 @@
               :multiple="true"
               :auto="false"
               :customUpload="true"
-              @uploader="uploadFiles"
               accept="image/*"
               :maxFileSize="5000000"
               :showUploadButton="false"
@@ -130,7 +133,6 @@ const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIG
 
 const mapLoading = ref(true);
 const geocoding = ref(false);
-const fileUploader = ref(null); // Ref to access the FileUpload component
 const submitting = ref(false);
 const selectedFiles = ref([]);
 const address = ref("");
@@ -151,6 +153,7 @@ onMounted(() => {
   getUserLocation();
 });
 
+//  Get user's current location using Geolocation API
 const getUserLocation = () => {
   mapLoading.value = true;
   navigator.geolocation?.getCurrentPosition(
@@ -205,43 +208,49 @@ const updateLocation = async (posArray) => {
   reverseGeocode(posArray);
 };
 
+//  Update location when marker is dragged
 const handleMarkerDrag = (event) => {
   const latLng = event.target.getLatLng();
   const newPos = [latLng.lat, latLng.lng];
   updateLocation(newPos);
 };
 
+//  Update location when map is clicked
 const handleMapClick = (event) => {
   const newPos = [event.latlng.lat, event.latlng.lng];
   updateLocation(newPos);
 }
 
-
+// --- File Upload Logic ---
+// Handle file selection, this function is run each time the user selects a file
 const onFileSelect = (event) => {
   console.log("Selected files:", event.files);
   selectedFiles.value = event.files;
 };
 
+// Handle file upload when the report is submitted
 const uploadFiles = async (event, reportToken) => {
   console.log("Uploading files for report token:", reportToken);
   console.log("Files to upload:", event.files);
   if (!reportToken || !event.files.length) {
     return;
   }
+
+  // Format files for upload
   const formData = new FormData();
   event.files.forEach(file => {
     formData.append("attachments", file);
   });
   formData.append("issue_report_token", reportToken);
 
-  console.log("Uploading files formData:", formData.body);
+  // console.log("Uploading files formData:", formData.body);
 
   try {
-    // Use the helper function which handles FormData correctly
     await createFileAttachment(formData);
     toast.add({ severity: 'info', summary: 'Upload Complete', detail: `${event.files.length} file(s) uploaded.`, life: 3000 });
   } catch (uploadError) {
     toast.add({ severity: 'error', summary: 'File Upload Failed', detail: 'Could not upload attachments.', life: 3000 });
+    console.error("File upload error:", uploadError);
   }
 };
 
@@ -253,21 +262,24 @@ const submitReport = async () => {
   }
   submitting.value = true;
   try {
+    // Format request payloads
     const locationPayload = {
       address: address.value,
       latitude: selectedLocation.value[0], // Use array index 0 for latitude
       longitude: selectedLocation.value[1], // Use array index 1 for longitude
     };
+    // Create location first to get its ID
     const { data: newLocation } = await createLocation(locationPayload);
+    // Then create the issue report with the new location ID
     const reportPayload = {
       ...issueDetails,
       location_id: newLocation.id,
       user_id: sessionStorage.getItem("id"),
     };
     const { data: newReport } = await createIssueReport(reportPayload);
-    console.log("Created report:", newReport);
+    // console.log("Created report:", newReport);
     
-    // Step 3: Trigger the file upload process if there are files
+    // Trigger the file upload process if there are files
     if (selectedFiles.value.length > 0) {
       // Create a temporary object matching the structure the uploader expects
       const uploadEvent = { files: selectedFiles.value };
@@ -275,6 +287,7 @@ const submitReport = async () => {
     }
 
     toast.add({ severity: 'success', summary: 'Success', detail: 'Issue reported successfully!', life: 3000 });
+    // Redirect to user reports page
     router.push('/user-reports');
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Submission Failed', detail: e.message, life: 3000 });

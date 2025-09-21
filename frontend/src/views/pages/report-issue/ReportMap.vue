@@ -3,10 +3,7 @@
     <Toast />
     <h5 class="m-0 text-xl font-semibold mb-4">Map View</h5>
 
-    <!-- <div class="grid-container"> -->
-      <!-- Map Window Panel -->
       <div class="map-panel">
-        <!-- <Panel header="Report Map"> -->
           <div style="height: 600px; width: 100%">
             <l-map
               ref="map"
@@ -30,7 +27,7 @@
                   <div class="map-popup">
                     <div class="font-bold">{{ report.title }}</div>
                     <div>
-                      
+                      <!-- Include uploaded photos in popup -->
                       <Galleria
                         v-if="report.attachments && report.attachments.length"
                         :value="report.attachments"
@@ -47,6 +44,7 @@
                           />
                         </template>
                       </Galleria>
+                      <!-- Display report category and status -->
                       <Tag :value="report.category" class="mr-2" />
                       <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
                     </div>
@@ -55,48 +53,7 @@
               </l-marker>
             </l-map>
           </div>
-        <!-- </Panel> -->
       </div>
-
-      <!-- Data Table Panel -->
-      <!-- <div class="table-panel">
-        <DataTable
-          :value="rows"
-          dataKey="id"
-          :loading="loading"
-          :paginator="true"
-          :rows="8"
-          :rowsPerPageOptions="[5, 8, 25]"
-          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-          currentPageReportTemplate="Showing {first} to {last} of {totalRecords} reports"
-          responsiveLayout="scroll"
-          stripedRows
-        >
-          <template #empty>
-            <div class="py-4 text-center">No records found.</div>
-          </template>
-          <template #loading>
-            <div class="py-4 text-center">Loading…</div>
-          </template>
-
-          <Column field="title" header="Title" :sortable="true"></Column>
-          <Column field="category" header="Category" :sortable="true"></Column>
-          <Column field="user.email" header="Reported By">
-             <template #body="{ data }">
-              {{ data.user?.email || 'N/A' }}
-            </template>
-          </Column>
-          <Column field="createdAt" header="Date" :sortable="true">
-            <template #body="{ data }">
-              {{ new Date(data.createdAt).toLocaleString() }}
-            </template>
-          </Column>
-        </DataTable>
-      </div> -->
-    <!-- </div> -->
-
-    <!-- Dialogs remain the same but are not shown in this snippet for brevity -->
-    <!-- Place your Edit/Delete Dialogs here if needed -->
 
   </div>
 </template>
@@ -124,6 +81,7 @@ const center = ref([-25.7546, 28.2314]); // Default center: Pretoria, SA
 const load = async () => {
   loading.value = true;
   try {
+    // Fetch all issue reports, including those without location data
     const { data } = await listIssueReports();
     rows.value = Array.isArray(data) ? data : [];
   } catch (e) {
@@ -136,9 +94,6 @@ const load = async () => {
 
 // Computed property to filter for reports that have location data
 const reportsWithLocation = computed(() => {
-  console.log(rows.value.filter(
-    (report) => report.location && report.location.latitude && report.location.longitude
-  ));
   return rows.value.filter(
     (report) => report.location && report.location.latitude && report.location.longitude
   );
