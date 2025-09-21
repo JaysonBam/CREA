@@ -1,390 +1,304 @@
 <template>
   <div class="card">
     <Toast />
-    <Toolbar class="mb-4">
-      <template #start>
-        <div class="my-2">
-          <Button
-            label="Report New Issue"
-            icon="pi pi-plus"
-            class="mr-2"
-            @click="openNew"
-          />
+    <div class="p-4">
+      <h1 class="text-2xl font-bold mb-6 border-b pb-4">Report a New Issue</h1>
+
+      <div class="report-layout">
+        <!-- Left Panel: Form Details -->
+        <div class="form-panel p-fluid">
+          <Panel header="1. Describe the Issue">
+            <div class="flex flex-col gap-6">
+              <div class="field">
+                <label for="title" class="font-semibold block mb-2">Title</label>
+                <InputText id="title" v-model="issueDetails.title" placeholder="e.g., Large Pothole on Main St" class="w-full"/>
+              </div>
+              <div class="field">
+                <label for="description" class="font-semibold block mb-2">Description</label>
+                <Textarea id="description" v-model="issueDetails.description" :autoResize="true" rows="5" placeholder="Provide as much detail as possible..." class="w-full"/>
+              </div>
+              <div class="field">
+                <label for="category" class="font-semibold block mb-2">Category</label>
+                <Select id="category" v-model="issueDetails.category" :options="categoryOptions" placeholder="Select a category" />
+              </div>
+            </div>
+          </Panel>
         </div>
-      </template>
-    </Toolbar>
 
-    <DataTable
-      :value="rows"
-      v-model:filters="filters"
-      dataKey="id"
-      :loading="loading"
-      :paginator="true"
-      :rows="10"
-      :rowsPerPageOptions="[5, 10, 25]"
-      paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-      currentPageReportTemplate="Showing {first} to {last} of {totalRecords} issue reports"
-      :globalFilterFields="['title', 'description', 'category', 'status']"
-      responsiveLayout="scroll"
-    >
-      <template #header>
-        <div class="flex flex-col gap-2 text-left md:flex-row md:items-center md:justify-between">
-          <h5 class="m-0 text-xl font-semibold">Manage Issue Reports</h5>
-          <div class="flex items-center gap-2">
-            <Button
-              text
-              plain
-              rounded
-              icon="pi pi-filter-slash"
-              @click="clearFilter"
-            />
-            <span class="relative">
-              <i class="pi pi-search absolute top-2/4 -mt-2 left-3 text-surface-400 dark:text-surface-600" />
-              <InputText
-                v-model="filters['global'].value"
-                placeholder="Search..."
-                class="pl-10 font-normal"
-              />
-            </span>
-          </div>
+        <!-- Right Panel: Map and Location -->
+        <div class="map-panel">
+          <Panel header="2. Pinpoint the Location">
+            <div class="flex flex-col gap-4">
+              <div class="field">
+                <label for="address" class="font-semibold">Address</label>
+                <div class="relative">
+                  <InputText id="address" v-model="address" @input="debouncedGeocodeAddress" placeholder="Start typing an address..." />
+                  <ProgressSpinner v-if="geocoding" class="absolute top-1/2 right-3 -mt-3" style="width: 25px; height: 25px" strokeWidth="6" />
+                </div>
+              </div>
+
+              <!-- Leaflet Map Container -->
+              <div class="map-wrapper">
+                <div v-if="mapLoading" class="map-loading-overlay">
+                  <ProgressSpinner />
+                  <p class="mt-4">Waiting for device location...</p>
+                </div>
+                <l-map
+                  ref="map"
+                  v-model:zoom="zoom"
+                  :center="mapCenter"
+                  :use-global-leaflet="false"
+                  @click="handleMapClick"
+                >
+                  <l-tile-layer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    layer-type="base"
+                    name="OpenStreetMap"
+                  ></l-tile-layer>
+                  <l-marker
+                    v-if="selectedLocation"
+                    :lat-lng="selectedLocation"
+                    :draggable="true"
+                    @dragend="handleMarkerDrag"
+                  >
+                  </l-marker>
+                </l-map>
+              </div>
+            </div>
+          </Panel>
         </div>
-      </template>
-
-      <template #empty>
-        <div class="py-4 text-center">
-          No records found.
-        </div>
-      </template>
-      <template #loading>
-        <div class="py-4 text-center">
-          Loading…
-        </div>
-      </template>
-
-      <Column
-        field="title"
-        header="Title"
-        :sortable="true"
-        style="min-width: 16rem"
-      >
-        <template #body="{ data }">
-          {{ data.title }}
-        </template>
-      </Column>
-
-      <Column
-        field="category"
-        header="Category"
-        :sortable="true"
-        style="min-width: 10rem"
-        :showFilterMatchModes="false"
-      >
-        <template #body="{ data }">
-          {{ data.category }}
-        </template>
-        <template #filter="{ filterModel }">
-          <Dropdown
-            v-model="filterModel.value"
-            :options="categoryOptions"
-            placeholder="Any"
-            class="p-column-filter"
-            :showClear="true"
-          >
-          </Dropdown>
-        </template>
-      </Column>
-
-      <Column
-        field="status"
-        header="Status"
-        :sortable="true"
-        style="min-width: 10rem"
-      >
-        <template #body="{ data }">
-          <Tag :value="data.status" :severity="getStatusSeverity(data.status)" />
-        </template>
-         <template #filter="{ filterModel }">
-          <Dropdown
-            v-model="filterModel.value"
-            :options="statusOptions"
-            placeholder="Any"
-            class="p-column-filter"
-            :showClear="true"
-          >
-          </Dropdown>
-        </template>
-      </Column>
-
-      <Column
-        field="user.email"
-        header="Reported By"
-        :sortable="true"
-        style="min-width: 12rem"
-      >
-         <template #body="{ data }">
-          {{ data.user?.email || 'N/A' }}
-        </template>
-      </Column>
-
-       <Column
-        field="createdAt"
-        header="Created At"
-        :sortable="true"
-        style="min-width: 12rem"
-      >
-         <template #body="{ data }">
-          {{ new Date(data.createdAt).toLocaleString() }}
-        </template>
-      </Column>
-
-
-      <Column :exportable="false" style="min-width: 8rem">
-        <template #body="slotProps">
-          <Button
-            icon="pi pi-pencil"
-            outlined
-            rounded
-            class="mr-2"
-            @click="openEdit(slotProps.data)"
-          />
-          <Button
-            icon="pi pi-trash"
-            outlined
-            rounded
-            severity="danger"
-            @click="confirmDelete(slotProps.data)"
-          />
-        </template>
-      </Column>
-    </DataTable>
-
-    <!-- Create / Edit Dialog -->
-    <Dialog
-      v-model:visible="showDialog"
-      :style="{ width: '450px' }"
-      :header="isEdit ? 'Edit Issue Report' : 'Create Issue Report'"
-      :modal="true"
-      class="p-fluid"
-    >
-      <div class="flex flex-col gap-4">
-        <div class="field">
-          <label for="title">Title</label>
-          <InputText
-            id="title"
-            v-model.trim="form.title"
-            required="true"
-            autofocus
-            :class="{ 'p-invalid': !form.title && form.title !== '' }"
-          />
-           <small class="p-error" v-if="!form.title && form.title !== ''">Title is required.</small>
-        </div>
-        <div class="field">
-          <label for="description">Description</label>
-          <Textarea id="description" v-model="form.description" rows="3" cols="20" />
-        </div>
-        <div class="field">
-          <label for="category">Category</label>
-           <Dropdown
-            id="category"
-            v-model="form.category"
-            :options="categoryOptions"
-            placeholder="Select a Category"
-          >
-          </Dropdown>
-        </div>
-         <div class="field" v-if="isEdit">
-          <label for="status">Status</label>
-           <Dropdown
-            id="status"
-            v-model="form.status"
-            :options="statusOptions"
-            placeholder="Select a Status"
-          >
-          </Dropdown>
+        <div class="map-panel">
+        <Panel header="3. Upload Attachments (Optional)" class="mt-6">
+            <FileUpload
+              ref="fileUploader"
+              name="attachments"
+              :multiple="true"
+              :auto="false"
+              :customUpload="true"
+              @uploader="uploadFiles"
+              accept="image/*"
+              :maxFileSize="5000000"
+              :showUploadButton="false"
+              :showCancelButton="false"
+            >
+              <template #empty>
+                <p>Drag and drop files here. Files will be uploaded when you submit the report.</p>
+              </template>
+              <!-- TODO: remove upload and cancel buttons, as they serve no purpose -->
+            </FileUpload>
+          </Panel>
         </div>
       </div>
-      <template #footer>
-        <Button label="Cancel" outlined @click="showDialog = false"></Button>
-        <Button :label="isEdit ? 'Update' : 'Create'" @click="save"></Button>
-      </template>
-    </Dialog>
 
-    <!-- Delete Confirmation Dialog -->
-    <Dialog
-      v-model:visible="deleteDialogVisible"
-      modal
-      header="Confirmation"
-      :style="{ width: '350px' }"
-    >
-      <div class="flex items-center justify-center gap-4">
-        <i class="pi pi-exclamation-triangle" style="font-size: 2rem"></i>
-        <span>Are you sure you want to delete this issue report?</span>
-      </div>
-      <template #footer>
+      <!-- Submission Button -->
+      <div class="mt-6 text-right">
         <Button
-          label="No"
-          icon="pi pi-times"
-          text
-          severity="secondary"
-          @click="deleteDialogVisible = false"
-        />
-        <Button
-          label="Yes"
+          label="Submit Report"
           icon="pi pi-check"
-          outlined
-          severity="danger"
-          @click="deleteConfirmed"
+          class="p-button-lg"
+          :disabled="isFormInvalid"
+          :loading="submitting"
+          @click="submitReport"
         />
-      </template>
-    </Dialog>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed, nextTick } from "vue";
+import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
-import { FilterMatchMode } from "@primevue/core/api";
-import {
-  listIssueReports,
-  createIssueReport,
-  updateIssueReport,
-  deleteIssueReport,
-} from "@/utils/backend_helper"; // <-- IMPORTANT: UPDATE THIS PATH AND FUNCTIONS
+import { debounce } from "lodash-es";
+import { createLocation, createIssueReport } from "@/utils/backend_helper";
 
-const rows = ref([]);
-const loading = ref(false);
+// --- Leaflet Imports ---
+import "leaflet/dist/leaflet.css";
+import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 
-const makeEmptyFilters = () => ({
-  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  title: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  category: { value: null, matchMode: FilterMatchMode.EQUALS },
-  status: { value: null, matchMode: FilterMatchMode.EQUALS },
-});
-
-const filters = ref(makeEmptyFilters());
-const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER']);
-const statusOptions = ref(['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED']);
-
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'RESOLVED': return 'success';
-    case 'IN_PROGRESS': return 'warning';
-    case 'ACKNOWLEDGED': return 'info';
-    case 'NEW': return 'primary';
-    default: return 'secondary';
-  }
-};
-
-const clearFilter = () => {
-  filters.value = makeEmptyFilters();
-};
-
+// --- State Management ---
+const router = useRouter();
 const toast = useToast();
-const showDialog = ref(false);
-const isEdit = ref(false);
 
-const blank = () => ({
-  id: null,
-  token: null,
-  title: "",
-  description: "",
-  category: "POTHOLE",
-  status: "NEW",
+const issueDetails = reactive({ title: "", description: "", category: null });
+const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER']);
+
+const mapLoading = ref(true);
+const geocoding = ref(false);
+const fileUploader = ref(null); // Ref to access the FileUpload component
+const submitting = ref(false);
+const address = ref("");
+const zoom = ref(15);
+const mapCenter = ref([-25.7546, 28.2314]); // Default: Pretoria [lat, lng]
+const selectedLocation = ref(null); // [lat, lng]
+
+// --- Computed Properties ---
+const isFormInvalid = computed(() => {
+  return !issueDetails.title || !issueDetails.category || !selectedLocation.value;
 });
 
-const form = reactive(blank());
+// --- Geocoding and Map Logic ---
+let geocoder;
+onMounted(() => {
+  // Initialize the geocoder once the Google Maps script is loaded
+  geocoder = new window.google.maps.Geocoder();
+  getUserLocation();
+});
 
-const openNew = () => {
-  Object.assign(form, blank());
-  isEdit.value = false;
-  showDialog.value = true;
+const getUserLocation = () => {
+  mapLoading.value = true;
+  navigator.geolocation?.getCurrentPosition(
+    (position) => {
+      const userPos = [position.coords.latitude, position.coords.longitude];
+      updateLocation(userPos);
+      mapLoading.value = false;
+    },
+    () => {
+      toast.add({ severity: 'warn', summary: 'Location Denied', detail: 'Using default location.', life: 3000 });
+      mapLoading.value = false;
+    }
+  );
 };
 
-const openEdit = (row) => {
-  Object.assign(form, row);
-  isEdit.value = true;
-  showDialog.value = true;
+const geocodeAddress = () => {
+  if (!address.value || !geocoder) return;
+  geocoding.value = true;
+  geocoder.geocode({ address: address.value }, (results, status) => {
+    geocoding.value = false;
+    if (status === "OK" && results[0]) {
+      const location = results[0].geometry.location;
+      // Convert Google's format to Leaflet's format [lat, lng]
+      const pos = [location.lat(), location.lng()];
+      updateLocation(pos);
+    } else {
+      toast.add({ severity: 'warn', summary: 'Geocode Failed', detail: 'Could not find address.', life: 3000 });
+    }
+  });
 };
 
-const save = async () => {
-  if (!form.title?.trim()) {
-    toast.add({ severity: "warn", summary: "Validation", detail: "Title is required", life: 2500 });
+const reverseGeocode = (latLngArray) => {
+  if (!geocoder) return;
+  geocoding.value = true;
+  // Convert Leaflet's array format to Google's object format
+  const googleLatLng = { lat: latLngArray[0], lng: latLngArray[1] };
+  geocoder.geocode({ location: googleLatLng }, (results, status) => {
+    geocoding.value = false;
+    if (status === "OK" && results[0]) {
+      address.value = results[0].formatted_address;
+    }
+  });
+};
+
+const debouncedGeocodeAddress = debounce(geocodeAddress, 700);
+
+const updateLocation = async (posArray) => {
+  selectedLocation.value = posArray;
+  mapCenter.value = posArray;
+  // nextTick ensures the map has recentered before we try to geocode
+  await nextTick();
+  reverseGeocode(posArray);
+};
+
+const handleMarkerDrag = (event) => {
+  const latLng = event.target.getLatLng();
+  const newPos = [latLng.lat, latLng.lng];
+  updateLocation(newPos);
+};
+
+const handleMapClick = (event) => {
+  const newPos = [event.latlng.lat, event.latlng.lng];
+  updateLocation(newPos);
+}
+
+
+const uploadFiles = async (event, reportToken) => {
+  if (!reportToken || !event.files.length) {
     return;
   }
-  
-  const payload = {
-    title: form.title,
-    description: form.description,
-    category: form.category,
-    status: form.status,
-  };
+  const formData = new FormData();
+  event.files.forEach(file => {
+    formData.append("attachments", file);
+  });
+  formData.append("issue_report_token", reportToken);
 
   try {
-    if (isEdit.value && form.token) {
-      await updateIssueReport(form.token, payload);
-      toast.add({ severity: "success", summary: "Updated", detail: "Issue report updated successfully.", life: 1500 });
-    } else {
-      await createIssueReport(payload);
-      toast.add({ severity: "success", summary: "Created", detail: "Issue report created successfully.", life: 1500 });
+    // Use the helper function which handles FormData correctly
+    await createFileAttachment(formData);
+    toast.add({ severity: 'info', summary: 'Upload Complete', detail: `${event.files.length} file(s) uploaded.`, life: 3000 });
+  } catch (uploadError) {
+    toast.add({ severity: 'error', summary: 'File Upload Failed', detail: 'Could not upload attachments.', life: 3000 });
+  }
+};
+
+// --- Form Submission ---
+const submitReport = async () => {
+  if (isFormInvalid.value) {
+    toast.add({ severity: 'warn', summary: 'Validation Error', detail: 'Please fill all required fields and select a location.', life: 3000 });
+    return;
+  }
+  submitting.value = true;
+  try {
+    const locationPayload = {
+      address: address.value,
+      latitude: selectedLocation.value[0], // Use array index 0 for latitude
+      longitude: selectedLocation.value[1], // Use array index 1 for longitude
+    };
+    const { data: newLocation } = await createLocation(locationPayload);
+    const reportPayload = {
+      ...issueDetails,
+      location_id: newLocation.id,
+      user_id: sessionStorage.getItem("id"),
+    };
+    const { data: newReport } = await createIssueReport(reportPayload);
+    newReportToken = newReport.token; // Save the token from the response
+    
+    // Step 3: Trigger the file upload process if there are files
+    if (fileUploader.value && fileUploader.value.files.length > 0) {
+      await uploadFiles({ files: fileUploader.value.files }, newReportToken);
     }
-    showDialog.value = false;
-    await load();
+
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Issue reported successfully!', life: 3000 });
+    router.push('/user-reports');
   } catch (e) {
-    toast.add({
-      severity: "error",
-      summary: "Save failed",
-      detail: e?.response?.data?.error || e.message,
-      life: 3500,
-    });
-  }
-};
-
-/* ---------------- Delete with custom dialog ---------------- */
-const deleteDialogVisible = ref(false);
-const deleteTarget = ref(null);
-
-const confirmDelete = (row) => {
-  deleteTarget.value = row;
-  deleteDialogVisible.value = true;
-};
-
-const deleteConfirmed = async () => {
-  if (!deleteTarget.value?.token) return;
-  try {
-    await deleteIssueReport(deleteTarget.value.token);
-    toast.add({ severity: "success", summary: "Deleted", life: 1500 });
-    await load();
-  } catch (e) {
-    toast.add({
-      severity: "error",
-      summary: "Delete failed",
-      detail: e.message,
-      life: 3500,
-    });
+    toast.add({ severity: 'error', summary: 'Submission Failed', detail: e.message, life: 3000 });
   } finally {
-    deleteDialogVisible.value = false;
-    deleteTarget.value = null;
+    submitting.value = false;
   }
 };
-
-/* ---------------------------------------------------------- */
-const load = async () => {
-  loading.value = true;
-  try {
-    const { data } = await listIssueReports();
-    rows.value = Array.isArray(data) ? data : [];
-  } catch (e) {
-    toast.add({
-      severity: "error",
-      summary: "Load failed",
-      detail: e.message,
-      life: 3500,
-    });
-    rows.value = [];
-  } finally {
-    loading.value = false;
-  }
-};
-
-onMounted(load);
 </script>
+
+<style scoped>
+.report-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .report-layout {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.map-wrapper {
+  position: relative;
+  height: 400px;
+  width: 100%;
+}
+
+.map-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* High z-index for Leaflet */
+  border-radius: 6px;
+  color: #6c757d;
+}
+</style>

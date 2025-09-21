@@ -1,5 +1,7 @@
 const { IssueReport, User, Location, FileAttachment } = require("../models");
 const { Op } = require("sequelize"); // Import Sequelize's operators
+const issueReportSchema = require('../validators/issueReportSchema');
+const { ZodError } = require('zod'); // Import ZodError for catching validation errors
 
 async function findByTokenOr404(token, res) {
   const row = await IssueReport.findOne({ where: { token } });
@@ -145,10 +147,17 @@ exports.getUserReports = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { title, description, isActive } = req.body;
-    const created = await IssueReport.create({ title, description, isActive });
+    console.log("Creating issue report with data:", req.body);
+    const validatedData = issueReportSchema.parse(req.body);
+    const { user_id, title, description, isActive, category, location_id } = validatedData;
+    const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
     res.status(201).json(created);
   } catch (e) {
+    console.error("Error creating issue report:", e);
+    if (e instanceof ZodError) {
+      // Respond with a structured list of errors
+      return res.status(400).json({ errors: e.treeifyError().fieldErrors });
+    }
     res.status(400).json({ error: e.message });
   }
 };
