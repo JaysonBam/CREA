@@ -10,18 +10,14 @@ const auth = require("../middleware/auth");
 
 // Base path: /api/issue-reports
 
-/**
- * @route   GET /api/issue-reports
- * @desc    Get a list of all issue reports.
- *          Can be filtered by map boundaries using query params:
- *          ?sw_lat, sw_lng, ne_lat, ne_lng
- * @access  Private
- */
 router.get("/", auth, controller.list);
 // Place non-:token routes BEFORE token routes to avoid matching issues
 router.get("/unread", auth, messageController.unreadCounts);
+// Title autocomplete suggestions (global)
+router.get("/title-suggestions", auth, controller.titleSuggestions);
 
 router.get("/user/:userToken", auth, controller.getUserReports);
+router.get("/user/:userToken/title-suggestions", auth, controller.titleSuggestionsForUser);
 router.get("/:token", auth, controller.getOne);
 router.post("/", auth, controller.create);
 router.put("/:token", auth, controller.update);
