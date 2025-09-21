@@ -4,7 +4,7 @@
     <div class="p-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 class="text-2xl font-bold">My Reported Issues</h1>
-        <div class="flex items-center gap-2">
+        <!-- <div class="flex items-center gap-2">
           <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
           <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
           <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
@@ -14,7 +14,7 @@
               <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
             </ul>
           </div>
-        </div>
+        </div> -->
       </div>
 
       <!-- Loading State -->
