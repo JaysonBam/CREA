@@ -28,11 +28,10 @@ const issueReportSchema = z.object({
     .regex(safeTextRegex, { message: 'Description contains invalid characters.' }),
   
   category: categoryEnum,
+  isActive: z.boolean().optional().default(true),
+  user_id: z.string(),
+  location_id: z.string(),
   
-  location_id: z.number({
-    required_error: 'A location must be selected on the map.',
-    invalid_type_error: 'Location ID must be a number.'
-  }).int().positive(),
 });
 
 module.exports = issueReportSchema;

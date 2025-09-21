@@ -92,7 +92,7 @@ module.exports = {
   const reads = await IssueChatRead.findAll({ where: { user_id: userId, issue_report_id: { [Op.in]: issueIds } } });
       const lastSeenByIssueId = new Map(reads.map((r) => [r.issue_report_id, r.last_seen_at]));
 
-      console.log('[unreadCounts]', { userId, tokens, issueIds, reads: reads.length });
+      // console.log('[unreadCounts]', { userId, tokens, issueIds, reads: reads.length });
 
       const result = {};
       for (const t of tokens) {
@@ -105,12 +105,13 @@ module.exports = {
         // Count unread (all if never seen)
         // eslint-disable-next-line no-await-in-loop
         const count = await Message.count({ where });
-        console.log('[unreadCounts] token', t, 'issue', issue.id, 'lastSeen', lastSeen, 'count', count);
+        // console.log('[unreadCounts] token', t, 'issue', issue.id, 'lastSeen', lastSeen, 'count', count);
         result[t] = count;
       }
 
       res.json({ counts: result });
     } catch (e) {
+      console.error("Error fetching unread counts:", e);
       res.status(500).json({ error: e.message });
     }
   },

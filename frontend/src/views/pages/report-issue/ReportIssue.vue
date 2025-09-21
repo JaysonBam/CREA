@@ -80,11 +80,12 @@
               :maxFileSize="5000000"
               :showUploadButton="false"
               :showCancelButton="false"
+              @select="onFileSelect"
+              @clear="selectedFiles = []"
             >
               <template #empty>
                 <p>Drag and drop files here. Files will be uploaded when you submit the report.</p>
               </template>
-              <!-- TODO: remove upload and cancel buttons, as they serve no purpose -->
             </FileUpload>
           </Panel>
         </div>
@@ -110,7 +111,11 @@ import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { debounce } from "lodash-es";
-import { createLocation, createIssueReport } from "@/utils/backend_helper";
+import { 
+  createLocation, 
+  createIssueReport,
+  createFileAttachment
+ } from "@/utils/backend_helper";
 
 // --- Leaflet Imports ---
 import "leaflet/dist/leaflet.css";
@@ -127,6 +132,7 @@ const mapLoading = ref(true);
 const geocoding = ref(false);
 const fileUploader = ref(null); // Ref to access the FileUpload component
 const submitting = ref(false);
+const selectedFiles = ref([]);
 const address = ref("");
 const zoom = ref(15);
 const mapCenter = ref([-25.7546, 28.2314]); // Default: Pretoria [lat, lng]
@@ -211,7 +217,14 @@ const handleMapClick = (event) => {
 }
 
 
+const onFileSelect = (event) => {
+  console.log("Selected files:", event.files);
+  selectedFiles.value = event.files;
+};
+
 const uploadFiles = async (event, reportToken) => {
+  console.log("Uploading files for report token:", reportToken);
+  console.log("Files to upload:", event.files);
   if (!reportToken || !event.files.length) {
     return;
   }
@@ -220,6 +233,8 @@ const uploadFiles = async (event, reportToken) => {
     formData.append("attachments", file);
   });
   formData.append("issue_report_token", reportToken);
+
+  console.log("Uploading files formData:", formData.body);
 
   try {
     // Use the helper function which handles FormData correctly
@@ -250,11 +265,13 @@ const submitReport = async () => {
       user_id: sessionStorage.getItem("id"),
     };
     const { data: newReport } = await createIssueReport(reportPayload);
-    newReportToken = newReport.token; // Save the token from the response
+    console.log("Created report:", newReport);
     
     // Step 3: Trigger the file upload process if there are files
-    if (fileUploader.value && fileUploader.value.files.length > 0) {
-      await uploadFiles({ files: fileUploader.value.files }, newReportToken);
+    if (selectedFiles.value.length > 0) {
+      // Create a temporary object matching the structure the uploader expects
+      const uploadEvent = { files: selectedFiles.value };
+      await uploadFiles(uploadEvent, newReport.token);
     }
 
     toast.add({ severity: 'success', summary: 'Success', detail: 'Issue reported successfully!', life: 3000 });

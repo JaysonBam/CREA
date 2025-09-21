@@ -43,7 +43,7 @@ exports.list = async (_req, res) => {
 
     // Check if all four coordinates for the bounding box are provided
     if (sw_lat && sw_lng && ne_lat && ne_lng) {
-      console.log("Listing issue reports with location filter");
+      // console.log("Listing issue reports with location filter");
 
       // Add a WHERE clause to the Location model include
       options.include[1].where = {
@@ -63,7 +63,7 @@ exports.list = async (_req, res) => {
       // Make the join required since we are filtering by it
       options.include[1].required = true; 
     } else {
-      console.log("Listing all issue reports (no filter)");
+      // console.log("Listing all issue reports (no filter)");
     }
 
     // Execute the query with the constructed options
@@ -99,7 +99,7 @@ exports.getOne = async (req, res) => {
 };
 
 exports.getUserReports = async (req, res) => {
-  console.log("Fetching reports for user:", req.params.userToken);
+  // console.log("Fetching reports for user:", req.params.userToken);
     try {
         const userToken = req.params.userToken;
         // find user id for given token
@@ -108,7 +108,7 @@ exports.getUserReports = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
         const userId = currUser.id;
-        console.log("Found user ID:", userId);
+        // console.log("Found user ID:", userId);
 
         // find all issue reports for given user id
         const reports = await IssueReport.findAll({
@@ -139,7 +139,7 @@ exports.getUserReports = async (req, res) => {
 
 
         res.json(reports);
-        console.log(`Found ${reports.length} reports for user ${userToken}`);
+        // console.log(`Found ${reports.length} reports for user ${userToken}`);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -147,8 +147,9 @@ exports.getUserReports = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    console.log("Creating issue report with data:", req.body);
+    // console.log("Creating issue report with data:", req.body);
     const validatedData = issueReportSchema.parse(req.body);
+    // console.log("Validated data:", validatedData);
     const { user_id, title, description, isActive, category, location_id } = validatedData;
     const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
     res.status(201).json(created);
@@ -156,7 +157,7 @@ exports.create = async (req, res) => {
     console.error("Error creating issue report:", e);
     if (e instanceof ZodError) {
       // Respond with a structured list of errors
-      return res.status(400).json({ errors: e.treeifyError().fieldErrors });
+      return res.status(400).json({ errors: e.flatten().fieldErrors });
     }
     res.status(400).json({ error: e.message });
   }

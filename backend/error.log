@@ -1,0 +1,13 @@
+[2025-09-21T19:03:15.658Z] POST /api/issue-reports
+TypeError: e.treeifyError is not a function
+    at exports.create (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\controllers\IssueReportController.js:159:47)
+    at Layer.handleRequest (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\route.js:157:13)
+    at C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\middleware\auth.js:25:5
+    at C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\jsonwebtoken\verify.js:261:12
+    at getSecret (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at module.exports (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\middleware\auth.js:19:7)
+    at Layer.handleRequest (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\route.js:157:13)
+
