@@ -61,6 +61,9 @@ app.use("/api/users", jsonParser, userRoutes);
 const fileAttachmentRoutes = require("./routes/FileAttachmentRoutes");
 app.use("/api/file-attachments", fileAttachmentRoutes);
 
+const wardRequestRoutes = require("./routes/WardRequestRoutes");
+app.use("/api/ward-requests", jsonParser, wardRequestRoutes);
+
 const locationRoutes = require('./routes/LocationRoutes');
 app.use('/api/locations', locationRoutes);
 

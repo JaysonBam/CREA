@@ -18,7 +18,39 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "User not found" });
       }
-      return response.status(200).json({ success: true, user });
+
+      let profile = null;
+      let ward = null;
+      if (user.role === "resident") {
+        profile = await Resident.findOne({
+          where: { user_id: user.id },
+          include: [{ model: Ward, as: "ward" }],
+        });
+        if (profile && profile.ward) ward = profile.ward;
+      } else if (user.role === "staff") {
+        const MunicipalStaff = require("../models").MunicipalStaff;
+        profile = await MunicipalStaff.findOne({
+          where: { user_id: user.id },
+          include: [{ model: Ward }],
+        });
+        if (profile && profile.Ward) ward = profile.Ward;
+      } else if (user.role === "communityleader") {
+        const CommunityLeader = require("../models").CommunityLeader;
+        profile = await CommunityLeader.findOne({
+          where: { user_id: user.id },
+          include: [{ model: Ward }],
+        });
+        if (profile && profile.Ward) ward = profile.Ward;
+      }
+
+      // Attach ward info to user object for frontend
+      let userJson = user.toJSON();
+      if (ward) {
+        userJson.ward_id = ward.id;
+        userJson.ward_name = ward.name;
+        userJson.ward_code = ward.code;
+      }
+      return response.status(200).json({ success: true, user: userJson });
     } catch (e) {
       return response
         .status(500)
@@ -46,7 +78,7 @@ module.exports = {
       }
 
       const jwtToken = jwt.sign(
-        { user_id: user.id }, //So that we dont have to pass a user to the backend, the token is already associated with a user
+        { user_id: user.id, role: user.role }, //So that we dont have to pass a user to the backend, the token is already associated with a user
         JWT_SECRET,
         { expiresIn: "24h" } // token expiry
       );
