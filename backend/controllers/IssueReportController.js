@@ -1,6 +1,6 @@
 const { IssueReport, User, Location, FileAttachment } = require("../models");
 const { Op } = require("sequelize"); // Import Sequelize's operators
-const issueReportSchema = require('../validators/issueReportSchema');
+const issueReportSchema = require('../schemas/issueReportSchema');
 const { ZodError } = require('zod'); // Import ZodError for catching validation errors
 
 async function findByTokenOr404(token, res) {
