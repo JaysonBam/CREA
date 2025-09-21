@@ -49,9 +49,12 @@
           <!-- =================================================================== -->
 
           <template #title>
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start gap-2">
               <span class="truncate">{{ report.title }}</span>
-              <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
+              <div class="flex items-center gap-2">
+                <span v-if="unread[report.token] > 0" class="unread-chip" :title="`${unread[report.token]} unread`">{{ unread[report.token] }}</span>
+                <Tag :value="report.status" :severity="getStatusSeverity(report.status)" />
+              </div>
             </div>
           </template>
           <template #subtitle>
@@ -79,14 +82,22 @@
                 class="w-full"
                 @click="openUploadDialog(report)"
               />
-              <Button
-                label="Chat"
-                icon="pi pi-comments"
-                severity="help"
-                outlined
-                class="w-full"
-                @click="openChat(report)"
-              />
+              <span class="relative w-full">
+                <Button
+                  label="Chat"
+                  icon="pi pi-comments"
+                  severity="help"
+                  outlined
+                  class="w-full"
+                  @click="openChat(report)"
+                />
+                <span
+                  v-if="unread[report.token] > 0"
+                  class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
+                >
+                  {{ unread[report.token] }}
+                </span>
+              </span>
             </div>
           </template>
         </Card>
@@ -157,18 +168,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
   updateIssueReport,
   createFileAttachment
 } from "@/utils/backend_helper";
+import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 
 const reports = ref([]);
 const loading = ref(true);
 const toast = useToast();
+const unread = ref({});
+let unreadTimer = null;
 
 const showEditDialog = ref(false);
 const showUploadDialog = ref(false);
@@ -191,10 +205,42 @@ const loadReports = async () => {
     }
     const { data } = await getUserReports(userToken);
     reports.value = Array.isArray(data) ? data : [];
+    await refreshUnread();
   } catch (e) {
     toast.add({ severity: "error", summary: "Failed to load reports", detail: e.message, life: 3000 });
   } finally {
     loading.value = false;
+  }
+};
+
+const refreshUnread = async () => {
+  try {
+    const tokens = reports.value.map(r => r.token);
+    if (!tokens.length) { unread.value = {}; return; }
+    const { data } = await getIssueUnreadCounts(tokens);
+    const counts = data?.counts || {};
+    let obj = {};
+    for (const t of tokens) obj[t] = counts[t] || 0;
+    const allZero = Object.values(obj).every(v => v === 0);
+    if (allZero) {
+      const currentUserToken = sessionStorage.getItem('token');
+      const perToken = await Promise.all(tokens.map(async (t) => {
+        try {
+          const [{ data: r }, { data: msgs }] = await Promise.all([
+            getIssueMessageRead(t),
+            listIssueMessages(t),
+          ]);
+          const last = r?.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+          const list = Array.isArray(msgs) ? msgs : [];
+          const cnt = list.filter(m => m?.author?.token !== currentUserToken && (!last || new Date(m.createdAt).getTime() > last)).length;
+          return [t, cnt];
+        } catch { return [t, 0]; }
+      }));
+      obj = Object.fromEntries(perToken);
+    }
+    unread.value = obj;
+  } catch (e) {
+    // silent fail
   }
 };
 
@@ -232,6 +278,8 @@ const openUploadDialog = (report) => {
 const openChat = (report) => {
   Object.assign(currentReport, report);
   showChatDialog.value = true;
+  // Optimistically clear badge; ChatRoom will mark read on bottom
+  if (unread.value[report.token] > 0) unread.value[report.token] = 0;
 };
 
 // Custom upload handler using backend_helper
@@ -263,7 +311,14 @@ const getStatusSeverity = (status) => {
   }
 };
 
-onMounted(loadReports);
+onMounted(async () => {
+  await loadReports();
+  unreadTimer = setInterval(refreshUnread, 5000);
+});
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer);
+});
 </script>
 
 <style scoped>
@@ -272,4 +327,5 @@ onMounted(loadReports);
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
 }
+.unread-chip { background: var(--primary-500); color: white; border-radius: 9999px; padding: 0 0.5rem; font-size: 0.75rem; }
 </style>

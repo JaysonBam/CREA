@@ -68,7 +68,10 @@
         style="min-width: 16rem"
       >
         <template #body="{ data }">
-          {{ data.title }}
+          <div class="flex items-center gap-2">
+            <span class="truncate">{{ data.title }}</span>
+            <span v-if="unread[data.token] > 0" class="unread-chip" :title="`${unread[data.token]} unread`">{{ unread[data.token] }}</span>
+          </div>
         </template>
       </Column>
 
@@ -154,14 +157,22 @@
             severity="danger"
             @click="confirmDelete(slotProps.data)"
           />
-          <Button
-            icon="pi pi-comments"
-            outlined
-            rounded
-            severity="help"
-            class="ml-2"
-            @click="openChat(slotProps.data)"
-          />
+          <span class="relative inline-block ml-2">
+            <Button
+              icon="pi pi-comments"
+              label="Chat"
+              outlined
+              rounded
+              severity="help"
+              @click="openChat(slotProps.data)"
+            />
+            <span
+              v-if="unread[slotProps.data.token] > 0"
+              class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
+            >
+              {{ unread[slotProps.data.token] }}
+            </span>
+          </span>
         </template>
       </Column>
     </DataTable>
@@ -254,7 +265,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode } from "@primevue/core/api";
 import {
@@ -263,10 +274,13 @@ import {
   updateIssueReport,
   deleteIssueReport,
 } from "@/utils/backend_helper"; // <-- IMPORTANT: UPDATE THIS PATH AND FUNCTIONS
+import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 
 const rows = ref([]);
 const loading = ref(false);
+const unread = ref({});
+let unreadTimer = null;
 
 const makeEmptyFilters = () => ({
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -386,6 +400,7 @@ const deleteConfirmed = async () => {
 const openChat = (row) => {
   chatTarget.value = row;
   chatDialogVisible.value = true;
+  if (unread.value[row.token] > 0) unread.value[row.token] = 0;
 };
 
 /* ---------------------------------------------------------- */
@@ -394,6 +409,7 @@ const load = async () => {
   try {
     const { data } = await listIssueReports();
     rows.value = Array.isArray(data) ? data : [];
+    await refreshUnread();
   } catch (e) {
     toast.add({
       severity: "error",
@@ -407,5 +423,49 @@ const load = async () => {
   }
 };
 
-onMounted(load);
+const refreshUnread = async () => {
+  try {
+    const tokens = rows.value.map(r => r.token);
+    if (!tokens.length) { unread.value = {}; return; }
+    const { data } = await getIssueUnreadCounts(tokens);
+    const counts = data?.counts || {};
+    let obj = {};
+    for (const t of tokens) obj[t] = counts[t] || 0;
+
+    // Fallback: if all zero or unread endpoint empty, compute client-side
+    const allZero = Object.values(obj).every(v => v === 0);
+    if (allZero) {
+      const currentUserToken = sessionStorage.getItem('token');
+      const perToken = await Promise.all(tokens.map(async (t) => {
+        try {
+          const [{ data: r }, { data: msgs }] = await Promise.all([
+            getIssueMessageRead(t),
+            listIssueMessages(t),
+          ]);
+          const last = r?.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+          const list = Array.isArray(msgs) ? msgs : [];
+          const cnt = list.filter(m => m?.author?.token !== currentUserToken && (!last || new Date(m.createdAt).getTime() > last)).length;
+          return [t, cnt];
+        } catch { return [t, 0]; }
+      }));
+      obj = Object.fromEntries(perToken);
+    }
+    unread.value = obj;
+  } catch (e) {
+    // silent
+  }
+};
+
+onMounted(async () => {
+  await load();
+  unreadTimer = setInterval(refreshUnread, 5000);
+});
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer);
+});
 </script>
+
+<style scoped>
+.unread-chip { background: var(--primary-500); color: white; border-radius: 9999px; padding: 0 0.5rem; font-size: 0.75rem; }
+</style>

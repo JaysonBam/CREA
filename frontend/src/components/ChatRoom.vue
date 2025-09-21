@@ -1,6 +1,6 @@
 <template>
   <div class="chatroom">
-  <div class="messages" ref="messagesBox" @scroll="onScroll">
+    <div class="messages" ref="messagesBox" @scroll="onScroll">
       <div v-if="loading" class="py-6 text-center text-surface-500">Loading messages…</div>
       <div v-else-if="!messages.length" class="py-6 text-center text-surface-500">No messages yet. Be the first to comment.</div>
 
@@ -32,6 +32,7 @@
     </div>
 
     <div class="composer mt-3 flex gap-2 items-start">
+      <span v-if="unreadCount > 0" class="unread-badge" :title="`${unreadCount} unread`">{{ unreadCount }}</span>
       <Textarea v-model="draft" rows="2" class="flex-1" placeholder="Type a message…" @keydown.enter.exact.prevent="send" />
       <Button label="Send" icon="pi pi-send" :disabled="!draft.trim() || sending" @click="send" />
     </div>
@@ -42,7 +43,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 import { useToast } from 'primevue/usetoast';
-import { listIssueMessages, postIssueMessage } from '@/utils/backend_helper';
+import { listIssueMessages, postIssueMessage, getIssueMessageRead, setIssueMessageRead } from '@/utils/backend_helper';
 
 const props = defineProps({
   issueToken: { type: String, required: true },
@@ -57,6 +58,15 @@ const messagesBox = ref(null);
 const atBottom = ref(true);
 const scrollOnNextLoad = ref(false);
 const initialized = ref(false);
+const lastSeenAt = ref(null); // ISO string or null
+const unreadCount = computed(() => {
+  // Count only messages from others that are newer than last_seen_at
+  if (!messages.value.length) return 0;
+  const isOther = (m) => m?.author?.token && m.author.token !== currentUserToken;
+  if (!lastSeenAt.value) return messages.value.filter(isOther).length;
+  const last = new Date(lastSeenAt.value).getTime();
+  return messages.value.filter(m => isOther(m) && new Date(m.createdAt).getTime() > last).length;
+});
 
 const currentUserToken = sessionStorage.getItem('token');
 const toast = useToast();
@@ -109,6 +119,8 @@ const grouped = computed(() => {
   return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
 });
 
+// Unread separator removed per requirements; badge-only approach retained.
+
 const roleLabel = (role) => {
   switch (role) {
     case 'resident': return 'Resident';
@@ -143,15 +155,22 @@ const load = async () => {
   if (first) loading.value = true;
   try {
     const el = messagesBox.value;
-    const shouldAuto = atBottom.value || scrollOnNextLoad.value;
     let prevFromBottom = 0;
-    if (el && !shouldAuto) {
+    if (el && !(atBottom.value || scrollOnNextLoad.value)) {
       prevFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
     }
+
     const { data } = await listIssueMessages(props.issueToken);
     messages.value = Array.isArray(data) ? data : [];
+
+    // Determine unread AFTER fetching the latest messages
+    const newest = messages.value[messages.value.length - 1]?.createdAt;
+    const hasUnread = !!(lastSeenAt.value && newest && (new Date(newest).getTime() > new Date(lastSeenAt.value).getTime()));
+    const shouldAuto = scrollOnNextLoad.value || (atBottom.value && !hasUnread);
+
     if (shouldAuto) {
       await scrollToBottom();
+      await markReadIfAtBottom();
     } else if (el) {
       await nextTick();
       el.scrollTop = el.scrollHeight - el.clientHeight - prevFromBottom;
@@ -160,6 +179,18 @@ const load = async () => {
     if (!initialized.value) initialized.value = true;
     if (loading.value) loading.value = false;
     scrollOnNextLoad.value = false;
+  }
+};
+
+const markReadIfAtBottom = async () => {
+  if (!atBottom.value || !messages.value.length) return;
+  const newest = messages.value[messages.value.length - 1]?.createdAt;
+  if (!newest) return;
+  try {
+    await setIssueMessageRead(props.issueToken, newest);
+    lastSeenAt.value = newest;
+  } catch (e) {
+    // silent fail
   }
 };
 
@@ -174,6 +205,7 @@ const send = async () => {
     await load();
     // Extra safety: ensure we're at bottom after the DOM settles
     await scrollToBottom();
+    await markReadIfAtBottom();
   } catch (e) {
     console.error(e);
     const detail = e?.response?.data?.error || e?.message || 'Failed to send message';
@@ -186,6 +218,11 @@ const send = async () => {
 let timer;
 
 onMounted(async () => {
+  // Load last seen
+  try {
+    const { data } = await getIssueMessageRead(props.issueToken);
+    lastSeenAt.value = data?.last_seen_at || null;
+  } catch {}
   await load();
   timer = setInterval(load, props.pollMs);
 });
@@ -204,6 +241,10 @@ const onScroll = () => {
   const threshold = 30; // px
   const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
   atBottom.value = distanceFromBottom <= threshold;
+  if (atBottom.value) {
+    // User viewed latest; mark read
+    markReadIfAtBottom();
+  }
 };
 </script>
 
@@ -235,5 +276,14 @@ const onScroll = () => {
   font-size: 0.65rem;
   line-height: 1rem;
   white-space: nowrap;
+}
+/* Unread separator styles removed */
+.unread-badge {
+  align-self: center;
+  background: var(--primary-500);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
 }
 </style>
