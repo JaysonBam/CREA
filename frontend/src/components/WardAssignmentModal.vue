@@ -1,9 +1,11 @@
 <template>
   <div class="mt-8 p-4 rounded-lg bg-gray-50 border border-gray-200">
+    <!-- Show assigned ward if available -->
     <div v-if="ward">
       <div class="font-semibold text-lg mb-2">Assigned Ward</div>
       <div class="text-primary text-base">{{ wardDisplay }}</div>
     </div>
+    <!-- Show request form if user can request a ward -->
     <template v-else-if="canRequestWard">
       <div class="font-semibold text-lg mb-2">Request to Join a Ward</div>
       <Dropdown
@@ -24,6 +26,7 @@
       <div v-if="requestMessage" class="mt-2 text-green-600">{{ requestMessage }}</div>
       <div v-if="wardsError" class="mt-2 text-red-500">{{ wardsError }}</div>
     </template>
+    <!-- Fallback if no ward assigned and cannot request -->
     <div v-else class="text-gray-500">No ward assigned.</div>
   </div>
 </template>
@@ -35,20 +38,21 @@ import Dropdown from 'primevue/dropdown';
 import Button from 'primevue/button';
 import { post } from '@/utils/api';
 
+// Expects a user
 const props = defineProps({
   user: { type: Object, required: true }
 });
 
+// States
 const wards = ref([]);
 const wardsLoading = ref(false);
 const wardsError = ref('');
 const selectedWard = ref('');
 const motivation = ref('');
-
 const jobDescription = ref('');
 const requestMessage = ref('');
 
-
+// Compute assigned ward from user prop
 const ward = computed(() => {
   // Use ward_id as the indicator for assignment
   if (props.user.ward_id && props.user.ward_name && props.user.ward_code) {
@@ -61,6 +65,7 @@ const ward = computed(() => {
   return null;
 });
 
+// Display string for assigned ward
 const wardDisplay = computed(() => {
   if (ward.value) {
     return `${ward.value.name} (${ward.value.code})`;
@@ -68,6 +73,7 @@ const wardDisplay = computed(() => {
   return null;
 });
 
+// Can the user request a ward?
 const canRequestWard = computed(() => {
   // Only staff or communityleader, and only if not already assigned a ward
   const role = props.user.role;
@@ -76,6 +82,7 @@ const canRequestWard = computed(() => {
   );
 });
 
+// Load wards on mount if user can request
 onMounted(async () => {
   if (canRequestWard.value) {
     try {
@@ -90,15 +97,20 @@ onMounted(async () => {
   }
 });
 
+// Submit ward join request
 async function submitRequest() {
   try {
+    //if staff get description
     requestMessage.value = '';
     let jobDesc = '';
     if (props.user.role === 'staff') {
       jobDesc = jobDescription.value || 'staff description';
+    // if leader just use community leader
     } else if (props.user.role === 'communityleader') {
       jobDesc = 'community leader';
     }
+
+    //post reqeust
     const res = await post('/api/ward-requests', {
       message: motivation.value,
       type: 'request',
