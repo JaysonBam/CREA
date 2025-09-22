@@ -9,6 +9,8 @@
     "dev": "nodemon index.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all"
+    ,
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
