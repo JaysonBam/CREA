@@ -3,6 +3,47 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
+
+
+// TEMPORARY: Endpoint to trigger migrations on Render
+//Invoke-WebRequest -Uri "https://crea-lrsi.onrender.com/run-migrations" -Method POST
+app.post('/run-migrations', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npx sequelize-cli db:migrate', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Migration error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Migration stderr: ${stderr}`);
+      }
+      res.json({ message: 'Migration complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// TEMPORARY: Endpoint to trigger seeders on Render
+//Invoke-WebRequest -Uri "https://crea-lrsi.onrender.com/run-seeders" -Method POST
+app.post('/run-seeders', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npx sequelize-cli db:seed:all', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Seeder error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Seeder stderr: ${stderr}`);
+      }
+      res.json({ message: 'Seeding complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Load environment configuration
 // Note we reference the .env variables and not use hardcoded values here
 // This is important for security and flexibility
