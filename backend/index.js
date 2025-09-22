@@ -4,7 +4,9 @@ require("dotenv").config();
 
 const app = express();
 
-// TEMPORARY: Endpoint to trigger migrations on Render free tier
+
+// TEMPORARY: Endpoint to trigger migrations on Render
+//Invoke-WebRequest -Uri "https://crea-lrsi.onrender.com/run-migrations" -Method POST
 app.post('/run-migrations', async (req, res) => {
   try {
     const { exec } = require('child_process');
@@ -23,7 +25,8 @@ app.post('/run-migrations', async (req, res) => {
   }
 });
 
-// TEMPORARY: Endpoint to trigger seeders on Render free tier
+// TEMPORARY: Endpoint to trigger seeders on Render
+//Invoke-WebRequest -Uri "https://crea-lrsi.onrender.com/run-seeders" -Method POST
 app.post('/run-seeders', async (req, res) => {
   try {
     const { exec } = require('child_process');
@@ -44,25 +47,28 @@ app.post('/run-seeders', async (req, res) => {
 // Load environment configuration
 // Note we reference the .env variables and not use hardcoded values here
 // This is important for security and flexibility
-const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
+const BACKEND_PORT = process.env.BACKEND_PORT;
 const BACKEND_HOST = process.env.BACKEND_HOST;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // Define allowed origins for CORS (so only your frontend can access the backend)
 const allowedOrigins = [
   FRONTEND_URL,
-];
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+].filter(Boolean);
 
+// Log allowed origins once
+console.log("CORS allowed origins:", allowedOrigins);
 // Configure CORS middleware
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`❌ Blocked by CORS: ${origin}`);
-        callback(null, false);
+        return callback(null, true);
       }
+      console.warn(`❌ Blocked by CORS: ${origin}`);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })

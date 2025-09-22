@@ -15,7 +15,9 @@ import MapPickerTest from '@/views/MapPickerTest.vue';
 
 import Profile from '@/views/pages/Profile.vue';
 import WardRequests from '@/views/pages/ward/WardRequests.vue';
-import Wards from "@/views/pages/Wards.vue";
+import Wards from "@/views/pages/ward/Wards.vue";
+import WardProfile from "@/views/pages/ward/WardProfile.vue";
+import WardStats from "@/views/pages/ward/WardStats.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -46,11 +48,11 @@ const router = createRouter({
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
-    // IMPORTANT: no leading slash for children
-    { path: "", redirect: { name: "report-issue" } },
+        // IMPORTANT: no leading slash for children
+        { path: "", redirect: { name: "report-issue" } },
         { path: "test-crud", name: "test-crud", component: Testcrud },
-  { path: "report-issue", name: "report-issue", component: ReportIssue },
-  { path: "reports", name: "reports", component: Report },
+        { path: "report-issue", name: "report-issue", component: ReportIssue },
+        { path: "reports", name: "reports", component: Report },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
         { path: "profile", name: "profile", component: Profile },
@@ -63,6 +65,18 @@ const router = createRouter({
         },
 
         { path: "wards", name: "wards", component: Wards },
+        {
+          path: "wards/:wardId/profile",
+          name: "ward-profile",
+          component: WardProfile,
+          props: true,
+        },
+        {
+          path: "wards/:wardId/stats",
+          name: "ward-stats",
+          component: WardStats,
+          props: true,
+        },
 
       ],
     },
@@ -73,7 +87,8 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const token = sessionStorage.getItem("JWT");
+  const TOKEN_KEY = "JWT";
+  const token = sessionStorage.getItem(TOKEN_KEY);
   const isAuthenticated = !!token;
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
   const guestOnly = to.matched.some((r) => r.meta.guestOnly);
@@ -86,12 +101,12 @@ router.beforeEach((to) => {
       userRole = payload.role;
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
-        sessionStorage.removeItem("token");
+        sessionStorage.removeItem(TOKEN_KEY);
         return { name: "login", query: { redirect: to.fullPath } };
       }
     } catch (e) {
       console.error("Invalid JWT:", e);
-      sessionStorage.removeItem("token");
+      sessionStorage.removeItem(TOKEN_KEY);
       return { name: "login" };
     }
   }
@@ -100,10 +115,10 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-  return { name: "reports" };
+    return { name: "reports" };
   }
-  if (adminOnly && userRole !== 'admin') {
-  return { name: "reports" };
+  if (adminOnly && userRole !== "admin") {
+    return { name: "reports" };
   }
 });
 
