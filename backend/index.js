@@ -1,21 +1,9 @@
-// TEMPORARY: Endpoint to trigger seeders on Render free tier
-app.post('/run-seeders', async (req, res) => {
-  try {
-    const { exec } = require('child_process');
-    exec('npx sequelize-cli db:seed:all', (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Seeder error: ${error.message}`);
-        return res.status(500).json({ error: error.message });
-      }
-      if (stderr) {
-        console.warn(`Seeder stderr: ${stderr}`);
-      }
-      res.json({ message: 'Seeding complete', stdout, stderr });
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+
+const app = express();
+
 // TEMPORARY: Endpoint to trigger migrations on Render free tier
 app.post('/run-migrations', async (req, res) => {
   try {
@@ -34,11 +22,25 @@ app.post('/run-migrations', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
 
-const app = express();
+// TEMPORARY: Endpoint to trigger seeders on Render free tier
+app.post('/run-seeders', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npx sequelize-cli db:seed:all', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Seeder error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Seeder stderr: ${stderr}`);
+      }
+      res.json({ message: 'Seeding complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Load environment configuration
 // Note we reference the .env variables and not use hardcoded values here
 // This is important for security and flexibility
