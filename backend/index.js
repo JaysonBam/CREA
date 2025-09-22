@@ -67,6 +67,10 @@ app.use("/api/ward-requests", jsonParser, wardRequestRoutes);
 const locationRoutes = require('./routes/LocationRoutes');
 app.use('/api/locations', locationRoutes);
 
+const maintenanceScheduleRoutes = require("./routes/MaintenanceScheduleRoutes");
+app.use("/api/maintenance-schedules", jsonParser, maintenanceScheduleRoutes);
+
+
 const fs = require("fs");
 const path = require("path");
 
