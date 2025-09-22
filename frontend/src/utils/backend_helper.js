@@ -79,3 +79,19 @@ export const updateFileAttachment = (token, data) =>
   api.put(`/api/file-attachments/${token}`, data);
 export const deleteFileAttachment = (token) =>
   api.delete(`/api/file-attachments/${token}`);
+
+
+export const listMaintenanceSchedules = (issueToken) =>
+  api.get("/api/maintenance-schedules", { params: { issueToken } });
+
+export const getMaintenanceSchedule = (token) =>
+  api.get(`/api/maintenance-schedules/${token}`);
+
+export const createMaintenanceSchedule = (data) =>
+  api.post("/api/maintenance-schedules", data);
+
+export const updateMaintenanceSchedule = (token, data) =>
+  api.put(`/api/maintenance-schedules/${token}`, data);
+
+export const deleteMaintenanceSchedule = (token) =>
+  api.delete(`/api/maintenance-schedules/${token}`);
