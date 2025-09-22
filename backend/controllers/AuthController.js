@@ -9,11 +9,14 @@ module.exports = {
   // Get current user info
   async me(request, response) {
     try {
+      // Get user ID
       const userId = request.user.user_id;
+      // Find user by primary key en exclude password
       const user = await User.findByPk(userId, {
         attributes: { exclude: ["password"] },
       });
       if (!user) {
+        // User not found in database
         return response
           .status(404)
           .json({ success: false, message: "User not found" });
@@ -21,13 +24,16 @@ module.exports = {
 
       let profile = null;
       let ward = null;
+      // Fetch profile and ward based on user role
       if (user.role === "resident") {
+        // For residents, get Resident profile and associated Ward (as 'ward')
         profile = await Resident.findOne({
           where: { user_id: user.id },
           include: [{ model: Ward, as: "ward" }],
         });
         if (profile && profile.ward) ward = profile.ward;
       } else if (user.role === "staff") {
+        // For staff, get MunicipalStaff profile and associated Ward
         const MunicipalStaff = require("../models").MunicipalStaff;
         profile = await MunicipalStaff.findOne({
           where: { user_id: user.id },
@@ -35,6 +41,7 @@ module.exports = {
         });
         if (profile && profile.Ward) ward = profile.Ward;
       } else if (user.role === "communityleader") {
+        // For community leaders, get CommunityLeader profile and associated Ward
         const CommunityLeader = require("../models").CommunityLeader;
         profile = await CommunityLeader.findOne({
           where: { user_id: user.id },
@@ -43,15 +50,16 @@ module.exports = {
         if (profile && profile.Ward) ward = profile.Ward;
       }
 
-      // Attach ward info to user object for frontend
       let userJson = user.toJSON();
       if (ward) {
         userJson.ward_id = ward.id;
         userJson.ward_name = ward.name;
         userJson.ward_code = ward.code;
       }
+      // Respond with user info
       return response.status(200).json({ success: true, user: userJson });
     } catch (e) {
+      // Handle unexpected errors
       return response
         .status(500)
         .json({ success: false, message: "Failed to fetch user info" });
