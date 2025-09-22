@@ -64,7 +64,12 @@ function itemClick(event, item) {
 }
 
 function checkActiveRoute(item) {
-    return route.path === item.to;
+    if (typeof item.to === 'string') {
+        return route.path === item.to;
+    } else if (item.to && item.to.name) {
+        return route.name === item.to.name;
+    }
+    return false;
 }
 </script>
 

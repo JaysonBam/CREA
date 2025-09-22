@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 // PrimeVue components
 import Button from 'primevue/button'
@@ -16,23 +16,64 @@ import TabView from 'primevue/tabview'
 import TabPanel from 'primevue/tabpanel'
 import Dropdown from 'primevue/dropdown'
 
-// Local data (backend to be completed)
-const people = ref([
-  { id: 101, name: 'Alice', role: 'Leader' },
-  { id: 102, name: 'Bob', role: 'Staff' },
-  { id: 103, name: 'John', role: 'Staff' },
-  { id: 104, name: 'David', role: 'Leader' },
-  { id: 105, name: 'Jake', role: 'Staff' },
-  { id: 106, name: 'Kim', role: 'Staff' },
-])
+import { listWards as apiListWards } from '@/service/WardService'
 
-const wards = ref([
-  { id: 1, name: 'Ward 1', leaderId: 101, staffIds: [102] },
-  { id: 2, name: 'Ward 2', leaderId: 104, staffIds: [103] },
-  { id: 3, name: 'Ward 3', leaderId: null, staffIds: [] },
-])
+// People loaded from backend
+const people = ref([])
+const API_BASE = import.meta.env.VITE_API_BASE ?? (window.location.port === '5173' ? 'http://127.0.0.1:5000' : '')
+
+async function loadPeople () {
+  try {
+    const res = await fetch(`${API_BASE}/api/users`, { headers: { 'Accept': 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const users = await res.json()
+    // Accept both lowercase and TitleCase roles; restrict to staff & leaders
+    const normalizeRole = (r) => String(r || '').toLowerCase()
+    people.value = (users || [])
+      .filter(u => u?.isActive !== false) // include active
+      .filter(u => ['staff', 'communityleader'].includes(normalizeRole(u.role)))
+      .map(u => ({
+        id: u.id,
+        name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || u.email,
+        role: normalizeRole(u.role) // 'staff' | 'communityleader'
+      }))
+  } catch (err) {
+    console.error('Failed to load users', err)
+    toast.add({ severity: 'error', summary: 'Load failed', detail: `Users: ${String(err?.message || err)}`, life: 3000 })
+  }
+}
+
+
+
+const wards = ref([])
 
 const nextWardId = ref(4)
+
+// Load from backend
+async function loadWards () {
+  loading1.value = true
+  try {
+    const data = await apiListWards()
+    
+    wards.value = (data || []).map(w => ({
+      id: w.id,
+      name: w.name,
+      code: w.code,
+      leaderId: null,
+      staffIds: []
+    }))
+  } catch (err) {
+    console.error('Failed to load wards', err)
+    toast.add({ severity: 'error', summary: 'Load failed', detail: String(err?.message || err), life: 3000 })
+  } finally {
+    loading1.value = false
+  }
+}
+
+function refreshWards () {
+  loadWards()
+}
+
 
 // Filtering state 
 const createInitialFilters = () => ({
@@ -43,9 +84,9 @@ const createInitialFilters = () => ({
 const filters1 = ref(createInitialFilters())
 const loading1 = ref(false)
 
-// Leader names for the MultiSelect filter
+// Leader names for the multiselect filter
 const leaderNameOptions = computed(() => {
-  return people.value.filter(p => p.role === 'Leader').map(l => l.name)
+    return people.value.filter(p => p.role === 'communityleader').map(l => l.name)
 })
 
 // Rows augmented with leaderName for filtering/display 
@@ -78,10 +119,10 @@ function createWard() {
 }
 
 const leaderOptions = computed(() =>
-  people.value.filter(p => p.role === 'Leader').map(l => ({ label: l.name, value: l.id }))
+    people.value.filter(p => p.role === 'communityleader').map(l => ({ label: l.name, value: l.id }))
 )
 
-const staffList = computed(() => people.value.filter(p => p.role === 'Staff'))
+const staffList = computed(() => people.value.filter(p => p.role === 'staff'))
 const staffOptions = computed(() => staffList.value.map(s => ({ label: s.name, value: s.id })))
 
 function staffOptionsForWard(wardId) {
@@ -121,6 +162,10 @@ function removeWard(w) {
     toast.add({ severity: 'info', summary: 'Deleted', detail: 'Ward removed', life: 1500 })
   }
 }
+
+onMounted(async () => {
+  await Promise.all([loadPeople(), loadWards()])
+})
 </script>
 
 <template>
@@ -153,6 +198,8 @@ function removeWard(w) {
             <div class="flex justify-between items-center gap-3">
               <div class="flex items-center gap-2">
                 <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
+
+                <Button type="button" icon="pi pi-refresh" label="Refresh" outlined @click="refreshWards()" />
               </div>
               <IconField>
                 <InputIcon>
@@ -165,7 +212,6 @@ function removeWard(w) {
           <template #empty> No wards found. </template>
           <template #loading> Loading wards data. Please wait. </template>
 
-          <Column field="id" header="ID" style="width: 8rem" />
 
           <Column field="name" header="Name" style="min-width: 12rem">
             <template #body="{ data }">
@@ -192,7 +238,6 @@ function removeWard(w) {
         <DataTable :value="wards" dataKey="id" showGridlines responsiveLayout="scroll">
           <template #empty> No wards to manage. </template>
 
-          <Column field="id" header="ID" style="width: 8rem" />
 
           <Column field="name" header="Name" style="min-width: 14rem">
             <template #body="{ data }">
@@ -222,7 +267,6 @@ function removeWard(w) {
         <DataTable :value="wards" dataKey="id" showGridlines responsiveLayout="scroll">
           <template #empty> No wards available. </template>
 
-          <Column field="id" header="ID" style="width: 8rem" />
           <Column field="name" header="Ward" style="min-width: 14rem" />
 
           <Column header="Assigned Staff" style="min-width: 18rem">
