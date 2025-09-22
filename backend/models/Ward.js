@@ -6,37 +6,48 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       Ward.hasMany(models.Resident, { foreignKey: "ward_id" });
       Ward.hasOne(models.CommunityLeader, {
-            as: 'leader',           
-            foreignKey: 'ward_id',
-            onDelete: 'SET NULL',
-            onUpdate: 'CASCADE',
-          })
+        as: "leader",
+        foreignKey: "ward_id",
+        onDelete: "SET NULL",
+        onUpdate: "CASCADE",
+      });
       Ward.hasMany(models.MunicipalStaff, {
-            as: 'staff',
-            foreignKey: 'ward_id',
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE',
-          })
+        as: "staff",
+        foreignKey: "ward_id",
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
+      });
 
-      Ward.addScope('withPeople', {
+      Ward.hasMany(models.IssueReport, {
+        foreignKey: "ward_id",
+        as: "issueReports",
+      });
+
+      Ward.addScope("withPeople", {
         include: [
           {
             model: models.CommunityLeader,
-            as: 'leader',
+            as: "leader",
             include: [
-              { model: models.User, attributes: ['id', 'first_name', 'last_name', 'email'] }
-            ]
+              {
+                model: models.User,
+                attributes: ["id", "first_name", "last_name", "email"],
+              },
+            ],
           },
           {
             model: models.MunicipalStaff,
-            as: 'staff',
+            as: "staff",
             include: [
-              { model: models.User, attributes: ['id', 'first_name', 'last_name', 'email'] }
-            ]
-          }
+              {
+                model: models.User,
+                attributes: ["id", "first_name", "last_name", "email"],
+              },
+            ],
+          },
         ],
-        order: [['autoinc', 'ASC']]
-      })
+        order: [["id", "ASC"]],
+      });
     }
   }
 

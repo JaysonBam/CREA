@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>New Issue Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Preheader (hidden preview text in inbox) -->
+    <style>
+      .preheader {
+        display: none !important;
+        visibility: hidden;
+        opacity: 0;
+        color: transparent;
+        height: 0;
+        width: 0;
+        overflow: hidden;
+        mso-hide: all;
+      }
+    </style>
+    <style>
+      /* Base reset for reliable rendering */
+      body,
+      table,
+      td,
+      a {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table,
+      td {
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        -ms-interpolation-mode: bicubic;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100% !important;
+      }
+      /* Container */
+      .bg {
+        background: #0f172a;
+        background-image: linear-gradient(180deg, #0f172a, #111827);
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.18);
+        overflow: hidden;
+      }
+      .inner {
+        padding: 24px;
+      }
+      /* Header ribbon */
+      .ribbon {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        padding: 18px 24px;
+        color: #fff;
+      }
+      .brand {
+        font: 700 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        letter-spacing: 0.4px;
+        opacity: 0.9;
+      }
+      .title {
+        margin: 2px 0 0;
+        font: 800 22px/1.25 system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, sans-serif;
+      }
+      .meta {
+        margin-top: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        font: 500 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      /* Pills / badges */
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        font: 700 11px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        padding: 6px 10px;
+        letter-spacing: 0.4px;
+      }
+      .pill-dark {
+        background: #111827;
+        color: #e5e7eb;
+        border: 1px solid #1f2937;
+      }
+      .pill-accent {
+        background: #e0e7ff;
+        color: #1e40af;
+      }
+      .pill-green {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .pill-amber {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .pill-red {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      /* Typography */
+      .h2 {
+        font: 800 18px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        color: #0b1220;
+        margin: 0 0 12px;
+      }
+      .p,
+      .td {
+        font: 500 14px/1.7 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        color: #1f2937;
+      }
+      .muted {
+        color: #6b7280;
+        font-weight: 500;
+      }
+      .mono {
+        font: 600 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        color: #0b1220;
+      }
+      /* Sections */
+      .section {
+        border: 1px solid #eef2f7;
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 18px;
+      }
+      .section-h {
+        background: #f8fafc;
+        padding: 12px 16px;
+        border-bottom: 1px solid #eef2f7;
+        font: 800 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        color: #0b1220;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+      }
+      .section-b {
+        padding: 16px;
+        background: #fff;
+      }
+      /* Key-value rows */
+      .kv {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .kv th,
+      .kv td {
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: top;
+      }
+      .kv tr:last-child th,
+      .kv tr:last-child td {
+        border-bottom: none;
+      }
+      .kv th {
+        width: 170px;
+        text-align: left;
+        color: #6b7280;
+        font: 700 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        letter-spacing: 0.3px;
+      }
+      .kv td {
+        color: #0b1220;
+        font: 600 14px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      /* Button (bulletproof) */
+      .btn-wrap {
+        padding-top: 8px;
+      }
+      .btn a {
+        background: linear-gradient(180deg, #2563eb, #1d4ed8);
+        border: 1px solid #1e40af;
+        color: #ffffff !important;
+        text-decoration: none;
+        display: inline-block;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font: 800 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        letter-spacing: 0.4px;
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+      }
+      .btn a:hover {
+        filter: brightness(1.05);
+      }
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding: 20px 0 40px;
+      }
+      .fineprint {
+        color: #a1a1aa;
+        font: 600 12px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      /* Responsive tweaks */
+      @media (max-width: 640px) {
+        .inner {
+          padding: 18px;
+        }
+        .kv th {
+          width: 120px;
+        }
+      }
+      /* Dark mode (not all clients) */
+      @media (prefers-color-scheme: dark) {
+        .card {
+          background: #0f1420;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+        .inner {
+          color: #e5e7eb;
+        }
+        .section {
+          border-color: #1f2432;
+        }
+        .section-h {
+          background: #0b0e14;
+          color: #e5e7eb;
+          border-bottom-color: #1f2432;
+        }
+        .kv th {
+          color: #9aa4b2;
+        }
+        .kv td {
+          color: #e5e7eb;
+        }
+        .mono {
+          color: #e5e7eb;
+        }
+        .btn a {
+          background: linear-gradient(180deg, #3b82f6, #2563eb);
+          border-color: #1e40af;
+        }
+        .fineprint {
+          color: #9aa4b2;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg" style="background: #0f172a; margin: 0">
+    <!-- Hidden preheader text -->
+    <div class="preheader">
+      New issue in Ward {{wardCode}} • {{title}} • {{createdAt}}
+    </div>
+
+    <table
+      role="presentation"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      width="100%"
+    >
+      <tr>
+        <td style="padding: 28px 16px">
+          <div class="wrap">
+            <!-- Card -->
+            <div class="card">
+              <!-- Ribbon header -->
+              <div class="ribbon">
+                <div class="brand">CREA • Community Reporting</div>
+                <div class="title">New Issue Report</div>
+                <div class="meta">
+                  Ward <span class="pill pill-dark"> {{wardCode}} </span>
+                  &nbsp;•&nbsp; {{createdAt}}
+                </div>
+              </div>
+
+              <!-- Body -->
+              <div class="inner">
+                <!-- Top badges line -->
+                <div style="margin: 0 0 12px">
+                  <span class="pill pill-accent">{{category}}</span>
+                  {{#if status}} {{#if (eq status "RESOLVED")}}<span
+                    class="pill pill-green"
+                    >{{status}}</span
+                  >{{/if}} {{#if (eq status "ACKNOWLEDGED")}}<span
+                    class="pill pill-amber"
+                    >{{status}}</span
+                  >{{/if}} {{#if (and (ne status "RESOLVED") (ne status
+                  "ACKNOWLEDGED"))}}<span class="pill pill-dark"
+                    >{{status}}</span
+                  >{{/if}} {{/if}}
+                </div>
+
+                <!-- Summary -->
+                <div class="section">
+                  <div class="section-h">Summary</div>
+                  <div class="section-b">
+                    <table class="kv" role="presentation">
+                      <tr>
+                        <th>Title</th>
+                        <td class="td">{{title}}</td>
+                      </tr>
+                      <tr>
+                        <th>Reported By</th>
+                        <td class="td">
+                          {{reporterName}}
+                          <span class="muted">({{reporterEmail}})</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Ward</th>
+                        <td class="td">Ward {{wardCode}}</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Description -->
+                <div class="section">
+                  <div class="section-h">Description</div>
+                  <div class="section-b">
+                    <div class="p" style="white-space: pre-wrap">
+                      {{description}}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Location -->
+                <div class="section">
+                  <div class="section-h">Location</div>
+                  <div class="section-b">
+                    <table class="kv" role="presentation">
+                      <tr>
+                        <th>Address</th>
+                        <td class="td">{{address}}</td>
+                      </tr>
+                      <tr>
+                        <th>Coordinates</th>
+                        <td class="td">
+                          <span class="mono">{{latitude}}, {{longitude}}</span>
+                          {{#if mapsLink}}
+                          <div class="btn-wrap">
+                            <!-- Bulletproof button -->
+                            <!--[if mso]>
+                              <v:roundrect
+                                xmlns:v="urn:schemas-microsoft-com:vml"
+                                xmlns:w="urn:schemas-microsoft-com:office:word"
+                                href="{{mapsLink}}"
+                                style="
+                                  height: 40px;
+                                  v-text-anchor: middle;
+                                  width: 230px;
+                                "
+                                arcsize="13%"
+                                stroke="f"
+                                fillcolor="#2563eb"
+                              >
+                                <w:anchorlock />
+                                <center
+                                  style="
+                                    color: #ffffff;
+                                    font-family: Segoe UI, Arial, sans-serif;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                  "
+                                >
+                                  Open in Google Maps
+                                </center>
+                              </v:roundrect>
+                            <![endif]-->
+                            <!--[if !mso]><!-- -->
+                            <a href="{{mapsLink}}" class="btn"
+                              >Open in Google Maps</a
+                            >
+                            <!--<![endif]-->
+                          </div>
+                          {{/if}}
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Friendly note -->
+                <div style="padding-top: 6px">
+                  <div class="muted" style="font-size: 13px">
+                    You’re receiving this as the Community Leader for Ward
+                    {{wardCode}}.
+                  </div>
+                </div>
+              </div>
+              <!-- /inner -->
+            </div>
+            <!-- /card -->
+
+            <!-- Footer -->
+            <div class="footer">
+              <div class="fineprint">Sent by CREA</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Handlebars helpers (optional): eq / ne / and -->
+    <!-- If you haven't registered helpers in Node, remove the conditional badge logic above or register helpers like this:
+      Handlebars.registerHelper('eq', (a, b) => a === b);
+      Handlebars.registerHelper('ne', (a, b) => a !== b);
+      Handlebars.registerHelper('and', (a, b) => a && b);
+    -->
+  </body>
+</html>

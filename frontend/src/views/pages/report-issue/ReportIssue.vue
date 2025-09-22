@@ -11,32 +11,115 @@
           <Panel header="1. Describe the Issue">
             <div class="flex flex-col gap-6">
               <div class="field">
-                <label for="title" class="font-semibold block mb-2">Title</label>
-                <InputText id="title" v-model="issueDetails.title" placeholder="e.g., Large Pothole on Main St" class="w-full"/>
+                <label for="title" class="font-semibold block mb-2"
+                  >Title</label
+                >
+                <InputText
+                  id="title"
+                  v-model="issueDetails.title"
+                  placeholder="e.g., Large Pothole on Main St"
+                  class="w-full"
+                />
               </div>
               <div class="field">
-                <label for="description" class="font-semibold block mb-2">Description</label>
-                <Textarea id="description" v-model="issueDetails.description" :autoResize="true" rows="5" placeholder="Provide as much detail as possible..." class="w-full"/>
+                <label for="description" class="font-semibold block mb-2"
+                  >Description</label
+                >
+                <Textarea
+                  id="description"
+                  v-model="issueDetails.description"
+                  :autoResize="true"
+                  rows="5"
+                  placeholder="Provide as much detail as possible..."
+                  class="w-full"
+                />
               </div>
               <div class="field">
-                <label for="category" class="font-semibold block mb-2">Category</label>
-                <Select id="category" v-model="issueDetails.category" :options="categoryOptions" placeholder="Select a category" />
+                <label for="category" class="font-semibold block mb-2"
+                  >Category</label
+                >
+                <Select
+                  id="category"
+                  v-model="issueDetails.category"
+                  :options="categoryOptions"
+                  placeholder="Select a category"
+                />
               </div>
             </div>
           </Panel>
         </div>
 
-        <!-- Map and Location. User device location will be used as default
-              User can drag pin or click on map to change location. -->
+        <!-- Map and Location + Ward -->
         <div class="map-panel">
           <Panel header="2. Pinpoint the Location">
             <div class="flex flex-col gap-4">
-              <!-- Address geocoding -->
-              <div class="field">
-                <label for="address" class="font-semibold">Address</label>
-                <div class="relative">
-                  <InputText id="address" v-model="address" @input="debouncedGeocodeAddress" placeholder="Start typing an address..." />
-                  <ProgressSpinner v-if="geocoding" class="absolute top-1/2 right-3 -mt-3" style="width: 25px; height: 25px" strokeWidth="6" />
+              <!-- Address + Ward (side by side on larger screens) -->
+              <div class="grid gap-4 md:grid-cols-2">
+                <!-- Address geocoding -->
+                <div class="field">
+                  <label for="address" class="font-semibold block mb-2"
+                    >Address</label
+                  >
+                  <div class="relative">
+                    <InputText
+                      id="address"
+                      v-model="address"
+                      @input="debouncedGeocodeAddress"
+                      placeholder="Start typing an address..."
+                      class="w-full"
+                    />
+                    <ProgressSpinner
+                      v-if="geocoding"
+                      class="absolute top-1/2 right-3 -mt-3"
+                      style="width: 25px; height: 25px"
+                      strokeWidth="6"
+                    />
+                  </div>
+                </div>
+
+                <!-- Ward dropdown -->
+                <div class="field">
+                  <label for="ward" class="font-semibold block mb-2"
+                    >Ward</label
+                  >
+                  <Dropdown
+                    id="ward"
+                    class="w-full"
+                    :options="wards"
+                    :loading="wardsLoading"
+                    :filter="true"
+                    filterPlaceholder="Search by name or code"
+                    :filterFields="['name', 'code']"
+                    optionValue="code"
+                    optionLabel="name"
+                    v-model="wardCode"
+                    placeholder="Select a ward"
+                    :disabled="!!wardsError || wardsLoading"
+                  >
+                    <template #value="{ value, placeholder }">
+                      <span v-if="!value">{{ placeholder }}</span>
+                      <span v-else>
+                        {{
+                          (() => {
+                            const w = wards.find((x) => x.code === value);
+                            return w ? `${w.name} (${w.code})` : value;
+                          })()
+                        }}
+                      </span>
+                    </template>
+
+                    <template #option="{ option }">
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ option.name }}</span>
+                        <span class="text-sm text-muted-color">{{
+                          option.code
+                        }}</span>
+                      </div>
+                    </template>
+                  </Dropdown>
+                  <small class="text-red-500 block" v-if="wardsError">{{
+                    wardsError
+                  }}</small>
                 </div>
               </div>
 
@@ -70,9 +153,10 @@
             </div>
           </Panel>
         </div>
+
+        <!-- Attachment uploading -->
         <div class="map-panel">
-          <!-- Attachment uploading -->
-        <Panel header="3. Upload Attachments (Optional)" class="mt-6">
+          <Panel header="3. Upload Attachments (Optional)" class="mt-6">
             <FileUpload
               ref="fileUploader"
               name="attachments"
@@ -87,7 +171,10 @@
               @clear="selectedFiles = []"
             >
               <template #empty>
-                <p>Drag and drop files here. Files will be uploaded when you submit the report.</p>
+                <p>
+                  Drag and drop files here. Files will be uploaded when you
+                  submit the report.
+                </p>
               </template>
             </FileUpload>
           </Panel>
@@ -114,11 +201,12 @@ import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { debounce } from "lodash-es";
-import { 
-  createLocation, 
+import {
+  createLocation,
   createIssueReport,
-  createFileAttachment
- } from "@/utils/backend_helper";
+  createFileAttachment,
+} from "@/utils/backend_helper";
+import { getAllWards } from "@/utils/ward_helper";
 
 // --- Leaflet Imports ---
 import "leaflet/dist/leaflet.css";
@@ -129,7 +217,13 @@ const router = useRouter();
 const toast = useToast();
 
 const issueDetails = reactive({ title: "", description: "", category: null });
-const categoryOptions = ref(['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER']);
+const categoryOptions = ref([
+  "POTHOLE",
+  "WATER_LEAK",
+  "POWER_OUTAGE",
+  "STREETLIGHT_FAILURE",
+  "OTHER",
+]);
 
 const mapLoading = ref(true);
 const geocoding = ref(false);
@@ -140,17 +234,41 @@ const zoom = ref(15);
 const mapCenter = ref([-25.7546, 28.2314]); // Default: Pretoria [lat, lng]
 const selectedLocation = ref(null); // [lat, lng]
 
+// --- Wards state ---
+const wards = ref([]);
+const wardsLoading = ref(false);
+const wardsError = ref("");
+const wardCode = ref(null); // we will send this as ward_code to backend
+
 // --- Computed Properties ---
 const isFormInvalid = computed(() => {
-  return !issueDetails.title || !issueDetails.category || !selectedLocation.value;
+  return (
+    !issueDetails.title ||
+    !issueDetails.category ||
+    !selectedLocation.value ||
+    !wardCode.value
+  );
 });
 
 // --- Geocoding and Map Logic ---
 let geocoder;
-onMounted(() => {
+onMounted(async () => {
   // Initialize the geocoder once the Google Maps script is loaded
   geocoder = new window.google.maps.Geocoder();
   getUserLocation();
+
+  // Load wards
+  try {
+    wardsLoading.value = true;
+    const res = await getAllWards();
+    // expecting shape: { data: { data: [ { id, code, name, ...}, ... ] } }
+    wards.value = Array.isArray(res?.data?.data) ? res.data.data : [];
+  } catch (e) {
+    wardsError.value =
+      e?.response?.data?.message || e?.message || "Failed to load wards";
+  } finally {
+    wardsLoading.value = false;
+  }
 });
 
 //  Get user's current location using Geolocation API
@@ -163,7 +281,12 @@ const getUserLocation = () => {
       mapLoading.value = false;
     },
     () => {
-      toast.add({ severity: 'warn', summary: 'Location Denied', detail: 'Using default location.', life: 3000 });
+      toast.add({
+        severity: "warn",
+        summary: "Location Denied",
+        detail: "Using default location.",
+        life: 3000,
+      });
       mapLoading.value = false;
     }
   );
@@ -180,7 +303,12 @@ const geocodeAddress = () => {
       const pos = [location.lat(), location.lng()];
       updateLocation(pos);
     } else {
-      toast.add({ severity: 'warn', summary: 'Geocode Failed', detail: 'Could not find address.', life: 3000 });
+      toast.add({
+        severity: "warn",
+        summary: "Geocode Failed",
+        detail: "Could not find address.",
+        life: 3000,
+      });
     }
   });
 };
@@ -219,37 +347,38 @@ const handleMarkerDrag = (event) => {
 const handleMapClick = (event) => {
   const newPos = [event.latlng.lat, event.latlng.lng];
   updateLocation(newPos);
-}
+};
 
 // --- File Upload Logic ---
-// Handle file selection, this function is run each time the user selects a file
 const onFileSelect = (event) => {
-  console.log("Selected files:", event.files);
+  // Run each time the user selects files
   selectedFiles.value = event.files;
 };
 
-// Handle file upload when the report is submitted
 const uploadFiles = async (event, reportToken) => {
-  console.log("Uploading files for report token:", reportToken);
-  console.log("Files to upload:", event.files);
-  if (!reportToken || !event.files.length) {
-    return;
-  }
+  if (!reportToken || !event.files.length) return;
 
-  // Format files for upload
   const formData = new FormData();
-  event.files.forEach(file => {
+  event.files.forEach((file) => {
     formData.append("attachments", file);
   });
   formData.append("issue_report_token", reportToken);
 
-  // console.log("Uploading files formData:", formData.body);
-
   try {
     await createFileAttachment(formData);
-    toast.add({ severity: 'info', summary: 'Upload Complete', detail: `${event.files.length} file(s) uploaded.`, life: 3000 });
+    toast.add({
+      severity: "info",
+      summary: "Upload Complete",
+      detail: `${event.files.length} file(s) uploaded.`,
+      life: 3000,
+    });
   } catch (uploadError) {
-    toast.add({ severity: 'error', summary: 'File Upload Failed', detail: 'Could not upload attachments.', life: 3000 });
+    toast.add({
+      severity: "error",
+      summary: "File Upload Failed",
+      detail: "Could not upload attachments.",
+      life: 3000,
+    });
     console.error("File upload error:", uploadError);
   }
 };
@@ -257,7 +386,12 @@ const uploadFiles = async (event, reportToken) => {
 // --- Form Submission ---
 const submitReport = async () => {
   if (isFormInvalid.value) {
-    toast.add({ severity: 'warn', summary: 'Validation Error', detail: 'Please fill all required fields and select a location.', life: 3000 });
+    toast.add({
+      severity: "warn",
+      summary: "Validation Error",
+      detail: "Please fill all required fields and select a location and ward.",
+      life: 3000,
+    });
     return;
   }
   submitting.value = true;
@@ -270,27 +404,36 @@ const submitReport = async () => {
     };
     // Create location first to get its ID
     const { data: newLocation } = await createLocation(locationPayload);
-    // Then create the issue report with the new location ID
+    // Then create the issue report with the new location ID and selected ward
     const reportPayload = {
       ...issueDetails,
       location_id: newLocation.id,
       user_id: sessionStorage.getItem("id"),
+      ward_code: wardCode.value,
     };
     const { data: newReport } = await createIssueReport(reportPayload);
-    // console.log("Created report:", newReport);
-    
+
     // Trigger the file upload process if there are files
     if (selectedFiles.value.length > 0) {
-      // Create a temporary object matching the structure the uploader expects
       const uploadEvent = { files: selectedFiles.value };
       await uploadFiles(uploadEvent, newReport.token);
     }
 
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Issue reported successfully!', life: 3000 });
+    toast.add({
+      severity: "success",
+      summary: "Success",
+      detail: "Issue reported successfully!",
+      life: 3000,
+    });
     // Redirect to user reports page
-    router.push('/user-reports');
+    router.push("/user-reports");
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Submission Failed', detail: e.message, life: 3000 });
+    toast.add({
+      severity: "error",
+      summary: "Submission Failed",
+      detail: e.message,
+      life: 3000,
+    });
   } finally {
     submitting.value = false;
   }

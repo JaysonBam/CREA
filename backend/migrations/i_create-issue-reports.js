@@ -30,12 +30,7 @@ module.exports = {
         allowNull: false,
       },
       status: {
-        type: Sequelize.ENUM(
-          "NEW",
-          "ACKNOWLEDGED",
-          "IN_PROGRESS",
-          "RESOLVED"
-        ),
+        type: Sequelize.ENUM("NEW", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED"),
         allowNull: false,
         defaultValue: "NEW",
       },
@@ -69,6 +64,15 @@ module.exports = {
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
       },
+
+      ward_id: {
+        type: Sequelize.BIGINT,
+        allowNull: true,
+        references: { model: "wards", key: "id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,

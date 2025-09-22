@@ -16,6 +16,8 @@ module.exports = (sequelize, DataTypes) => {
         as: "location",
       });
 
+      IssueReport.belongsTo(models.Ward, { foreignKey: "ward_id", as: "ward" });
+
       // An Issue Report can have many Votes
       // IssueReport.hasMany(models.Vote, {
       //   foreignKey: "issue_report_id",
@@ -64,14 +66,16 @@ module.exports = (sequelize, DataTypes) => {
       description: { type: DataTypes.TEXT, allowNull: false },
       category: {
         type: DataTypes.ENUM(
-          "POTHOLE", "WATER_LEAK", "POWER_OUTAGE", "STREETLIGHT_FAILURE", "OTHER"
+          "POTHOLE",
+          "WATER_LEAK",
+          "POWER_OUTAGE",
+          "STREETLIGHT_FAILURE",
+          "OTHER"
         ),
         allowNull: false,
       },
       status: {
-        type: DataTypes.ENUM(
-          "NEW", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED"
-        ),
+        type: DataTypes.ENUM("NEW", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED"),
         allowNull: false,
         defaultValue: "NEW",
       },

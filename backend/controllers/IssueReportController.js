@@ -1,10 +1,18 @@
-const { IssueReport, User, Location, FileAttachment } = require("../models");
+const {
+  IssueReport,
+  User,
+  Location,
+  FileAttachment,
+  Ward,
+} = require("../models");
 // Import Sequelize's operators (e.g., Op.iLike, Op.between) for more complex queries.
 const { Op } = require("sequelize");
 // Import the Zod schema for validation.
-const issueReportSchema = require('../schemas/issueReportSchema');
+const issueReportSchema = require("../schemas/issueReportSchema");
 // Import Zod's error class to specifically catch validation errors.
-const { ZodError } = require('zod');
+const { ZodError } = require("zod");
+const { renderIssueLeaderEmail } = require("../services/emailRenderer"); // adjust path if needed
+const { sendEmailAsync } = require("../services/emailService");
 
 /**
  * A helper function to find a record by its token.
@@ -28,7 +36,8 @@ async function findByTokenOr404(token, res) {
  */
 exports.list = async (req, res) => {
   // Destructure filter parameters from the request's query string (e.g., /issues?status=OPEN).
-  const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } = req.query;
+  const { sw_lat, sw_lng, ne_lat, ne_lng, category, status, title, q } =
+    req.query;
 
   try {
     // --- Base Query Configuration ---
@@ -46,10 +55,10 @@ exports.list = async (req, res) => {
           required: false, // Use a LEFT JOIN to include reports that may not have a location.
         },
         {
-            model: FileAttachment,
-            as: 'attachments',
-            attributes: ['token', 'file_link', 'description'], // Select specific attachment fields.
-            required: false    // LEFT JOIN to include reports even if they have no attachments.
+          model: FileAttachment,
+          as: "attachments",
+          attributes: ["token", "file_link", "description"], // Select specific attachment fields.
+          required: false, // LEFT JOIN to include reports even if they have no attachments.
         },
       ],
       order: [["id", "DESC"]], // Default order: newest reports first.
@@ -60,9 +69,9 @@ exports.list = async (req, res) => {
     const where = {};
     if (category) where.category = category;
     if (status) where.status = status;
-    const titleTerm = (q || title); // Allow either 'q' or 'title' for searching.
+    const titleTerm = q || title; // Allow either 'q' or 'title' for searching.
     if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` }; // `iLike` is a case-insensitive search.
-    
+
     // Add the constructed where clause to the main options if any filters were applied.
     if (Object.keys(where).length) options.where = where;
 
@@ -72,31 +81,39 @@ exports.list = async (req, res) => {
       // Add a `where` clause specifically to the included Location model.
       options.include[1].where = {
         [Op.and]: [
-          { latitude: { [Op.between]: [parseFloat(sw_lat), parseFloat(ne_lat)] } },
-          { longitude: { [Op.between]: [parseFloat(sw_lng), parseFloat(ne_lng)] } },
+          {
+            latitude: {
+              [Op.between]: [parseFloat(sw_lat), parseFloat(ne_lat)],
+            },
+          },
+          {
+            longitude: {
+              [Op.between]: [parseFloat(sw_lng), parseFloat(ne_lng)],
+            },
+          },
         ],
       };
       // Change the join to an INNER JOIN. This ensures only reports *with* a location inside the box are returned.
-      options.include[1].required = true; 
+      options.include[1].required = true;
     }
 
     // Execute the final query with all constructed options.
     const reports = await IssueReport.findAll(options);
-    
+
     // --- Post-Query Processing ---
     // Convert Sequelize model instances to plain JavaScript objects for manipulation.
-    const plainReports = reports.map(report => report.get({ plain: true }));
+    const plainReports = reports.map((report) => report.get({ plain: true }));
     // Determine the base URL for constructing full file links.
-    const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get("host")}`;
 
     // The database stores relative paths (`/uploads/file.png`). We must prepend the server's
     // base URL to make them accessible to the client.
-    plainReports.forEach(report => {
-        if (report.attachments) {
-            report.attachments.forEach(attachment => {
-                attachment.file_link = `${baseUrl}${attachment.file_link}`;
-            });
-        }
+    plainReports.forEach((report) => {
+      if (report.attachments) {
+        report.attachments.forEach((attachment) => {
+          attachment.file_link = `${baseUrl}${attachment.file_link}`;
+        });
+      }
     });
 
     res.json(reports);
@@ -122,44 +139,45 @@ exports.getOne = async (req, res) => {
  * Get all reports created by a specific user, identified by their token.
  */
 exports.getUserReports = async (req, res) => {
-    try {
-        const userToken = req.params.userToken;
-        // First, find the user's internal ID from their public token.
-        const currUser = await User.findOne({ where: { token: userToken } });
-        if (!currUser) {
-            return res.status(404).json({ error: "User not found" });
-        }
-        const userId = currUser.id;
-
-        // Then, find all reports where `user_id` matches.
-        const reports = await IssueReport.findAll({
-            where: { user_id: userId },
-            include: [ // Also include any file attachments for these reports.
-                {
-                    model: FileAttachment,
-                    as: 'attachments',
-                    attributes: ['token', 'file_link', 'description'],
-                    required: false
-                }
-            ],
-            order: [["createdAt", "DESC"]]
-        });
-
-        // Normalize attachment URLs to be absolute, just like in the main `list` function.
-        const plainReports = reports.map(report => report.get({ plain: true }));
-        const baseUrl = process.env.BACKEND_URL || `http://${req.get('host')}`;
-        plainReports.forEach(report => {
-            if (report.attachments) {
-                report.attachments.forEach(attachment => {
-                    attachment.file_link = `${baseUrl}${attachment.file_link}`;
-                });
-            }
-        });
-
-        res.json(plainReports);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+  try {
+    const userToken = req.params.userToken;
+    // First, find the user's internal ID from their public token.
+    const currUser = await User.findOne({ where: { token: userToken } });
+    if (!currUser) {
+      return res.status(404).json({ error: "User not found" });
     }
+    const userId = currUser.id;
+
+    // Then, find all reports where `user_id` matches.
+    const reports = await IssueReport.findAll({
+      where: { user_id: userId },
+      include: [
+        // Also include any file attachments for these reports.
+        {
+          model: FileAttachment,
+          as: "attachments",
+          attributes: ["token", "file_link", "description"],
+          required: false,
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Normalize attachment URLs to be absolute, just like in the main `list` function.
+    const plainReports = reports.map((report) => report.get({ plain: true }));
+    const baseUrl = process.env.BACKEND_URL || `http://${req.get("host")}`;
+    plainReports.forEach((report) => {
+      if (report.attachments) {
+        report.attachments.forEach((attachment) => {
+          attachment.file_link = `${baseUrl}${attachment.file_link}`;
+        });
+      }
+    });
+
+    res.json(plainReports);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 /**
@@ -183,7 +201,7 @@ exports.titleSuggestionsForUser = async (req, res) => {
       limit: 25,
     });
     // De-duplicate the results and limit to the top 10.
-    const titles = Array.from(new Set(rows.map(r => r.title))).slice(0, 10);
+    const titles = Array.from(new Set(rows.map((r) => r.title))).slice(0, 10);
     res.json({ titles });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -194,9 +212,88 @@ exports.titleSuggestionsForUser = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     // `parse` will throw a `ZodError` if the request body doesn't match the schema.
+
     const validatedData = issueReportSchema.parse(req.body);
-    const { user_id, title, description, isActive, category, location_id } = validatedData;
-    const created = await IssueReport.create({ title, description, isActive, category, location_id, user_id });
+
+    const {
+      user_id,
+      title,
+      description,
+      isActive,
+      category,
+      location_id,
+      ward_code,
+    } = validatedData;
+
+    const ward = await Ward.findOne({
+      where: { code: ward_code },
+      attributes: ["id"],
+    });
+
+    if (!ward) {
+      return res.status(400).json({
+        errors: { ward_code: ["Selected ward does not exist."] },
+      });
+    }
+    const created = await IssueReport.create({
+      title,
+      description,
+      isActive,
+      category,
+      location_id,
+      user_id,
+      ward_id: ward.id,
+    });
+
+    const ward1 = await Ward.scope("withPeople").findByPk(ward.id);
+    const leaderEmail =
+      ward1?.leader?.User?.email ?? ward1?.leader?.user?.email ?? null;
+
+    const [reporter, location] = await Promise.all([
+      User.findByPk(created.user_id, {
+        attributes: ["first_name", "last_name", "email"],
+      }),
+      Location.findByPk(created.location_id, {
+        attributes: ["address", "latitude", "longitude"],
+      }),
+    ]);
+
+    // Format date for the email’s header
+    const fmt = new Intl.DateTimeFormat("en-ZA", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Africa/Johannesburg",
+    });
+
+    const emailData = {
+      title: created.title,
+      category: created.category,
+      status: created.status ?? "NEW",
+      reporterName: reporter
+        ? `${reporter.first_name} ${reporter.last_name}`.trim()
+        : "Unknown",
+      reporterEmail: reporter?.email ?? "unknown",
+      wardCode: ward_code,
+      description: created.description,
+      address: location?.address ?? "—",
+      latitude: location?.latitude ?? "—",
+      longitude: location?.longitude ?? "—",
+      mapsLink:
+        location?.latitude && location?.longitude
+          ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+          : "",
+      createdAt: fmt.format(created.createdAt ?? new Date()),
+    };
+
+    // Render the HTML from your template
+    const html = await renderIssueLeaderEmail(emailData);
+
+    await sendEmailAsync({
+      to: leaderEmail,
+      subject: `New issue in Ward ${emailData.wardCode}: ${emailData.title}`,
+      html,
+    });
+
     res.status(201).json(created);
   } catch (e) {
     // If the error is from Zod, format it into a user-friendly response.
@@ -205,6 +302,7 @@ exports.create = async (req, res) => {
     }
     // Handle other potential errors (e.g., database constraint violations).
     res.status(400).json({ error: e.message });
+    console.log(e.message);
   }
 };
 
