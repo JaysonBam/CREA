@@ -5,9 +5,8 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("wards", {
       id: {
-        type: Sequelize.BIGINT,
+        type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
-        autoIncrement: true,
         primaryKey: true,
         allowNull: false,
       },
