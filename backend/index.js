@@ -1,3 +1,39 @@
+// TEMPORARY: Endpoint to trigger seeders on Render free tier
+app.post('/run-seeders', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npx sequelize-cli db:seed:all', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Seeder error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Seeder stderr: ${stderr}`);
+      }
+      res.json({ message: 'Seeding complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// TEMPORARY: Endpoint to trigger migrations on Render free tier
+app.post('/run-migrations', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npx sequelize-cli db:migrate', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Migration error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Migration stderr: ${stderr}`);
+      }
+      res.json({ message: 'Migration complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
