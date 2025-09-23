@@ -42,6 +42,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "messages",
       });
 
+      IssueReport.hasMany(models.ReportIssueWatchlist, {
+        foreignKey: "report_issue_id",
+        as: "watchlist",
+      });
+
       // An Issue Report has one Message Thread
       // IssueReport.hasOne(models.MessageThread, {
       //   foreignKey: "issue_report_id",
