@@ -211,6 +211,7 @@ const rows = ref([]);
 const loading = ref(false);
 const unread = ref({});
 let unreadTimer = null;
+let socket;
 const first = ref(0);
 
 const categoryFilter = ref(null);
@@ -417,17 +418,35 @@ const refreshUnread = async () => {
 
 onMounted(async () => {
   await load();
-  unreadTimer = setInterval(refreshUnread, 5000);
-  const s = connectSocket();
-  s.on('unread:invalidate', async (p) => {
-    // Refresh unread counts for visible rows only
-    await refreshUnread();
+  socket = connectSocket();
+  const onInvalidate = async () => { await refreshUnread(); };
+  const onConnect = () => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    // Ensure a fresh fetch on connect
+    void refreshUnread();
+  };
+  const onDisconnect = () => {
+    if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+  };
+  // attach listeners
+  socket.on('unread:invalidate', onInvalidate);
+  socket.on('connect', onConnect);
+  socket.on('disconnect', onDisconnect);
+  // If not yet connected, keep polling until connected
+  if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    try {
+      socket.off('unread:invalidate', onInvalidate);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    } catch {}
   });
 });
 
-onUnmounted(() => {
-  if (unreadTimer) clearInterval(unreadTimer);
-});
+// note: the cleanup is handled inside onMounted's nested onUnmounted
 
 /* ---------- Title suggestions ---------- */
 let titleDebounce;

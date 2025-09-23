@@ -198,6 +198,7 @@ const loading = ref(true);
 const toast = useToast();
 const unread = ref({});
 let unreadTimer = null;
+let socket;
 
 const categoryOptions = ['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER'];
 const statusOptions = ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
@@ -348,16 +349,31 @@ const getStatusSeverity = (status) => {
 // Initial load and periodic unread refresh
 onMounted(async () => {
   await loadReports();
-  unreadTimer = setInterval(refreshUnread, 5000);
-  const s = connectSocket();
-  s.on('unread:invalidate', async () => {
-    await refreshUnread();
+  socket = connectSocket();
+  const onInvalidate = async () => { await refreshUnread(); };
+  const onConnect = () => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    void refreshUnread();
+  };
+  const onDisconnect = () => {
+    if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+  };
+  socket.on('unread:invalidate', onInvalidate);
+  socket.on('connect', onConnect);
+  socket.on('disconnect', onDisconnect);
+  if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+
+  onUnmounted(() => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    try {
+      socket.off('unread:invalidate', onInvalidate);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    } catch {}
   });
 });
 
-onUnmounted(() => {
-  if (unreadTimer) clearInterval(unreadTimer);
-});
+// note: cleanup handled above
 
 // Clear UI filters and reload user reports
 const clearFilters = () => {

@@ -78,8 +78,8 @@ module.exports = {
         const { getIO } = require('../services/socket');
         const io = getIO();
         io.to(`issue:${issue.token}`).emit('message:new', { issueToken: issue.token, message: withAuthor });
-        // Notify viewers of this issue (except the author) to refresh unread
-        io.to(`issue:${issue.token}`).except(`user:${userId}`).emit('unread:invalidate', { issueToken: issue.token });
+        // Notify all connected clients (except the author) to refresh unread; list pages may not be joined to the issue room
+        io.except(`user:${userId}`).emit('unread:invalidate', { issueToken: issue.token });
       } catch (_) {
         // sockets optional
       }
