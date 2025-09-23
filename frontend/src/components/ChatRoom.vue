@@ -55,6 +55,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { listIssueMessages, postIssueMessage, getIssueMessageRead, setIssueMessageRead, getIssueReport } from '@/utils/backend_helper';
+import { connectSocket } from '@/utils/socket';
 
 const props = defineProps({
   issueToken: { type: String, required: true },
@@ -241,6 +242,29 @@ const send = async () => {
 let timer;
 
 onMounted(async () => {
+  // Connect socket and join this issue room
+  const s = connectSocket();
+  s.emit('issue:join', { issueToken: props.issueToken });
+  s.on('connect_error', () => {/* silent */});
+  s.on('message:new', async (payload) => {
+    if (payload?.issueToken !== props.issueToken) return;
+    // Append message and keep scroll behavior
+    const m = payload.message;
+    if (m) {
+      messages.value = [...messages.value, m];
+      if (atBottom.value) {
+        await scrollToBottom();
+        await markReadIfAtBottom();
+      }
+    } else {
+      await load();
+    }
+  });
+  s.on('message:read', async (payload) => {
+    if (payload?.issueToken !== props.issueToken) return;
+    // No UI change needed here in the ChatRoom for others' read, but could be used to show read receipts later
+  });
+
   // Load last seen
   try {
     const { data } = await getIssueMessageRead(props.issueToken);
@@ -257,6 +281,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
+  try { connectSocket().emit('issue:leave', { issueToken: props.issueToken }); } catch {}
 });
 
 watch(() => props.issueToken, async () => {

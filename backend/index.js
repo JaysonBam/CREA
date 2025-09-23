@@ -1,8 +1,10 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
 require("dotenv").config();
 
 const app = express();
+const server = http.createServer(app);
 
 
 // TEMPORARY: Endpoint to trigger migrations on Render
@@ -131,7 +133,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
+// Socket.IO setup
+try {
+  const { initSocket } = require('./services/socket');
+  initSocket(server, { allowedOrigins });
+  console.log('🔌 Socket.IO initialized');
+} catch (e) {
+  console.warn('⚠️ Socket.IO not initialized:', e.message);
+}
+
 // Start the server on configured host/port
-app.listen(BACKEND_PORT, BACKEND_HOST, () => {
+server.listen(BACKEND_PORT, BACKEND_HOST, () => {
   console.log(`✅ Server running on http://${BACKEND_HOST}:${BACKEND_PORT}`);
 });

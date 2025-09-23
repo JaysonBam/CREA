@@ -194,6 +194,7 @@ import {
 } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 import MaintenanceSchedulesModal from "@/components/MaintenanceSchedulesModal.vue";
+import { connectSocket } from "@/utils/socket";
 
 /* ---------- Maintenance modal wiring ---------- */
 const maintModal = ref(null);
@@ -417,6 +418,11 @@ const refreshUnread = async () => {
 onMounted(async () => {
   await load();
   unreadTimer = setInterval(refreshUnread, 5000);
+  const s = connectSocket();
+  s.on('unread:invalidate', async (p) => {
+    // Refresh unread counts for visible rows only
+    await refreshUnread();
+  });
 });
 
 onUnmounted(() => {

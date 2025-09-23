@@ -73,6 +73,17 @@ module.exports = {
         ],
       });
 
+      // Emit to sockets: new message for this issue room, plus unread update for others
+      try {
+        const { getIO } = require('../services/socket');
+        const io = getIO();
+        io.to(`issue:${issue.token}`).emit('message:new', { issueToken: issue.token, message: withAuthor });
+        // Notify viewers of this issue (except the author) to refresh unread
+        io.to(`issue:${issue.token}`).except(`user:${userId}`).emit('unread:invalidate', { issueToken: issue.token });
+      } catch (_) {
+        // sockets optional
+      }
+
       res.status(201).json(withAuthor);
     } catch (e) {
       res.status(500).json({ error: e.message });

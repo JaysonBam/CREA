@@ -191,6 +191,7 @@ import {
 import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
 import { getUserIssueTitleSuggestions } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
+import { connectSocket } from "@/utils/socket";
 
 const reports = ref([]);
 const loading = ref(true);
@@ -348,6 +349,10 @@ const getStatusSeverity = (status) => {
 onMounted(async () => {
   await loadReports();
   unreadTimer = setInterval(refreshUnread, 5000);
+  const s = connectSocket();
+  s.on('unread:invalidate', async () => {
+    await refreshUnread();
+  });
 });
 
 onUnmounted(() => {
