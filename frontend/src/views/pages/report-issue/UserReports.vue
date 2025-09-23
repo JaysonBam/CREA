@@ -4,17 +4,17 @@
     <div class="p-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 class="text-2xl font-bold">My Reported Issues</h1>
-        <!-- <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
           <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
-          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" @change="loadReports" />
+          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" @change="loadReports" />
           <div class="relative">
             <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
             <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
               <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
             </ul>
           </div>
-        </div> -->
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -368,21 +368,30 @@ let titleDebounce;
 // Debounced title input: fetch suggestions for this user and reload list
 const onTitleInput = async () => {
   const q = titleQuery.value?.trim() || "";
-  // When cleared, hide suggestions and reload all
+  if (titleDebounce) clearTimeout(titleDebounce);
   if (!q) {
     showTitleSuggestions.value = false;
     titleSuggestions.value = [];
-    if (titleDebounce) clearTimeout(titleDebounce);
     await loadReports();
     return;
   }
   showTitleSuggestions.value = true;
-  if (titleDebounce) clearTimeout(titleDebounce);
   titleDebounce = setTimeout(async () => {
     try {
+      // Build params that respect active filters and current query
+      const params = {};
+      if (categoryFilter.value) params.category = categoryFilter.value;
+      if (statusFilter.value) params.status = statusFilter.value;
+      params.title = q;
       const userToken = sessionStorage.getItem("token");
-      const { data } = await getUserIssueTitleSuggestions(userToken, q);
-      titleSuggestions.value = data?.titles || [];
+      const { data } = await getUserReports(userToken, params);
+      const rowsArr = Array.isArray(data) ? data : [];
+      const set = new Set();
+      for (const r of rowsArr) {
+        if (typeof r?.title === 'string' && r.title.toLowerCase().includes(q.toLowerCase())) set.add(r.title);
+        if (set.size >= 10) break;
+      }
+      titleSuggestions.value = Array.from(set);
     } catch { titleSuggestions.value = []; }
     loadReports();
   }, 250);

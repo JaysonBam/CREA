@@ -448,9 +448,21 @@ const onTitleInput = async () => {
     suggestionsLoading.value = true;
     suggestionsError.value = false;
     try {
-      const { data } = await getIssueTitleSuggestions(q);
+      // Build params including active filters so suggestions are scoped correctly
+      const params = {};
+      if (categoryFilter.value) params.category = categoryFilter.value;
+      if (statusFilter.value) params.status = statusFilter.value;
+      params.title = q;
+      const { data } = await listIssueReports(params);
       if (lastSuggestReq !== reqId) return;
-      titleSuggestions.value = data?.titles || [];
+      const rowsArr = Array.isArray(data) ? data : [];
+      // Derive unique titles from filtered rows
+      const set = new Set();
+      for (const r of rowsArr) {
+        if (typeof r?.title === 'string' && r.title.toLowerCase().includes(q.toLowerCase())) set.add(r.title);
+        if (set.size >= 10) break;
+      }
+      titleSuggestions.value = Array.from(set);
       suggestionsLoaded.value = true;
       suggestionsLoading.value = false;
     } catch {

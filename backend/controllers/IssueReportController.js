@@ -116,7 +116,8 @@ exports.list = async (req, res) => {
       }
     });
 
-    res.json(reports);
+    // Return normalized plain objects
+    res.json(plainReports);
   } catch (e) {
     console.error("Failed to list issue reports:", e);
     res.status(500).json({ error: e.message });
@@ -141,6 +142,8 @@ exports.getOne = async (req, res) => {
 exports.getUserReports = async (req, res) => {
   try {
     const userToken = req.params.userToken;
+    const { category, status, title, q } = req.query;
+
     // First, find the user's internal ID from their public token.
     const currUser = await User.findOne({ where: { token: userToken } });
     if (!currUser) {
@@ -148,11 +151,16 @@ exports.getUserReports = async (req, res) => {
     }
     const userId = currUser.id;
 
-    // Then, find all reports where `user_id` matches.
+    // Build filters like the global list, but scoped to this user
+    const where = { user_id: userId };
+    if (category) where.category = category;
+    if (status) where.status = status;
+    const titleTerm = q || title;
+    if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+
     const reports = await IssueReport.findAll({
-      where: { user_id: userId },
+      where,
       include: [
-        // Also include any file attachments for these reports.
         {
           model: FileAttachment,
           as: "attachments",
@@ -163,7 +171,7 @@ exports.getUserReports = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Normalize attachment URLs to be absolute, just like in the main `list` function.
+    // Normalize attachment URLs
     const plainReports = reports.map((report) => report.get({ plain: true }));
     const baseUrl = process.env.BACKEND_URL || `http://${req.get("host")}`;
     plainReports.forEach((report) => {
