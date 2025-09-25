@@ -353,6 +353,14 @@ const openChat = (row) => {
   if (unread.value[row.token] > 0) unread.value[row.token] = 0;
 };
 
+// Ensure that while a chat is open its unread count stays suppressed
+watch([chatDialogVisible, chatTarget, unread], () => {
+  if (chatDialogVisible.value && chatTarget.value?.token) {
+    const t = chatTarget.value.token;
+    if (unread.value[t] && unread.value[t] > 0) unread.value[t] = 0;
+  }
+});
+
 /* ---------- Load & unread ---------- */
 const load = async () => {
   loading.value = true;
@@ -410,7 +418,13 @@ const refreshUnread = async () => {
       );
       obj = Object.fromEntries(perToken);
     }
+    // Apply counts
     unread.value = obj;
+    // If user currently has a chat dialog open for a specific issue, suppress unread for that issue
+    if (chatDialogVisible.value && chatTarget.value?.token) {
+      const t = chatTarget.value.token;
+      if (unread.value[t] && unread.value[t] > 0) unread.value[t] = 0;
+    }
   } catch {
     // silent
   }

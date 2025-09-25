@@ -51,7 +51,6 @@
     </div>
 
     <div class="composer mt-3 flex gap-2 items-start">
-      <span v-if="unreadCount > 0" class="unread-badge" :title="`${unreadCount} unread`">{{ unreadCount }}</span>
       <Textarea
         v-model="draft"
         rows="2"
@@ -317,12 +316,13 @@ onMounted(async () => {
     const m = payload.message;
     if (m) {
       messages.value = [...messages.value, m];
+      // Treat messages as read immediately while chat is open (user presence implies reading)
+      if (canAutoMarkRead()) {
+        markReadOptimistic(m.createdAt);
+      }
+      // Still provide visual cue if user is scrolled up: only then show scroll button badge
       if (atBottom.value) {
         await scrollToBottom();
-        // Avoid unread flicker: if user is actively viewing this chat, mark read optimistically
-        if (canAutoMarkRead()) {
-          markReadOptimistic(m.createdAt);
-        }
       } else {
         newSinceScroll.value = Math.min(99, (newSinceScroll.value || 0) + 1);
       }
