@@ -9,7 +9,7 @@ import { defineConfig, loadEnv } from "vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const FRONTEND_HOST = env.VITE_FRONTEND_HOST;
-  const FRONTEND_PORT = env.VITE_FRONTEND_PORT;
+  const FRONTEND_PORT = process.env.PORT ? Number(process.env.PORT) : Number(env.VITE_FRONTEND_PORT);
   return {
     optimizeDeps: {
       noDiscovery: true,
