@@ -19,10 +19,10 @@ module.exports = (sequelize, DataTypes) => {
       IssueReport.belongsTo(models.Ward, { foreignKey: "ward_id", as: "ward" });
 
       // An Issue Report can have many Votes
-      // IssueReport.hasMany(models.Vote, {
-      //   foreignKey: "issue_report_id",
-      //   as: "votes",
-      // });
+      IssueReport.hasMany(models.Vote, {
+        foreignKey: "issue_report_id",
+        as: "votes",
+      });
 
       // An Issue Report has a history of many Status Changes
       // IssueReport.hasMany(models.StatusChange, {
@@ -40,6 +40,11 @@ module.exports = (sequelize, DataTypes) => {
       IssueReport.hasMany(models.Message, {
         foreignKey: "issue_report_id",
         as: "messages",
+      });
+
+      IssueReport.hasMany(models.ReportIssueWatchlist, {
+        foreignKey: "report_issue_id",
+        as: "watchlist",
       });
 
       // An Issue Report has one Message Thread

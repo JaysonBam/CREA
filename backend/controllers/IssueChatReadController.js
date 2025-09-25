@@ -38,6 +38,18 @@ module.exports = {
       if (row.last_seen_at == null || row.last_seen_at < when) {
         await row.update({ last_seen_at: when });
       }
+
+      try {
+        const { getIO } = require('../services/socket');
+        const io = getIO();
+        // Let others in the issue room know this user has read up to 'when'
+        io.to(`issue:${issue.token}`).emit('message:read', { issueToken: issue.token, userId, last_seen_at: when });
+        // Also notify this user to refresh unread counts everywhere
+        io.to(`user:${userId}`).emit('unread:invalidate', { issueToken: issue.token });
+      } catch (_) {
+        // sockets optional
+      }
+
       res.json({ last_seen_at: row.last_seen_at });
     } catch (e) {
       res.status(500).json({ error: e.message });

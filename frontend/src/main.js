@@ -8,6 +8,7 @@ import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
 
 import '@/assets/styles.scss';
+import { connectSocket } from '@/utils/socket';
 
 const app = createApp(App);
 
@@ -24,3 +25,6 @@ app.use(ToastService);
 app.use(ConfirmationService);
 
 app.mount('#app');
+
+// Establish a shared socket connection for global events like unread updates
+try { connectSocket(); } catch {}
