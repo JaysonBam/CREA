@@ -329,6 +329,19 @@ exports.update = async (req, res) => {
   }
 };
 
+exports.updateStatus = async (req, res) => {
+  try {
+    const row = await findByTokenOr404(req.params.token, res);
+    if (!row) return;
+
+    const { status } = req.body;
+    await row.update({ status });
+    res.json(row);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+};
+
 /** Delete an issue report by its token. */
 exports.remove = async (req, res) => {
   try {

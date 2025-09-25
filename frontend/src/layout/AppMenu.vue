@@ -14,6 +14,17 @@ function isAdmin() {
     }
 }
 
+function canChangeStates() {
+    const token = sessionStorage.getItem('JWT');
+    if (!token) return false;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role === 'admin' || payload.role === 'staff' || payload.role === 'communityleader';
+    } catch {
+        return false;
+    }
+}
+
 const model = ref([
     {
         label: 'Menu',
@@ -27,6 +38,9 @@ const model = ref([
             { label: 'Test CRUD', icon: 'pi pi-fw pi-database', to: { name: 'test-crud' } },
             ...(isAdmin() ? [
               { label: 'Ward Requests', icon: 'pi pi-fw pi-inbox', to: { name: 'ward-requests' } }
+            ] : []),
+            ...(canChangeStates() ? [
+                { label: 'Status Updates', icon: 'pi pi-fw pi-globe', to: { name: 'state-updates' } }
             ] : [])
         ]
     }
