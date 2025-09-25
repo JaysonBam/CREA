@@ -1,4 +1,3 @@
-
 // --- Core Dependencies ---
 // Import the Express framework to create and manage the router.
 const express = require("express");
@@ -31,6 +30,9 @@ router.get("/", auth, controller.list);
 // BEFORE parameterized routes (like '/:token'). Otherwise, Express would interpret
 // 'unread' as a value for the ':token' parameter.
 
+router.post("/watchlist/:token", auth, controller.subscribeWatchlist);
+router.delete("/watchlist/:token", auth, controller.unsubscribeWatchlist);
+router.get("/watchlist", auth, controller.getWatchlist);
 // GET /api/issue-reports/unread
 // Retrieves a count of unread messages for the authenticated user across different issue reports.
 router.get("/unread", auth, messageController.unreadCounts);
@@ -45,7 +47,11 @@ router.get("/user/:userToken", auth, controller.getUserReports);
 
 // GET /api/issue-reports/user/:userToken/title-suggestions
 // Provides title suggestions for autocomplete, but scoped only to a specific user's reports.
-router.get("/user/:userToken/title-suggestions", auth, controller.titleSuggestionsForUser);
+router.get(
+  "/user/:userToken/title-suggestions",
+  auth,
+  controller.titleSuggestionsForUser
+);
 
 // GET /api/issue-reports/:token
 // Retrieves a single, specific issue report by its unique token.

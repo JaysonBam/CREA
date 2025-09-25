@@ -7,7 +7,6 @@ export const updateTestCrud = (token, data) =>
   api.put(`/api/test-crud/${token}`, data);
 export const deleteTestCrud = (token) => api.delete(`/api/test-crud/${token}`);
 
-
 // --- Issue Reports ---
 /**
  * Lists issue reports.
@@ -20,7 +19,8 @@ export const deleteTestCrud = (token) => api.delete(`/api/test-crud/${token}`);
 export const listIssueReports = (params) =>
   api.get("/api/issue-reports", { params });
 export const getIssueReport = (token) => api.get(`/api/issue-reports/${token}`);
-export const getIssueTitleSuggestions = (q) => api.get(`/api/issue-reports/title-suggestions`, { params: { q } });
+export const getIssueTitleSuggestions = (q) =>
+  api.get(`/api/issue-reports/title-suggestions`, { params: { q } });
 /**
  * Fetch reports belonging to a specific user, with optional filters.
  * params: { category?: string, status?: string, title?: string }
@@ -30,7 +30,9 @@ export const getUserReports = (userToken, params) =>
 
 /** Get title suggestions for a specific user's reports */
 export const getUserIssueTitleSuggestions = (userToken, q) =>
-  api.get(`/api/issue-reports/user/${userToken}/title-suggestions`, { params: { q } });
+  api.get(`/api/issue-reports/user/${userToken}/title-suggestions`, {
+    params: { q },
+  });
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
 export const updateIssueReport = (token, data) =>
   api.put(`/api/issue-reports/${token}`, data);
@@ -47,11 +49,15 @@ export const getIssueMessageRead = (issueToken) =>
 export const setIssueMessageRead = (issueToken, last_seen_at) =>
   api.put(`/api/issue-reports/${issueToken}/messages/read`, { last_seen_at });
 export const getIssueUnreadCounts = (tokens) => {
-  const q = Array.isArray(tokens) ? tokens.join(',') : String(tokens || '');
+  const q = Array.isArray(tokens) ? tokens.join(",") : String(tokens || "");
   return api.get(`/api/issue-reports/unread`, { params: { tokens: q } });
 };
 
-
+export const subscribeWatchlist = (issueToken) =>
+  api.post(`/api/issue-reports/watchlist/${issueToken}`);
+export const getWatchlist = () => api.get(`/api/issue-reports/watchlist`);
+export const unsubscribeWatchlist = (issueToken) =>
+  api.delete(`/api/issue-reports/watchlist/${issueToken}`);
 // --- Locations ---
 export const listLocations = () => api.get("/api/locations");
 export const getLocation = (token) => api.get(`/api/locations/${token}`);
@@ -59,7 +65,6 @@ export const createLocation = (data) => api.post("/api/locations", data);
 export const updateLocation = (token, data) =>
   api.put(`/api/locations/${token}`, data);
 export const deleteLocation = (token) => api.delete(`/api/locations/${token}`);
-
 
 // --- File Attachments ---
 export const listFileAttachments = () => api.get("/api/file-attachments");
@@ -71,7 +76,7 @@ export const createFileAttachment = (formData) => {
   }
   return api.post("/api/file-attachments", formData, {
     headers: {
-      "Content-Type": "multipart/form-data"
+      "Content-Type": "multipart/form-data",
     },
   });
 };
@@ -79,7 +84,6 @@ export const updateFileAttachment = (token, data) =>
   api.put(`/api/file-attachments/${token}`, data);
 export const deleteFileAttachment = (token) =>
   api.delete(`/api/file-attachments/${token}`);
-
 
 export const listMaintenanceSchedules = (issueToken) =>
   api.get("/api/maintenance-schedules", { params: { issueToken } });
@@ -90,6 +94,10 @@ export const getMaintenanceSchedule = (token) =>
 export const createMaintenanceSchedule = (data) =>
   api.post("/api/maintenance-schedules", data);
 
+
+// --- Voting / Escalation ---
+export const castVote = (issueToken) => api.post(`/api/votes/${issueToken}`);
+export const getVoteSummary = (issueToken) => api.get(`/api/votes/${issueToken}/summary`);
 export const updateMaintenanceSchedule = (token, data) =>
   api.put(`/api/maintenance-schedules/${token}`, data);
 

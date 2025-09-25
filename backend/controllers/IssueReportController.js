@@ -4,6 +4,7 @@ const {
   Location,
   FileAttachment,
   Ward,
+  ReportIssueWatchlist,
 } = require("../models");
 // Import Sequelize's operators (e.g., Op.iLike, Op.between) for more complex queries.
 const { Op } = require("sequelize");
@@ -116,7 +117,8 @@ exports.list = async (req, res) => {
       }
     });
 
-    res.json(reports);
+    // Return normalized plain objects
+    res.json(plainReports);
   } catch (e) {
     console.error("Failed to list issue reports:", e);
     res.status(500).json({ error: e.message });
@@ -141,6 +143,8 @@ exports.getOne = async (req, res) => {
 exports.getUserReports = async (req, res) => {
   try {
     const userToken = req.params.userToken;
+    const { category, status, title, q } = req.query;
+
     // First, find the user's internal ID from their public token.
     const currUser = await User.findOne({ where: { token: userToken } });
     if (!currUser) {
@@ -148,11 +152,16 @@ exports.getUserReports = async (req, res) => {
     }
     const userId = currUser.id;
 
-    // Then, find all reports where `user_id` matches.
+    // Build filters like the global list, but scoped to this user
+    const where = { user_id: userId };
+    if (category) where.category = category;
+    if (status) where.status = status;
+    const titleTerm = q || title;
+    if (titleTerm) where.title = { [Op.iLike]: `%${titleTerm}%` };
+
     const reports = await IssueReport.findAll({
-      where: { user_id: userId },
+      where,
       include: [
-        // Also include any file attachments for these reports.
         {
           model: FileAttachment,
           as: "attachments",
@@ -163,7 +172,7 @@ exports.getUserReports = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Normalize attachment URLs to be absolute, just like in the main `list` function.
+    // Normalize attachment URLs
     const plainReports = reports.map((report) => report.get({ plain: true }));
     const baseUrl = process.env.BACKEND_URL || `http://${req.get("host")}`;
     plainReports.forEach((report) => {
@@ -349,5 +358,177 @@ exports.titleSuggestions = async (req, res) => {
     res.json({ titles });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+};
+
+exports.subscribeWatchlist = async (req, res) => {
+  const { token } = req.params;
+  const userId = req.auth?.userId; // set by auth
+
+  //Get user
+  const user = await User.findByPk(userId, {
+    attributes: ["id", "first_name", "last_name", "email"],
+  });
+
+  //Get corresponding issue
+  const issue = await IssueReport.findOne({
+    where: { token },
+    attributes: ["id", "token", "title", "status"],
+  });
+
+  if (!issue) {
+    return res.status(404).json({
+      success: false,
+      message: "Issue not found.",
+    });
+  }
+
+  let row;
+
+  //Check if already in watchlist
+  const existingWatchlist = await ReportIssueWatchlist.findOne({
+    where: { report_issue_id: issue.id, user_id: user.id },
+  });
+  if (existingWatchlist) {
+    row = existingWatchlist;
+    return res.status(200).json({
+      success: true,
+      message: "Already subscribed to this watchlist.",
+    });
+  }
+
+  //Add to watchlist
+  try {
+    row = await ReportIssueWatchlist.create({
+      report_issue_id: issue.id,
+      user_id: user.id,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Subscribed to watchlist.",
+      data: {
+        watchlistId: row.id,
+        issue: {
+          id: issue.id,
+          token: issue.token,
+          title: issue.title,
+          status: issue.status,
+        },
+        user: {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+        },
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Could not subscribe to watchlist",
+    });
+  }
+};
+
+exports.getWatchlist = async (req, res) => {
+  try {
+    //Get user from JWT
+    const userId = req.auth?.userId || req.userId;
+
+    //Attempt to fetch all watchlists for user
+    const rows = await ReportIssueWatchlist.findAll({
+      where: { user_id: userId },
+      attributes: ["id", "subscribed_at"],
+      include: [
+        {
+          model: IssueReport,
+          as: "issue",
+          attributes: [
+            "id",
+            "token",
+            "title",
+            "status",
+            "category",
+            "createdAt",
+          ],
+        },
+      ],
+      order: [["subscribed_at", "DESC"]],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Watchlist fetched successfully",
+      data: { items: rows },
+    });
+  } catch (err) {
+    console.error("[getWatchlist] error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch watchlist",
+    });
+  }
+};
+
+exports.unsubscribeWatchlist = async (req, res) => {
+  try {
+    //Get user again
+    const userId = req.auth?.userId || req.userId;
+    const { token } = req.params;
+
+    if (!token) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Issue token is required." });
+    }
+    //Find issue and make sure user is indeed subscribed (cant unsubscribe to something the user isnt subscribed to)
+    const issue = await IssueReport.findOne({
+      where: { token },
+      attributes: ["id", "token", "title", "status"],
+    });
+    if (!issue) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Issue not found." });
+    }
+
+    const deleted = await ReportIssueWatchlist.destroy({
+      where: { report_issue_id: issue.id, user_id: userId },
+    });
+
+    if (deleted === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "You were not subscribed to this watchlist.",
+        data: {
+          issue: {
+            id: issue.id,
+            token: issue.token,
+            title: issue.title,
+            status: issue.status,
+          },
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Unsubscribed from watchlist.",
+      data: {
+        issue: {
+          id: issue.id,
+          token: issue.token,
+          title: issue.title,
+          status: issue.status,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("[unsubscribeWatchlist] error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to unsubscribe from watchlist",
+    });
   }
 };
