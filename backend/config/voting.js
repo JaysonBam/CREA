@@ -16,7 +16,8 @@ module.exports = {
     DEFAULT: 0.5
   },
   // Minimum accumulated weighted score to flag a report for escalation
-  ESCALATION_THRESHOLD: 10,
+  // Lowered for testing scenarios; restore to a higher production value later.
+  ESCALATION_THRESHOLD: 1.3,
   // Whether multiple votes from the same user are allowed (recommend false)
   ALLOW_DUPLICATE_VOTES: false
 };
