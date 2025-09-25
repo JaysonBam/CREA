@@ -105,7 +105,6 @@ app.use("/api/ward-requests", jsonParser, wardRequestRoutes);
 const locationRoutes = require('./routes/LocationRoutes');
 app.use('/api/locations', locationRoutes);
 
-
 const maintenanceScheduleRoutes = require("./routes/MaintenanceScheduleRoutes");
 app.use("/api/maintenance-schedules", jsonParser, maintenanceScheduleRoutes);
 
@@ -113,16 +112,9 @@ app.use("/api/maintenance-schedules", jsonParser, maintenanceScheduleRoutes);
 const voteRoutes = require('./routes/VoteRoutes');
 app.use('/api/votes', jsonParser, voteRoutes);
 
+
 const fs = require("fs");
 const path = require("path");
-
-// Serve static files from the frontend's dist directory
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
-// Catch-all: send index.html for any route not starting with /api or /uploads
-app.get(/^\/(?!api|uploads).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
 
 app.use((err, req, res, next) => {
   //Log errors to a file called error.log
