@@ -129,6 +129,22 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
+
+// Serve frontend index.html for all non-API, non-static GET requests (SPA support for Render)
+app.use((req, res, next) => {
+  if (
+    req.method === 'GET' &&
+    !req.url.startsWith('/api') &&
+    !req.url.startsWith('/uploads') &&
+    !req.url.startsWith('/run-migrations') &&
+    !req.url.startsWith('/run-seeders')
+  ) {
+    res.sendFile(path.resolve(__dirname, '../frontend/index.html'));
+  } else {
+    next();
+  }
+});
+
 // Socket.IO setup
 try {
   const { initSocket } = require('./services/socket');
