@@ -11,3 +11,13 @@ TypeError: e.treeifyError is not a function
     at Layer.handleRequest (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\layer.js:152:17)
     at next (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\router\lib\route.js:157:13)
 
+[2025-09-25T05:10:37.729Z] POST /api/issue-reports/watchlist/74e9e250-115f-4cc6-86d5-132b49066e46
+Error
+    at Query.run (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PostgresQueryInterface.select (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async ReportIssueWatchlist.findAll (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async ReportIssueWatchlist.findOne (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async exports.subscribeWatchlist (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\controllers\IssueReportController.js:389:29)
+

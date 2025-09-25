@@ -1,4 +1,5 @@
 <template>
+  <!-- This is the component that is used in Report.vue -->
   <Dialog
     v-model:visible="visible"
     modal
@@ -135,23 +136,21 @@ import {
 
 const toast = useToast();
 
-/** Public state */
 const visible = ref(false);
 const issueToken = ref("");
 const issueTitle = ref("");
 
-/** Table state */
 const rows = ref([]);
 const loading = ref(false);
 
-/** Form state */
 const formVisible = ref(false);
 const isEdit = ref(false);
+//The fields the form should submit
 const form = reactive({
   token: "",
   description: "",
-  date_time_from: null, // Date
-  date_time_to: null,   // Date
+  date_time_from: null, 
+  date_time_to: null,
 });
 const errors = reactive({
   description: "",
@@ -159,11 +158,11 @@ const errors = reactive({
   date_time_to: "",
 });
 
-/** Delete state */
+// Delete state
 const deleteVisible = ref(false);
 const deleteTarget = ref(null);
 
-/** Expose a simple open(issue) to parent */
+// Expose a simple open(issue) to parent
 function open(issue) {
   issueToken.value = issue?.token || "";
   issueTitle.value = issue?.title || "";
@@ -172,7 +171,7 @@ function open(issue) {
 }
 defineExpose({ open });
 
-/** Helpers */
+//Helper functions
 function fmt(v) {
   if (!v) return "";
   const d = new Date(v);
@@ -183,6 +182,7 @@ function clearErrors() {
   errors.date_time_from = "";
   errors.date_time_to = "";
 }
+//Validation
 function validate() {
   clearErrors();
   let ok = true;
@@ -208,8 +208,7 @@ function validate() {
   }
   return ok;
 }
-
-/** Data ops */
+//Show for the maintenanceSchedules in the modal
 async function load() {
   if (!issueToken.value) { rows.value = []; return; }
   loading.value = true;
@@ -251,6 +250,7 @@ async function save() {
 
   try {
     if (isEdit.value && form.token) {
+      //Update Maintenance Schedules
       await updateMaintenanceSchedule(form.token, {
         description: form.description.trim(),
         date_time_from: new Date(form.date_time_from).toISOString(),
@@ -258,6 +258,7 @@ async function save() {
       });
       toast.add({ severity: "success", summary: "Updated", life: 1500 });
     } else {
+       //Create Maintenance Schedules
       await createMaintenanceSchedule({
         issueToken: issueToken.value,
         description: form.description.trim(),
@@ -268,7 +269,6 @@ async function save() {
     }
     formVisible.value = false;
     await load();
-    // optional event for parent
     emitChanged();
   } catch (e) {
     toast.add({ severity: "error", summary: "Save failed", detail: e?.response?.data?.error || e.message, life: 3500 });
@@ -279,7 +279,7 @@ function confirmDelete(row) {
   deleteTarget.value = row;
   deleteVisible.value = true;
 }
-
+//Make sure you really want to delete the maintenanceSchedule
 async function deleteConfirmed() {
   if (!deleteTarget.value?.token) return;
   try {
@@ -295,7 +295,6 @@ async function deleteConfirmed() {
   }
 }
 
-/** Emit a hook so parent can react if it wants (e.g., refresh something) */
 const emit = defineEmits(["changed"]);
 function emitChanged() { emit("changed"); }
 </script>

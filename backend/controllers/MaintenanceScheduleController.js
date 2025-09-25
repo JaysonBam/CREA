@@ -7,7 +7,7 @@ function toISOOrNull(v) {
 }
 
 module.exports = {
-  // GET /api/maintenance-schedules?issueToken=...
+  //Function to list all MaintenanceSchedule records
   async list(req, res) {
     try {
       const { issueToken } = req.query;
@@ -31,7 +31,8 @@ module.exports = {
     }
   },
 
-  // GET /api/maintenance-schedules/:token
+
+//Function to get one instance of the MaintenanceSchedule model using a token
   async getOne(req, res) {
     try {
       const row = await MaintenanceSchedule.findOne({ where: { token: req.params.token } });
@@ -41,9 +42,7 @@ module.exports = {
       res.status(500).json({ error: e.message });
     }
   },
-
-  // POST /api/maintenance-schedules
-  // body: { issueToken, description, date_time_from, date_time_to }
+//Function to create a new MaintenanceSchedule record
   async create(req, res) {
     try {
       const { issueToken, description, date_time_from, date_time_to } = req.body;
@@ -74,8 +73,7 @@ module.exports = {
     }
   },
 
-  // PUT /api/maintenance-schedules/:token
-  // body: { description?, date_time_from?, date_time_to? }
+//Function to update existing MaintenanceSchedule
   async update(req, res) {
     try {
       const row = await MaintenanceSchedule.findOne({ where: { token: req.params.token } });
@@ -112,7 +110,7 @@ module.exports = {
     }
   },
 
-  // DELETE /api/maintenance-schedules/:token
+//Function to remove MaintenanceSchedule record
   async remove(req, res) {
     try {
       const count = await MaintenanceSchedule.destroy({ where: { token: req.params.token } });
