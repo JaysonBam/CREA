@@ -47,9 +47,10 @@ app.post('/run-seeders', async (req, res) => {
   }
 });
 // Load environment configuration
-// Use PORT and HOST for Render compatibility, fallback to .env or defaults
-const BACKEND_PORT = process.env.PORT || process.env.BACKEND_PORT || 5000;
-const BACKEND_HOST = process.env.HOST || process.env.BACKEND_HOST || '0.0.0.0';
+// Note we reference the .env variables and not use hardcoded values here
+// This is important for security and flexibility
+const BACKEND_PORT = process.env.BACKEND_PORT;
+const BACKEND_HOST = process.env.BACKEND_HOST;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // Define allowed origins for CORS (so only your frontend can access the backend)
