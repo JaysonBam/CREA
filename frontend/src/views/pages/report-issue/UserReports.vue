@@ -4,17 +4,17 @@
     <div class="p-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 class="text-2xl font-bold">My Reported Issues</h1>
-        <!-- <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
           <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
-          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" @change="loadReports" />
+          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" @change="loadReports" />
           <div class="relative">
             <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
             <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
               <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
             </ul>
           </div>
-        </div> -->
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -191,12 +191,14 @@ import {
 import { getIssueUnreadCounts, getIssueMessageRead, listIssueMessages } from "@/utils/backend_helper";
 import { getUserIssueTitleSuggestions } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
+import { connectSocket } from "@/utils/socket";
 
 const reports = ref([]);
 const loading = ref(true);
 const toast = useToast();
 const unread = ref({});
 let unreadTimer = null;
+let socket;
 
 const categoryOptions = ['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER'];
 const statusOptions = ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
@@ -267,6 +269,10 @@ const refreshUnread = async () => {
       obj = Object.fromEntries(perToken);
     }
     unread.value = obj;
+    // Suppress unread for currently open chat (if any)
+    if (showChatDialog.value && currentReport.token) {
+      if (unread.value[currentReport.token] > 0) unread.value[currentReport.token] = 0;
+    }
   } catch (e) {
     // silent fail
   }
@@ -314,6 +320,13 @@ const openChat = (report) => {
   if (unread.value[report.token] > 0) unread.value[report.token] = 0;
 };
 
+// Keep unread zeroed while chat open
+watch([showChatDialog, currentReport, unread], () => {
+  if (showChatDialog.value && currentReport.token && unread.value[currentReport.token] > 0) {
+    unread.value[currentReport.token] = 0;
+  }
+});
+
 // Custom upload handler using backend_helper
 // Upload file attachments for the current report
 const uploadFiles = async (event) => {
@@ -347,12 +360,31 @@ const getStatusSeverity = (status) => {
 // Initial load and periodic unread refresh
 onMounted(async () => {
   await loadReports();
-  unreadTimer = setInterval(refreshUnread, 5000);
+  socket = connectSocket();
+  const onInvalidate = async () => { await refreshUnread(); };
+  const onConnect = () => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    void refreshUnread();
+  };
+  const onDisconnect = () => {
+    if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+  };
+  socket.on('unread:invalidate', onInvalidate);
+  socket.on('connect', onConnect);
+  socket.on('disconnect', onDisconnect);
+  if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+
+  onUnmounted(() => {
+    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    try {
+      socket.off('unread:invalidate', onInvalidate);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    } catch {}
+  });
 });
 
-onUnmounted(() => {
-  if (unreadTimer) clearInterval(unreadTimer);
-});
+// note: cleanup handled above
 
 // Clear UI filters and reload user reports
 const clearFilters = () => {
@@ -368,21 +400,30 @@ let titleDebounce;
 // Debounced title input: fetch suggestions for this user and reload list
 const onTitleInput = async () => {
   const q = titleQuery.value?.trim() || "";
-  // When cleared, hide suggestions and reload all
+  if (titleDebounce) clearTimeout(titleDebounce);
   if (!q) {
     showTitleSuggestions.value = false;
     titleSuggestions.value = [];
-    if (titleDebounce) clearTimeout(titleDebounce);
     await loadReports();
     return;
   }
   showTitleSuggestions.value = true;
-  if (titleDebounce) clearTimeout(titleDebounce);
   titleDebounce = setTimeout(async () => {
     try {
+      // Build params that respect active filters and current query
+      const params = {};
+      if (categoryFilter.value) params.category = categoryFilter.value;
+      if (statusFilter.value) params.status = statusFilter.value;
+      params.title = q;
       const userToken = sessionStorage.getItem("token");
-      const { data } = await getUserIssueTitleSuggestions(userToken, q);
-      titleSuggestions.value = data?.titles || [];
+      const { data } = await getUserReports(userToken, params);
+      const rowsArr = Array.isArray(data) ? data : [];
+      const set = new Set();
+      for (const r of rowsArr) {
+        if (typeof r?.title === 'string' && r.title.toLowerCase().includes(q.toLowerCase())) set.add(r.title);
+        if (set.size >= 10) break;
+      }
+      titleSuggestions.value = Array.from(set);
     } catch { titleSuggestions.value = []; }
     loadReports();
   }, 250);
