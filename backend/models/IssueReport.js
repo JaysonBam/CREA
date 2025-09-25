@@ -19,10 +19,10 @@ module.exports = (sequelize, DataTypes) => {
       IssueReport.belongsTo(models.Ward, { foreignKey: "ward_id", as: "ward" });
 
       // An Issue Report can have many Votes
-      // IssueReport.hasMany(models.Vote, {
-      //   foreignKey: "issue_report_id",
-      //   as: "votes",
-      // });
+      IssueReport.hasMany(models.Vote, {
+        foreignKey: "issue_report_id",
+        as: "votes",
+      });
 
       // An Issue Report has a history of many Status Changes
       // IssueReport.hasMany(models.StatusChange, {

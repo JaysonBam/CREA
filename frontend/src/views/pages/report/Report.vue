@@ -13,6 +13,7 @@
       currentPageReportTemplate="Showing {first} to {last} of {totalRecords} issue reports"
       responsiveLayout="scroll"
       :first="first"
+      :rowClass="rowClass"
     >
       <template #header>
         <div
@@ -98,6 +99,18 @@
               :title="`${unread[data.token]} unread`"
               >{{ unread[data.token] }}</span
             >
+            <!-- Tiny escalation dot (option 2) -->
+            <span
+              v-if="voteSummaries[data.token]?.escalated"
+              class="escalated-dot"
+              tabindex="0"
+              role="button"
+              title="Escalated"
+              aria-label="Escalated – view details"
+              @click.stop="openEscalationPanel(data)"
+              @keyup.enter.space.prevent="openEscalationPanel(data)"
+            />
+            <!-- Escalation indicator handled by left accent bar; panel via row menu -->
           </div>
         </template>
       </Column>
@@ -308,6 +321,110 @@
     >
       <ChatRoom v-if="chatTarget?.token" :issueToken="chatTarget.token" />
     </Dialog>
+
+    <!-- Escalation Panel Dialog (role-based) -->
+    <Dialog
+      v-model:visible="escalationDialogVisible"
+      modal
+      :header="escalationTarget ? 'Escalation: ' + escalationTarget.title : 'Escalation'"
+      :style="{ width: '650px' }"
+    >
+      <div v-if="escalationTarget" class="flex flex-col gap-6">
+        <!-- Privileged (admin/staff) full analytics -->
+        <template v-if="isPrivileged">
+          <div class="flex flex-wrap gap-4">
+            <div class="stat-box">
+              <div class="stat-label">Weighted Total</div>
+              <div class="stat-value">{{ voteSummaries[escalationTarget.token]?.total || 0 }}</div>
+              <div class="stat-sub" v-if="voteSummaries[escalationTarget.token]?.threshold">Threshold {{ voteSummaries[escalationTarget.token].threshold }}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Progress</div>
+              <div class="stat-value">{{ escalationPercent(escalationTarget) }}%</div>
+              <div class="stat-sub">{{ voteLabel(escalationTarget) }}</div>
+            </div>
+            <div v-if="voteSummaries[escalationTarget.token]?.escalated" class="stat-box escalated">
+              <div class="stat-label">Status</div>
+              <div class="stat-value flex items-center gap-1 text-green-600"><i class="pi pi-flag-fill"/> Escalated</div>
+              <div class="stat-sub">Threshold reached</div>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-medium mb-2">Role Breakdown</h4>
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="bg-surface-100 dark:bg-surface-800">
+                  <th class="py-2 px-2 text-left">Role</th>
+                  <th class="py-2 px-2 text-right">Voters</th>
+                  <th class="py-2 px-2 text-right">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="rb in roleBreakdownArray(escalationTarget.token)" :key="rb.role">
+                  <td class="py-1 px-2 capitalize">{{ rb.role }}</td>
+                  <td class="py-1 px-2 text-right">{{ rb.count }}</td>
+                  <td class="py-1 px-2 text-right">{{ rb.weight.toFixed(2) }}</td>
+                </tr>
+                <tr v-if="!roleBreakdownArray(escalationTarget.token).length">
+                  <td colspan="3" class="py-3 text-center text-surface-500">No votes yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+        <!-- Resident simple view -->
+        <template v-else>
+          <div class="p-3 rounded bg-surface-100 dark:bg-surface-800 border surface-border">
+            <p class="m-0 text-sm" v-if="voteSummaries[escalationTarget.token]?.escalated">This issue has been escalated for review.</p>
+            <p class="m-0 text-sm" v-else>
+              Support progress: <strong>{{ voteSummaries[escalationTarget.token]?.total || 0 }}</strong>
+              / {{ voteSummaries[escalationTarget.token]?.threshold || 0 }} ({{ escalationPercent(escalationTarget) }}%)
+            </p>
+          </div>
+        </template>
+        <!-- Timelines -->
+        <div v-if="isPrivileged">
+          <h4 class="font-medium mb-2">Vote Timeline</h4>
+          <div v-if="timeline(escalationTarget.token).length" class="timeline">
+            <div v-for="(ev, idx) in timeline(escalationTarget.token)" :key="idx + ev.at" class="timeline-item" :class="{ crossed: ev.crossed }">
+              <div class="marker" :title="ev.userRole"></div>
+              <div class="content">
+                <div class="line1">
+                  <span class="role">{{ ev.userRole }}</span>
+                  <span class="weight">+{{ ev.weight.toFixed(2) }}</span>
+                  <span class="total">= {{ ev.totalAfter.toFixed(2) }}</span>
+                </div>
+                <div class="line2 text-xs opacity-70">
+                  {{ new Date(ev.at).toLocaleString() }}
+                  <span v-if="ev.crossed" class="ml-2 text-emerald-600 font-medium">Threshold reached here</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-sm text-surface-500 py-2">No votes yet</div>
+        </div>
+        <div v-else>
+          <h4 class="font-medium mb-2">Progress Timeline</h4>
+          <div v-if="progressTimeline().length" class="timeline">
+            <div v-for="(step, i) in progressTimeline()" :key="i + step.at" class="timeline-item" :class="{ crossed: step.type === 'escalated' }">
+              <div class="marker" :title="step.type"></div>
+              <div class="content">
+                <div class="line1">
+                  <span class="role capitalize">{{ step.label }}</span>
+                </div>
+                <div class="line2 text-xs opacity-70">
+                  {{ new Date(step.at).toLocaleString() }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-sm text-surface-500 py-2">No progress events yet</div>
+        </div>
+        <div class="flex justify-end">
+          <Button label="Close" outlined @click="escalationDialogVisible = false" />
+        </div>
+      </div>
+    </Dialog>
   </div>
 </template>
 
@@ -334,6 +451,7 @@ import {
   getWatchlist, // GET  /api/issue-reports/watchlist
   unsubscribeWatchlist, // DELETE /api/issue-reports/watchlist/:token
 } from "@/utils/backend_helper";
+import { castVote, getVoteSummary } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 import MaintenanceSchedulesModal from "@/components/MaintenanceSchedulesModal.vue";
 import { connectSocket } from "@/utils/socket";
@@ -355,6 +473,111 @@ const unread = ref({});
 let unreadTimer = null;
 let socket;
 const first = ref(0);
+
+/* ---------- Voting state ---------- */
+// voteSummaries[token] = { total, threshold, votes: [...], escalated: boolean }
+const voteSummaries = ref({});
+// voting[token] = true while request in flight
+const voting = ref({});
+// voted[token] = true if this user already supported
+const voted = ref({});
+
+function ensureVoteEntry(token) {
+  if (!voteSummaries.value[token]) voteSummaries.value[token] = { total: 0, threshold: 0, votes: [], escalated: false };
+}
+
+async function fetchVoteSummary(token) {
+  if (!token) return;
+  try {
+    const { data } = await getVoteSummary(token);
+    ensureVoteEntry(token);
+    voteSummaries.value[token].total = data.total || 0;
+    voteSummaries.value[token].threshold = data.threshold || 0;
+    voteSummaries.value[token].votes = Array.isArray(data.votes) ? data.votes : [];
+    voteSummaries.value[token].escalated = (data.total || 0) >= (data.threshold || 0) && (data.threshold || 0) > 0;
+    // build role breakdown
+    const breakdown = {};
+    for (const v of (voteSummaries.value[token].votes || [])) {
+      const r = v.user?.role || 'unknown';
+      if (!breakdown[r]) breakdown[r] = { count: 0, weight: 0 };
+      breakdown[r].count += 1;
+      breakdown[r].weight += (v.weight || 0);
+    }
+    voteSummaries.value[token].breakdown = breakdown;
+    // detect if current user voted
+    const currentUserToken = sessionStorage.getItem("token");
+    if (currentUserToken) {
+      voted.value[token] = voteSummaries.value[token].votes.some(v => v.user?.token === currentUserToken);
+    }
+    // build timeline
+    const ordered = voteSummaries.value[token].votes.slice().sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+    let running = 0; const tl = []; const threshold = voteSummaries.value[token].threshold || 0; let crossedIndex = -1;
+    for (const v of ordered) {
+      const before = running;
+      running += (v.weight || 0);
+      const crossed = threshold > 0 && before < threshold && running >= threshold;
+      if (crossed && crossedIndex === -1) crossedIndex = tl.length;
+      tl.push({ at: v.createdAt, weight: v.weight || 0, userRole: v.user?.role || 'unknown', totalAfter: running, crossed });
+    }
+    voteSummaries.value[token].timeline = tl;
+    voteSummaries.value[token].crossedIndex = crossedIndex;
+  } catch (e) {
+    // silent; keep previous values
+  }
+}
+
+async function fetchAllVoteSummaries() {
+  const tokens = rows.value.map(r => r.token).filter(Boolean);
+  await Promise.all(tokens.map(t => fetchVoteSummary(t)));
+}
+
+async function onVote(row) {
+  const token = row?.token;
+  if (!token || voting.value[token] || voted.value[token]) return;
+  voting.value[token] = true;
+  try {
+    await castVote(token);
+    toast.add({ severity: "success", summary: "Supported", detail: "Your support has been recorded", life: 1500 });
+  } catch (e) {
+    if (e?.response?.status === 409) {
+      // Already voted
+      toast.add({ severity: "info", summary: "Already Supported", life: 1500 });
+      voted.value[token] = true;
+    } else {
+      toast.add({ severity: "error", summary: "Vote failed", detail: e?.response?.data?.error || e.message, life: 2500 });
+    }
+  } finally {
+    await fetchVoteSummary(token);
+    voting.value[token] = false;
+  }
+}
+
+function voteProgress(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs || !vs.threshold) return 0;
+  return Math.min(100, Math.round((vs.total / vs.threshold) * 100));
+}
+
+function voteLabel(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs) return "0";
+  if (vs.escalated) return `Escalated (${vs.total}/${vs.threshold})`;
+  if (vs.threshold) return `${vs.total}/${vs.threshold}`;
+  return `${vs.total}`;
+}
+
+function voteButtonDisabled(row) {
+  const token = row.token;
+  if (row.status === 'RESOLVED') return true;
+  return voting.value[token] || voted.value[token];
+}
+
+function voteStatsLabel(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs) return '0';
+  if (vs.threshold) return `${vs.total}/${vs.threshold}`;
+  return String(vs.total);
+}
 
 const categoryFilter = ref(null);
 const statusFilter = ref(null);
@@ -382,12 +605,72 @@ const displayedRows = computed(() => {
   let list = Array.isArray(rows.value) ? rows.value : [];
   const q = (titleQuery.value || "").trim().toLowerCase();
   if (q) list = list.filter((r) => (r.title || "").toLowerCase().includes(q));
-  if (categoryFilter.value)
-    list = list.filter((r) => r.category === categoryFilter.value);
-  if (statusFilter.value)
-    list = list.filter((r) => r.status === statusFilter.value);
-  return list;
+  if (categoryFilter.value) list = list.filter((r) => r.category === categoryFilter.value);
+  if (statusFilter.value) list = list.filter((r) => r.status === statusFilter.value);
+  const progress = (r) => {
+    const vs = voteSummaries.value[r.token];
+    if (!vs?.threshold || vs.threshold === 0) return 0;
+    return Math.min(1, vs.total / vs.threshold);
+  };
+  return [...list].sort((a, b) => progress(b) - progress(a));
 });
+
+/* ---------- Escalation Panel Logic ---------- */
+const escalationDialogVisible = ref(false);
+const escalationTarget = ref(null);
+
+function openEscalationPanel(row) {
+  escalationTarget.value = row;
+  escalationDialogVisible.value = true;
+  fetchVoteSummary(row.token); // refresh latest numbers
+}
+
+function escalationPercent(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs?.threshold) return 0;
+  return Math.min(100, Math.round((vs.total / vs.threshold) * 100));
+}
+
+function escalationTooltip(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs) return 'Escalated';
+  if (vs.threshold) return `Escalated: ${vs.total}/${vs.threshold} (${escalationPercent(row)}%)`;
+  return `Escalated: ${vs.total}`;
+}
+
+function roleBreakdownArray(token) {
+  const vs = voteSummaries.value[token];
+  if (!vs?.breakdown) return [];
+  return Object.entries(vs.breakdown)
+    .map(([role, obj]) => ({ role, count: obj.count, weight: obj.weight }))
+    .sort((a, b) => b.weight - a.weight);
+}
+
+function rowClass(row) {
+  return voteSummaries.value[row.token]?.escalated ? 'escalated-row' : '';
+}
+
+// user role & privilege detection (admin / staff)
+const currentRole = ref(sessionStorage.getItem('role') || localStorage.getItem('role') || 'resident');
+const isPrivileged = computed(()=> ['admin','staff'].includes(currentRole.value));
+function timeline(token){ return voteSummaries.value[token]?.timeline || []; }
+function progressTimeline(){
+  if(!escalationTarget.value) return [];
+  const r = escalationTarget.value;
+  const steps = [];
+  if(r.createdAt) steps.push({ type:'created', label:'Report Created', at:r.createdAt });
+  // status phases (simple linear). If status timestamps aren’t stored, we approximate by using createdAt.
+  // Optionally could be enhanced by backend events.
+  if(r.status && r.status !== 'NEW') steps.push({ type:'status', label:`Status: ${r.status.replace('_',' ').toLowerCase()}`, at:r.updatedAt || r.createdAt });
+  const vs = voteSummaries.value[r.token];
+  if(vs?.escalated){
+    // Determine approximate escalation time (first threshold crossing event from vote timeline if exists)
+    const crossEvent = (vs.timeline||[]).find(e=>e.crossed);
+    steps.push({ type:'escalated', label:'Escalated', at: (crossEvent?.at) || r.updatedAt || r.createdAt });
+  }
+  if(r.status === 'RESOLVED') steps.push({ type:'resolved', label:'Resolved', at:r.updatedAt || r.createdAt });
+  return steps.sort((a,b)=> new Date(a.at) - new Date(b.at));
+}
 
 const getStatusSeverity = (status) => {
   switch (status) {
@@ -516,6 +799,14 @@ const openChat = (row) => {
   if (unread.value[row.token] > 0) unread.value[row.token] = 0;
 };
 
+// Ensure that while a chat is open its unread count stays suppressed
+watch([chatDialogVisible, chatTarget, unread], () => {
+  if (chatDialogVisible.value && chatTarget.value?.token) {
+    const t = chatTarget.value.token;
+    if (unread.value[t] && unread.value[t] > 0) unread.value[t] = 0;
+  }
+});
+
 /* ---------- Subscribe/Unsubscribe to watchlist ---------- */
 function isSubscribed(token) {
   return !!subscribed.value[token];
@@ -619,6 +910,7 @@ const load = async () => {
 
     // Refresh unread counts
     await refreshUnread();
+    await fetchAllVoteSummaries();
 
     // Hydrate which issues the user is already subscribed to
     await hydrateSubscriptions();
@@ -674,7 +966,13 @@ const refreshUnread = async () => {
       );
       obj = Object.fromEntries(perToken);
     }
+    // Apply counts
     unread.value = obj;
+    // If user currently has a chat dialog open for a specific issue, suppress unread for that issue
+    if (chatDialogVisible.value && chatTarget.value?.token) {
+      const t = chatTarget.value.token;
+      if (unread.value[t] && unread.value[t] > 0) unread.value[t] = 0;
+    }
   } catch {
     // silent
   }
@@ -697,10 +995,16 @@ onMounted(async () => {
   const onDisconnect = () => {
     if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
   };
+  const onVoteUpdated = (payload) => {
+    if (!payload?.issueToken) return;
+    // Refresh only that issue's summary (avoid reloading entire list)
+    fetchVoteSummary(payload.issueToken);
+  };
   // attach listeners
   socket.on("unread:invalidate", onInvalidate);
   socket.on("connect", onConnect);
   socket.on("disconnect", onDisconnect);
+  socket.on('vote:updated', onVoteUpdated);
   // If not yet connected, keep polling until connected
   if (!socket.connected && !unreadTimer)
     unreadTimer = setInterval(refreshUnread, 5000);
@@ -715,6 +1019,7 @@ onMounted(async () => {
       socket.off("unread:invalidate", onInvalidate);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off('vote:updated', onVoteUpdated);
     } catch {}
   });
 });
@@ -821,7 +1126,44 @@ function openRowMenu(event, row) {
       icon: "pi pi-calendar",
       command: () => openMaintenance(row),
     },
+    {
+      label: "Voting",
+      icon: "pi pi-chart-line",
+      items: [
+        {
+          label: voted.value[row.token] ? 'Supported' : 'Support',
+          icon: voted.value[row.token] ? 'pi pi-check' : 'pi pi-thumbs-up',
+          disabled: voteButtonDisabled(row),
+          command: () => onVote(row)
+        },
+        {
+          label: `Weighted: ${voteStatsLabel(row)}`,
+          icon: 'pi pi-sliders-h',
+          disabled: true
+        },
+        ...(row.status === 'RESOLVED' ? [{
+          label: 'Voting closed (resolved)',
+          icon: 'pi pi-lock',
+          disabled: true
+        }] : [])
+      ]
+    }
   ];
+  // Always show escalation submenu; adapt contents based on state
+  const escalated = voteSummaries.value[row.token]?.escalated;
+  const escItems = escalated
+    ? [
+        { label: 'View Escalation Panel', icon: 'pi pi-external-link', command: () => openEscalationPanel(row) },
+        { label: 'Escalated', icon: 'pi pi-flag-fill', disabled: true }
+      ]
+    : [
+        { label: `Progress: ${escalationPercent(row)}%`, icon: 'pi pi-chart-line', disabled: true },
+      ];
+  rowMenuItems.value.push({
+    label: 'Escalation',
+    icon: 'pi pi-flag',
+    items: escItems
+  });
   rowMenu.value.toggle(event);
 }
 </script>
@@ -839,4 +1181,68 @@ function openRowMenu(event, row) {
 .subscribe-btn :deep(.p-button-icon) {
   font-size: 1rem;
 }
+
+/* Escalation visuals – subtle left accent bar */
+.escalated-row :deep(td:first-child) { position: relative; }
+.escalated-row :deep(td:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom,#fb923c,#f87171);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+.escalated-row:hover :deep(td:first-child)::before,
+.escalated-row:focus-within :deep(td:first-child)::before {
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12), 0 0 0 4px rgba(251,146,60,0.25);
+  transform: translateZ(0); /* trigger GPU */
+}
+
+/* Tiny escalation dot */
+.escalated-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+  box-shadow: 0 0 0 2px rgba(220,38,38,0.18);
+  display: inline-block;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.escalated-dot:hover,
+.escalated-dot:focus {
+  outline: none;
+  transform: scale(1.35);
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.32);
+}
+
+.stat-box {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  min-width: 140px;
+  flex: 1 1 140px;
+}
+.stat-box.escalated {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+.stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
+.stat-value { font-size: 1.25rem; font-weight: 600; }
+.stat-sub { font-size: .7rem; opacity: .7; }
+
+/* Timeline */
+.timeline { display:flex; flex-direction:column; gap:.75rem; }
+.timeline-item { display:flex; gap:.75rem; }
+.timeline-item .marker { width:.75rem; height:.75rem; border-radius:50%; background: var(--primary-500); margin-top:.4rem; }
+.timeline-item.crossed .marker { background:#16a34a; }
+.timeline-item .line1 { font-size:.75rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+.timeline-item .role { text-transform:capitalize; font-weight:500; }
+.timeline-item .weight { color:#2563eb; }
+.timeline-item.crossed .total { font-weight:600; color:#16a34a; }
 </style>

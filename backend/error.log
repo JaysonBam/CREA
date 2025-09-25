@@ -21,3 +21,23 @@ Error
     at async ReportIssueWatchlist.findOne (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
     at async exports.subscribeWatchlist (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\controllers\IssueReportController.js:389:29)
 
+[2025-09-25T11:37:54.881Z] POST /api/issue-reports/watchlist/f59cecdd-d0c0-46d0-b81a-145a6254d5b5
+Error
+    at Query.run (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PostgresQueryInterface.select (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async ReportIssueWatchlist.findAll (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async ReportIssueWatchlist.findOne (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async exports.subscribeWatchlist (C:\Users\lefam\Music\My Project\crea\backend\controllers\IssueReportController.js:389:29)
+
+[2025-09-25T12:19:50.920Z] POST /api/issue-reports/watchlist/a32697c5-8491-4485-a8f3-158c369142e5
+Error
+    at Query.run (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PostgresQueryInterface.select (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async ReportIssueWatchlist.findAll (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async ReportIssueWatchlist.findOne (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async exports.subscribeWatchlist (C:\Users\lefam\Music\My Project\crea\backend\controllers\IssueReportController.js:389:29)
+

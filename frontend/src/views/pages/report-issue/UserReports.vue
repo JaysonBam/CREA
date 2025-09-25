@@ -269,6 +269,10 @@ const refreshUnread = async () => {
       obj = Object.fromEntries(perToken);
     }
     unread.value = obj;
+    // Suppress unread for currently open chat (if any)
+    if (showChatDialog.value && currentReport.token) {
+      if (unread.value[currentReport.token] > 0) unread.value[currentReport.token] = 0;
+    }
   } catch (e) {
     // silent fail
   }
@@ -315,6 +319,13 @@ const openChat = (report) => {
   // Optimistically clear badge; ChatRoom will mark read on bottom
   if (unread.value[report.token] > 0) unread.value[report.token] = 0;
 };
+
+// Keep unread zeroed while chat open
+watch([showChatDialog, currentReport, unread], () => {
+  if (showChatDialog.value && currentReport.token && unread.value[currentReport.token] > 0) {
+    unread.value[currentReport.token] = 0;
+  }
+});
 
 // Custom upload handler using backend_helper
 // Upload file attachments for the current report
