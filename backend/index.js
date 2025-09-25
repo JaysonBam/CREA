@@ -116,6 +116,10 @@ app.use('/api/locations', locationRoutes);
 const maintenanceScheduleRoutes = require("./routes/MaintenanceScheduleRoutes");
 app.use("/api/maintenance-schedules", jsonParser, maintenanceScheduleRoutes);
 
+// Voting / escalation
+const voteRoutes = require('./routes/VoteRoutes');
+app.use('/api/votes', jsonParser, voteRoutes);
+
 
 const fs = require("fs");
 const path = require("path");

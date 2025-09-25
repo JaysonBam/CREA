@@ -109,6 +109,7 @@
                 {{ unread[data.token] }}
               </span>
             </span>
+
           </div>
         </template>
       </Column>
@@ -192,6 +193,7 @@ import {
   listIssueMessages,
   getIssueTitleSuggestions,
 } from "@/utils/backend_helper";
+import { castVote, getVoteSummary } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
 import MaintenanceSchedulesModal from "@/components/MaintenanceSchedulesModal.vue";
 import { connectSocket } from "@/utils/socket";
@@ -213,6 +215,90 @@ const unread = ref({});
 let unreadTimer = null;
 let socket;
 const first = ref(0);
+
+/* ---------- Voting state ---------- */
+// voteSummaries[token] = { total, threshold, votes: [...], escalated: boolean }
+const voteSummaries = ref({});
+// voting[token] = true while request in flight
+const voting = ref({});
+// voted[token] = true if this user already supported
+const voted = ref({});
+
+function ensureVoteEntry(token) {
+  if (!voteSummaries.value[token]) voteSummaries.value[token] = { total: 0, threshold: 0, votes: [], escalated: false };
+}
+
+async function fetchVoteSummary(token) {
+  if (!token) return;
+  try {
+    const { data } = await getVoteSummary(token);
+    ensureVoteEntry(token);
+    voteSummaries.value[token].total = data.total || 0;
+    voteSummaries.value[token].threshold = data.threshold || 0;
+    voteSummaries.value[token].votes = Array.isArray(data.votes) ? data.votes : [];
+    voteSummaries.value[token].escalated = (data.total || 0) >= (data.threshold || 0) && (data.threshold || 0) > 0;
+    // detect if current user voted
+    const currentUserToken = sessionStorage.getItem("token");
+    if (currentUserToken) {
+      voted.value[token] = voteSummaries.value[token].votes.some(v => v.user?.token === currentUserToken);
+    }
+  } catch (e) {
+    // silent; keep previous values
+  }
+}
+
+async function fetchAllVoteSummaries() {
+  const tokens = rows.value.map(r => r.token).filter(Boolean);
+  await Promise.all(tokens.map(t => fetchVoteSummary(t)));
+}
+
+async function onVote(row) {
+  const token = row?.token;
+  if (!token || voting.value[token] || voted.value[token]) return;
+  voting.value[token] = true;
+  try {
+    await castVote(token);
+    toast.add({ severity: "success", summary: "Supported", detail: "Your support has been recorded", life: 1500 });
+  } catch (e) {
+    if (e?.response?.status === 409) {
+      // Already voted
+      toast.add({ severity: "info", summary: "Already Supported", life: 1500 });
+      voted.value[token] = true;
+    } else {
+      toast.add({ severity: "error", summary: "Vote failed", detail: e?.response?.data?.error || e.message, life: 2500 });
+    }
+  } finally {
+    await fetchVoteSummary(token);
+    voting.value[token] = false;
+  }
+}
+
+function voteProgress(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs || !vs.threshold) return 0;
+  return Math.min(100, Math.round((vs.total / vs.threshold) * 100));
+}
+
+function voteLabel(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs) return "0";
+  if (vs.escalated) return `Escalated (${vs.total}/${vs.threshold})`;
+  if (vs.threshold) return `${vs.total}/${vs.threshold}`;
+  return `${vs.total}`;
+}
+
+function voteButtonDisabled(row) {
+  const token = row.token;
+  if (row.status === 'RESOLVED') return true;
+  return voting.value[token] || voted.value[token];
+}
+
+function voteStatsLabel(row) {
+  const vs = voteSummaries.value[row.token];
+  if (!vs) return '0';
+  if (vs.threshold) return `${vs.total}/${vs.threshold}`;
+  return String(vs.total);
+}
 
 const categoryFilter = ref(null);
 const statusFilter = ref(null);
@@ -373,6 +459,7 @@ const load = async () => {
     rows.value = Array.isArray(data) ? data : [];
     first.value = 0;
     await refreshUnread();
+    await fetchAllVoteSummaries();
   } catch (e) {
     toast.add({ severity: "error", summary: "Load failed", detail: e.message, life: 3500 });
     rows.value = [];
@@ -442,10 +529,16 @@ onMounted(async () => {
   const onDisconnect = () => {
     if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
   };
+  const onVoteUpdated = (payload) => {
+    if (!payload?.issueToken) return;
+    // Refresh only that issue's summary (avoid reloading entire list)
+    fetchVoteSummary(payload.issueToken);
+  };
   // attach listeners
   socket.on('unread:invalidate', onInvalidate);
   socket.on('connect', onConnect);
   socket.on('disconnect', onDisconnect);
+  socket.on('vote:updated', onVoteUpdated);
   // If not yet connected, keep polling until connected
   if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
 
@@ -456,6 +549,7 @@ onMounted(async () => {
       socket.off('unread:invalidate', onInvalidate);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.off('vote:updated', onVoteUpdated);
     } catch {}
   });
 });
@@ -558,6 +652,33 @@ function openRowMenu(event, row) {
       icon: "pi pi-calendar",
       command: () => openMaintenance(row),
     },
+    {
+      label: "Voting",
+      icon: "pi pi-chart-line",
+      items: [
+        {
+          label: voted.value[row.token] ? 'Supported' : 'Support',
+          icon: voted.value[row.token] ? 'pi pi-check' : 'pi pi-thumbs-up',
+          disabled: voteButtonDisabled(row),
+          command: () => onVote(row)
+        },
+        {
+          label: `Weighted: ${voteStatsLabel(row)}`,
+          icon: 'pi pi-sliders-h',
+          disabled: true
+        },
+        ...(voteSummaries.value[row.token]?.escalated ? [{
+          label: 'Escalated',
+          icon: 'pi pi-flag-fill',
+          disabled: true
+        }] : []),
+        ...(row.status === 'RESOLVED' ? [{
+          label: 'Voting closed (resolved)',
+          icon: 'pi pi-lock',
+          disabled: true
+        }] : [])
+      ]
+    }
   ];
   rowMenu.value.toggle(event);
 }
