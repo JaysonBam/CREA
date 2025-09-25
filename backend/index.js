@@ -56,9 +56,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL;
 // Define allowed origins for CORS (so only your frontend can access the backend)
 const allowedOrigins = [
   FRONTEND_URL,
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-].filter(Boolean);
+]
 
 // Log allowed origins once
 console.log("CORS allowed origins:", allowedOrigins);
@@ -80,12 +78,6 @@ const jsonParser = express.json();
 
 
 app.use("/uploads", express.static("uploads"));
-
-// Simple health endpoint to verify API is up
-app.get('/healthz', (req, res) => {
-  res.json({ ok: true, env: process.env.NODE_ENV || 'development', time: new Date().toISOString() })
-});
-
 // Routes, each in their own file
 // Look specifically at TestCrudRoutes.js for an example of how routes are structured
 // We append /api/test-crud for example to make the full route /api/test-crud/create, /api/test-crud/list etc

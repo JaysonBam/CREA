@@ -15,14 +15,35 @@
       :first="first"
     >
       <template #header>
-        <div class="flex flex-col gap-2 text-left md:flex-row md:items-center md:justify-between">
+        <div
+          class="flex flex-col gap-2 text-left md:flex-row md:items-center md:justify-between"
+        >
           <h5 class="m-0 text-xl font-semibold">Manage Issue Reports</h5>
           <div class="flex items-center gap-2">
-            <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-            <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
-            <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+            <Button
+              icon="pi pi-filter-slash"
+              text
+              rounded
+              @click="clearFilters"
+            />
+            <Dropdown
+              v-model="categoryFilter"
+              :options="categoryOptions"
+              placeholder="Any Category"
+              class="w-44"
+              :showClear="true"
+            />
+            <Dropdown
+              v-model="statusFilter"
+              :options="statusOptions"
+              placeholder="Any Status"
+              class="w-44"
+              :showClear="true"
+            />
             <span class="relative">
-              <i class="pi pi-search absolute top-2/4 -mt-2 left-3 text-surface-400 dark:text-surface-600" />
+              <i
+                class="pi pi-search absolute top-2/4 -mt-2 left-3 text-surface-400 dark:text-surface-600"
+              />
               <div class="relative">
                 <InputText
                   v-model="titleQuery"
@@ -30,14 +51,24 @@
                   class="pl-10 font-normal w-72"
                   @input="onTitleInput"
                 />
-                <ul v-if="showTitleSuggestions" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
+                <ul
+                  v-if="showTitleSuggestions"
+                  class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto"
+                >
                   <li
                     v-for="t in titleSuggestions"
                     :key="t"
                     class="px-3 py-2 hover:bg-surface-100 cursor-pointer"
                     @click="applyTitleSuggestion(t)"
-                  >{{ t }}</li>
-                  <li v-if="suggestionsLoaded && !titleSuggestions.length" class="px-3 py-2 text-surface-500">No matches found</li>
+                  >
+                    {{ t }}
+                  </li>
+                  <li
+                    v-if="suggestionsLoaded && !titleSuggestions.length"
+                    class="px-3 py-2 text-surface-500"
+                  >
+                    No matches found
+                  </li>
                 </ul>
               </div>
             </span>
@@ -52,34 +83,69 @@
         <div class="py-4 text-center">Loading…</div>
       </template>
 
-      <Column field="title" header="Title" :sortable="true" style="min-width: 16rem">
+      <Column
+        field="title"
+        header="Title"
+        :sortable="true"
+        style="min-width: 16rem"
+      >
         <template #body="{ data }">
           <div class="flex items-center gap-2">
             <span class="truncate">{{ data.title }}</span>
-            <span v-if="unread[data.token] > 0" class="unread-chip" :title="`${unread[data.token]} unread`">{{ unread[data.token] }}</span>
+            <span
+              v-if="unread[data.token] > 0"
+              class="unread-chip"
+              :title="`${unread[data.token]} unread`"
+              >{{ unread[data.token] }}</span
+            >
           </div>
         </template>
       </Column>
 
-      <Column field="category" header="Category" :sortable="true" style="min-width: 10rem">
+      <Column
+        field="category"
+        header="Category"
+        :sortable="true"
+        style="min-width: 10rem"
+      >
         <template #body="{ data }">{{ data.category }}</template>
       </Column>
 
-      <Column field="status" header="Status" :sortable="true" style="min-width: 10rem">
+      <Column
+        field="status"
+        header="Status"
+        :sortable="true"
+        style="min-width: 10rem"
+      >
         <template #body="{ data }">
-          <Tag :value="data.status" :severity="getStatusSeverity(data.status)" />
+          <Tag
+            :value="data.status"
+            :severity="getStatusSeverity(data.status)"
+          />
         </template>
       </Column>
 
-      <Column field="user.email" header="Reported By" :sortable="true" style="min-width: 12rem">
-        <template #body="{ data }">{{ data.user?.email || 'N/A' }}</template>
+      <Column
+        field="user.email"
+        header="Reported By"
+        :sortable="true"
+        style="min-width: 12rem"
+      >
+        <template #body="{ data }">{{ data.user?.email || "N/A" }}</template>
       </Column>
 
-      <Column field="createdAt" header="Created At" :sortable="true" style="min-width: 12rem">
-        <template #body="{ data }">{{ new Date(data.createdAt).toLocaleString() }}</template>
+      <Column
+        field="createdAt"
+        header="Created At"
+        :sortable="true"
+        style="min-width: 12rem"
+      >
+        <template #body="{ data }">{{
+          new Date(data.createdAt).toLocaleString()
+        }}</template>
       </Column>
 
-      <Column :exportable="false" style="min-width: 10rem">
+      <Column :exportable="false" style="min-width: 14rem">
         <template #body="{ data }">
           <div class="flex items-center gap-2">
             <!-- Per-row dropdown trigger -->
@@ -92,7 +158,7 @@
               @click="openRowMenu($event, data)"
             />
 
-            <!-- Separate Chat button with unread badge -->
+            <!-- Chat button with unread badge -->
             <span class="relative inline-block">
               <Button
                 icon="pi pi-comments"
@@ -110,6 +176,33 @@
               </span>
             </span>
 
+            <!-- Subscribe / Unsubscribe button -->
+            <span class="relative inline-block">
+              <Button
+                :icon="
+                  isSubscribed(data.token) ? 'pi pi-bell-slash' : 'pi pi-bell'
+                "
+                :label="isSubscribed(data.token) ? 'Unsubscribe' : 'Subscribe'"
+                :outlined="!isSubscribed(data.token)"
+                rounded
+                severity="secondary"
+                :disabled="pending[data.token] === true"
+                :loading="pending[data.token] === true"
+                @click="toggleSubscription(data)"
+                :aria-label="
+                  isSubscribed(data.token)
+                    ? 'Unsubscribe from watchlist'
+                    : 'Subscribe to watchlist'
+                "
+                class="subscribe-btn"
+              />
+              <i
+                v-if="isSubscribed(data.token)"
+                class="pi pi-check-circle absolute -top-2 -right-2 text-green-500 text-base"
+                aria-hidden="true"
+                :title="'You are subscribed'"
+              />
+            </span>
           </div>
         </template>
       </Column>
@@ -136,19 +229,36 @@
             autofocus
             :class="{ 'p-invalid': !form.title && form.title !== '' }"
           />
-          <small class="p-error" v-if="!form.title && form.title !== ''">Title is required.</small>
+          <small class="p-error" v-if="!form.title && form.title !== ''"
+            >Title is required.</small
+          >
         </div>
         <div class="field">
           <label for="description">Description</label>
-          <Textarea id="description" v-model="form.description" rows="3" cols="20" />
+          <Textarea
+            id="description"
+            v-model="form.description"
+            rows="3"
+            cols="20"
+          />
         </div>
         <div class="field">
           <label for="category">Category</label>
-          <Dropdown id="category" v-model="form.category" :options="categoryOptions" placeholder="Select a Category" />
+          <Dropdown
+            id="category"
+            v-model="form.category"
+            :options="categoryOptions"
+            placeholder="Select a Category"
+          />
         </div>
         <div class="field">
           <label for="status">Status</label>
-          <Dropdown id="status" v-model="form.status" :options="statusOptions" placeholder="Select a Status" />
+          <Dropdown
+            id="status"
+            v-model="form.status"
+            :options="statusOptions"
+            placeholder="Select a Status"
+          />
         </div>
       </div>
       <template #footer>
@@ -158,14 +268,31 @@
     </Dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <Dialog v-model:visible="deleteDialogVisible" modal header="Confirmation" :style="{ width: '350px' }">
+    <Dialog
+      v-model:visible="deleteDialogVisible"
+      modal
+      header="Confirmation"
+      :style="{ width: '350px' }"
+    >
       <div class="flex items-center justify-center gap-4">
         <i class="pi pi-exclamation-triangle" style="font-size: 2rem"></i>
         <span>Are you sure you want to delete this issue report?</span>
       </div>
       <template #footer>
-        <Button label="No" icon="pi pi-times" text severity="secondary" @click="deleteDialogVisible = false" />
-        <Button label="Yes" icon="pi pi-check" outlined severity="danger" @click="deleteConfirmed" />
+        <Button
+          label="No"
+          icon="pi pi-times"
+          text
+          severity="secondary"
+          @click="deleteDialogVisible = false"
+        />
+        <Button
+          label="Yes"
+          icon="pi pi-check"
+          outlined
+          severity="danger"
+          @click="deleteConfirmed"
+        />
       </template>
     </Dialog>
 
@@ -173,25 +300,39 @@
     <MaintenanceSchedulesModal ref="maintModal" @changed="onMaintChanged" />
 
     <!-- Chat Dialog -->
-    <Dialog v-model:visible="chatDialogVisible" modal header="Report Chat" :style="{ width: '700px' }">
+    <Dialog
+      v-model:visible="chatDialogVisible"
+      modal
+      header="Report Chat"
+      :style="{ width: '700px' }"
+    >
       <ChatRoom v-if="chatTarget?.token" :issueToken="chatTarget.token" />
     </Dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, watch, computed, watchEffect } from "vue";
+import {
+  ref,
+  reactive,
+  onMounted,
+  onUnmounted,
+  watch,
+  computed,
+  watchEffect,
+} from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   listIssueReports,
   updateIssueReport,
   deleteIssueReport,
-} from "@/utils/backend_helper";
-import {
   getIssueUnreadCounts,
   getIssueMessageRead,
   listIssueMessages,
   getIssueTitleSuggestions,
+  subscribeWatchlist, // POST /api/issue-reports/watchlist/:token
+  getWatchlist, // GET  /api/issue-reports/watchlist
+  unsubscribeWatchlist, // DELETE /api/issue-reports/watchlist/:token
 } from "@/utils/backend_helper";
 import { castVote, getVoteSummary } from "@/utils/backend_helper";
 import ChatRoom from "@/components/ChatRoom.vue";
@@ -309,6 +450,10 @@ const suggestionsLoaded = ref(false);
 const suggestionsLoading = ref(false);
 const suggestionsError = ref(false);
 
+// subscription state per issue token
+const subscribed = ref({}); // { [token]: true }
+const pending = ref({}); // { [token]: boolean } unified pending state for sub/unsub
+
 const categoryOptions = ref([
   "POTHOLE",
   "WATER_LEAK",
@@ -322,8 +467,10 @@ const displayedRows = computed(() => {
   let list = Array.isArray(rows.value) ? rows.value : [];
   const q = (titleQuery.value || "").trim().toLowerCase();
   if (q) list = list.filter((r) => (r.title || "").toLowerCase().includes(q));
-  if (categoryFilter.value) list = list.filter((r) => r.category === categoryFilter.value);
-  if (statusFilter.value) list = list.filter((r) => r.status === statusFilter.value);
+  if (categoryFilter.value)
+    list = list.filter((r) => r.category === categoryFilter.value);
+  if (statusFilter.value)
+    list = list.filter((r) => r.status === statusFilter.value);
   return list;
 });
 
@@ -372,11 +519,21 @@ const openEdit = (row) => {
 
 const save = async () => {
   if (!form.title?.trim()) {
-    toast.add({ severity: "warn", summary: "Validation", detail: "Title is required", life: 2500 });
+    toast.add({
+      severity: "warn",
+      summary: "Validation",
+      detail: "Title is required",
+      life: 2500,
+    });
     return;
   }
   if (!form.token) {
-    toast.add({ severity: "warn", summary: "Edit Only", detail: "Open an existing report to edit.", life: 2500 });
+    toast.add({
+      severity: "warn",
+      summary: "Edit Only",
+      detail: "Open an existing report to edit.",
+      life: 2500,
+    });
     return;
   }
   const payload = {
@@ -388,7 +545,12 @@ const save = async () => {
 
   try {
     await updateIssueReport(form.token, payload);
-    toast.add({ severity: "success", summary: "Updated", detail: "Issue report updated successfully.", life: 1500 });
+    toast.add({
+      severity: "success",
+      summary: "Updated",
+      detail: "Issue report updated successfully.",
+      life: 1500,
+    });
     showDialog.value = false;
     await load();
   } catch (e) {
@@ -447,6 +609,95 @@ watch([chatDialogVisible, chatTarget, unread], () => {
   }
 });
 
+/* ---------- Subscribe/Unsubscribe to watchlist ---------- */
+function isSubscribed(token) {
+  return !!subscribed.value[token];
+}
+
+const hydrateSubscriptions = async () => {
+  try {
+    const { data } = await getWatchlist();
+    // Expecting data: { success, message, data: { items: [ { issue: { token }, ... } ] } }
+    const items = data?.data?.items || [];
+    const map = {};
+    for (const row of items) {
+      const t = row?.issue?.token;
+      if (t) map[t] = true;
+    }
+    subscribed.value = map;
+  } catch (e) {
+    // Non-fatal; keep UI functional
+  }
+};
+
+const toggleSubscription = async (row) => {
+  const token = row?.token;
+  if (!token) return;
+
+  // prevent double taps while pending
+  if (pending.value[token]) return;
+  pending.value = { ...pending.value, [token]: true };
+
+  try {
+    if (!isSubscribed(token)) {
+      // subscribe
+      const { data } = await subscribeWatchlist(token);
+      if (data?.success) {
+        subscribed.value = { ...subscribed.value, [token]: true };
+        toast.add({
+          severity: "success",
+          summary: "Watchlist",
+          detail: data?.message || "Subscribed to watchlist.",
+          life: 2000,
+        });
+      } else {
+        toast.add({
+          severity: "warn",
+          summary: "Watchlist",
+          detail: data?.message || "Unable to subscribe.",
+          life: 2500,
+        });
+      }
+    } else {
+      // unsubscribe
+      const { data } = await unsubscribeWatchlist(token);
+      if (data?.success) {
+        const next = { ...subscribed.value };
+        delete next[token];
+        subscribed.value = next;
+        toast.add({
+          severity: "success",
+          summary: "Watchlist",
+          detail: data?.message || "Unsubscribed from watchlist.",
+          life: 2000,
+        });
+      } else {
+        toast.add({
+          severity: "warn",
+          summary: "Watchlist",
+          detail: data?.message || "Unable to unsubscribe.",
+          life: 2500,
+        });
+      }
+    }
+  } catch (e) {
+    const msg =
+      e?.response?.data?.message ||
+      e?.message ||
+      (isSubscribed(token)
+        ? "Could not unsubscribe from watchlist."
+        : "Could not subscribe to watchlist.");
+    toast.add({
+      severity: "error",
+      summary: "Watchlist",
+      detail: msg,
+      life: 3000,
+    });
+  } finally {
+    pending.value = { ...pending.value, [token]: false };
+  }
+};
+
 /* ---------- Load & unread ---------- */
 const load = async () => {
   loading.value = true;
@@ -458,10 +709,20 @@ const load = async () => {
     const { data } = await listIssueReports(params);
     rows.value = Array.isArray(data) ? data : [];
     first.value = 0;
+
+    // Refresh unread counts
     await refreshUnread();
     await fetchAllVoteSummaries();
+
+    // Hydrate which issues the user is already subscribed to
+    await hydrateSubscriptions();
   } catch (e) {
-    toast.add({ severity: "error", summary: "Load failed", detail: e.message, life: 3500 });
+    toast.add({
+      severity: "error",
+      summary: "Load failed",
+      detail: e.message,
+      life: 3500,
+    });
     rows.value = [];
   } finally {
     loading.value = false;
@@ -490,7 +751,9 @@ const refreshUnread = async () => {
               getIssueMessageRead(t),
               listIssueMessages(t),
             ]);
-            const last = r?.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+            const last = r?.last_seen_at
+              ? new Date(r.last_seen_at).getTime()
+              : null;
             const list = Array.isArray(msgs) ? msgs : [];
             const cnt = list.filter(
               (m) =>
@@ -520,9 +783,14 @@ const refreshUnread = async () => {
 onMounted(async () => {
   await load();
   socket = connectSocket();
-  const onInvalidate = async () => { await refreshUnread(); };
+  const onInvalidate = async () => {
+    await refreshUnread();
+  };
   const onConnect = () => {
-    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    if (unreadTimer) {
+      clearInterval(unreadTimer);
+      unreadTimer = null;
+    }
     // Ensure a fresh fetch on connect
     void refreshUnread();
   };
@@ -535,20 +803,24 @@ onMounted(async () => {
     fetchVoteSummary(payload.issueToken);
   };
   // attach listeners
-  socket.on('unread:invalidate', onInvalidate);
-  socket.on('connect', onConnect);
-  socket.on('disconnect', onDisconnect);
+  socket.on("unread:invalidate", onInvalidate);
+  socket.on("connect", onConnect);
+  socket.on("disconnect", onDisconnect);
   socket.on('vote:updated', onVoteUpdated);
   // If not yet connected, keep polling until connected
-  if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+  if (!socket.connected && !unreadTimer)
+    unreadTimer = setInterval(refreshUnread, 5000);
 
   // Cleanup on unmount
   onUnmounted(() => {
-    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+    if (unreadTimer) {
+      clearInterval(unreadTimer);
+      unreadTimer = null;
+    }
     try {
-      socket.off('unread:invalidate', onInvalidate);
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
+      socket.off("unread:invalidate", onInvalidate);
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
       socket.off('vote:updated', onVoteUpdated);
     } catch {}
   });
@@ -592,7 +864,11 @@ const onTitleInput = async () => {
       // Derive unique titles from filtered rows
       const set = new Set();
       for (const r of rowsArr) {
-        if (typeof r?.title === 'string' && r.title.toLowerCase().includes(q.toLowerCase())) set.add(r.title);
+        if (
+          typeof r?.title === "string" &&
+          r.title.toLowerCase().includes(q.toLowerCase())
+        )
+          set.add(r.title);
         if (set.size >= 10) break;
       }
       titleSuggestions.value = Array.from(set);
@@ -629,9 +905,9 @@ watchEffect(() => {
 });
 
 /* ---------- Row dropdown menu logic ---------- */
-const rowMenu = ref();            // <Menu> ref
-const rowMenuItems = ref([]);     // dynamic items per row
-const activeRow = ref(null);      // keep track of which row is active
+const rowMenu = ref(); // <Menu> ref
+const rowMenuItems = ref([]); // dynamic items per row
+const activeRow = ref(null); // keep track of which row is active
 
 function openRowMenu(event, row) {
   activeRow.value = row;
@@ -691,5 +967,10 @@ function openRowMenu(event, row) {
   border-radius: 9999px;
   padding: 0 0.5rem;
   font-size: 0.75rem;
+}
+
+/* subtle style to make subscribe button feel distinct yet consistent */
+.subscribe-btn :deep(.p-button-icon) {
+  font-size: 1rem;
 }
 </style>

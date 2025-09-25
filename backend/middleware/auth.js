@@ -22,6 +22,11 @@ module.exports = function (req, res, next) {
     }
 
     req.user = decoded;
+
+    // --- added: convenient access to user id and role from the JWT ---
+    req.auth = { userId: decoded.user_id, role: decoded.role };
+    // -----------------------------------------------------------------
+
     next();
   });
 };

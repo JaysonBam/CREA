@@ -87,8 +87,7 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const TOKEN_KEY = "JWT";
-  const token = sessionStorage.getItem(TOKEN_KEY);
+  const token = sessionStorage.getItem("JWT");
   const isAuthenticated = !!token;
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
   const guestOnly = to.matched.some((r) => r.meta.guestOnly);
@@ -101,12 +100,12 @@ router.beforeEach((to) => {
       userRole = payload.role;
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
-        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem("JWT");
         return { name: "login", query: { redirect: to.fullPath } };
       }
     } catch (e) {
       console.error("Invalid JWT:", e);
-      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem("JWT");
       return { name: "login" };
     }
   }

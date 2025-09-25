@@ -4,15 +4,10 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("wards", {
-      // Use BIGINT auto-increment so all foreign keys (which were defined as BIGINT)
-      // can reference this primary key without type mismatches.
-      id: {
-        type: Sequelize.BIGINT,
-        autoIncrement: true,
-        primaryKey: true,
-        allowNull: false,
-      },
-      // Separate stable public token (UUID) for external references / URLs
+      id: { 
+        type: Sequelize.BIGINT, 
+        autoIncrement: true, 
+        primaryKey: true },
       token: {
         type: Sequelize.UUID,
         allowNull: false,
