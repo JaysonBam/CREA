@@ -2,7 +2,7 @@
   <div class="card">
     <Toast />
 
-    <!-- Ward scope banner (labels from returned rows) -->
+    <!-- Ward scope banner( list of wards that user belongs to)-->
     <div v-if="wardScope.ready" class="mb-3 flex flex-wrap items-center gap-2">
       <Tag severity="info" value="Scoped to your wards" />
       <div class="flex flex-wrap gap-1" v-if="wardScope.labels.length">
@@ -374,7 +374,6 @@ const deleteConfirmed = async ()=>{
   }
 };
 
-/* ---------- Chat ---------- */
 const chatDialogVisible = ref(false);
 const chatTarget = ref(null);
 const openChat = (row)=>{
@@ -383,7 +382,6 @@ const openChat = (row)=>{
   if (unread.value[row.token] > 0) unread.value[row.token] = 0;
 };
 
-/* ---------- Watchlist ---------- */
 function isSubscribed(token){ return !!subscribed.value[token]; }
 
 const hydrateSubscriptions = async ()=>{
@@ -399,6 +397,7 @@ const hydrateSubscriptions = async ()=>{
   } catch {}
 };
 
+//Subscribe to the report Issue
 const toggleSubscription = async (row)=>{
   const token = row?.token;
   if (!token) return;
@@ -435,7 +434,6 @@ const toggleSubscription = async (row)=>{
   }
 };
 
-/* ---------- Load & unread ---------- */
 const load = async ()=>{
   loading.value = true;
   try {
@@ -444,6 +442,7 @@ const load = async ()=>{
     if (statusFilter.value) params.status = statusFilter.value;
     if (titleQuery.value?.trim()) params.title = titleQuery.value.trim();
 
+    //list all reports for ward
     const { data } = await listIssueReportsForMyWards(params);
     const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
     rows.value = list;
@@ -478,7 +477,7 @@ const refreshUnread = async ()=>{
   try {
     const tokens = rows.value.map(r=>r.token);
     if (!tokens.length){ unread.value = {}; return; }
-
+    //load unread messages
     const { data } = await getIssueUnreadCounts(tokens);
     const counts = data?.counts || {};
     let obj = {};
@@ -508,7 +507,7 @@ const refreshUnread = async ()=>{
     }
     unread.value = obj;
   } catch {
-    /* silent */
+
   }
 };
 
@@ -542,7 +541,7 @@ onMounted(async ()=>{
   });
 });
 
-/* ---------- Title suggestions ---------- */
+//Title suggestions
 let titleDebounce; let lastSuggestReq=0;
 
 const onTitleInput = async ()=>{
@@ -602,7 +601,7 @@ watch(categoryFilter, ()=>{ load(); first.value = 0; });
 watch(statusFilter,  ()=>{ load(); first.value = 0; });
 watchEffect(()=>{ void titleQuery.value; first.value = 0; });
 
-/* ---------- Row dropdown menu ---------- */
+//Row dropdown
 const rowMenu = ref();
 const rowMenuItems = ref([]);
 const activeRow = ref(null);
@@ -631,7 +630,7 @@ function openRowMenu(event, row){
 .subscribe-btn :deep(.p-button-icon){
   font-size: 1rem;
 }
-/* optional: tighten dialog content a touch */
+
 :deep(.p-dialog .p-dialog-content){
   padding-top: 0.75rem;
 }
