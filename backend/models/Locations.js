@@ -46,6 +46,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DECIMAL(10, 7),
         allowNull: false,
       },
+
+      updatedAt: {
+        allowNull: false,
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+      },
     },
     {
       sequelize,
