@@ -14,6 +14,10 @@ function isAdmin() {
     }
 }
 
+function isCommunityLeader() {
+  return (sessionStorage.getItem('role') || '').toLowerCase() === 'communityleader'
+}
+
 const model = ref([
     {
         label: 'Menu',
@@ -23,8 +27,13 @@ const model = ref([
             { label: 'Reports', icon: 'pi pi-fw pi-file', to: { name: 'reports' } },
             { label: 'Your Reports', icon: 'pi pi-fw pi-list', to: { name: 'user-reports' } },
             { label: 'Map View', icon: 'pi pi-fw pi-map', to: { name: 'report-map' } },
-            { label: 'Wards', icon: 'pi pi-briefcase', to: '/wards' },
-            { label: 'Manage Report Issue', icon: 'pi pi-briefcase', to: '/my-ward-report-issues' },
+            { label: 'Wards', icon: 'pi pi-map-marker', to: '/wards' },
+             ...(isCommunityLeader()
+            ? [{ label: 'Manage Report Issue', icon: 'pi pi-exclamation-circle', to: '/my-ward-report-issues' },]
+            : []),
+            ...(isCommunityLeader()
+            ? [{ label: 'Staff Workload', icon: 'pi pi-users', to: { name: 'staff-workload' } }]
+            : []),
             { label: 'Test CRUD', icon: 'pi pi-fw pi-database', to: { name: 'test-crud' } },
             ...(isAdmin() ? [
               { label: 'Ward Requests', icon: 'pi pi-fw pi-inbox', to: { name: 'ward-requests' } }
