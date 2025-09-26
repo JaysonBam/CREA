@@ -1,489 +1,911 @@
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-
-// PrimeVue components
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import InputText from 'primevue/inputtext'
-import MultiSelect from 'primevue/multiselect'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import Toast from 'primevue/toast'
-import { useToast } from 'primevue/usetoast'
-import TabView from 'primevue/tabview'
-import TabPanel from 'primevue/tabpanel'
-import Dropdown from 'primevue/dropdown'
-
-import { listWards as apiListWards } from '@/service/WardService'
-
-import { useRouter } from 'vue-router'
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? (window.location.port === '5173' ? 'http://127.0.0.1:5000' : '')
-
-const router = useRouter()
-
-const TOKEN_KEY = 'JWT'
-const userRole = ref('guest')            // 'admin' | 'communityleader' | 'staff' | 'resident'
-const userWardId = ref(null)             // UUID or numeric id, when available
-const userId = ref(null)                // current user's id from JWT
-
-function decodeJwtPayload (t) {
-  try {
-    return JSON.parse(atob(String(t).split('.')[1] || ''))
-  } catch (e) {
-    return {}
-  }
-}
-
-const canAdmin = computed(() => userRole.value === 'admin')
-const canLeader = computed(() => userRole.value === 'communityleader')
-const canManageWard = computed(() => canAdmin.value || canLeader.value)
-const hasOwnWard = computed(() => !!userWardId.value)
-
-function goToMyWardProfile () {
-  if (!userWardId.value) return
-  router.push({ name: 'ward-profile', params: { wardId: userWardId.value } })
-}
-function goToMyWardStats () {
-  if (!userWardId.value) return
-  router.push({ name: 'ward-stats', params: { wardId: userWardId.value } })
-}
-
-function tryInferWardFromData () {
-  // If already known, do nothing
-  if (userWardId.value) return
-  // Leader: infer from wards where leaderId === userId
-  if (canLeader.value && userId.value) {
-    const w = wards.value.find(w => String(w.leaderId || '') === String(userId.value))
-    if (w?.id) userWardId.value = w.id
-  }
-  // Staff: infer from wards where staffIds contains userId
-  if (userRole.value === 'staff' && userId.value) {
-    const w = wards.value.find(w => Array.isArray(w.staffIds) && w.staffIds.map(String).includes(String(userId.value)))
-    if (w?.id) userWardId.value = w.id
-  }
-}
-
-// People loaded from backend
-const people = ref([])
-
-async function loadPeople () {
-  try {
-    const res = await fetch(`${API_BASE}/api/users`, { headers: { 'Accept': 'application/json' } })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const users = await res.json()
-    // Accept both lowercase and TitleCase roles; restrict to staff & leaders
-    const normalizeRole = (r) => String(r || '').toLowerCase()
-    people.value = (users || [])
-      .filter(u => u?.isActive !== false) // include active
-      .filter(u => ['staff', 'communityleader'].includes(normalizeRole(u.role)))
-      .map(u => ({
-        id: u.id,
-        name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || u.email,
-        role: normalizeRole(u.role) // 'staff' | 'communityleader'
-      }))
-  } catch (err) {
-    console.error('Failed to load users', err)
-    toast.add({ severity: 'error', summary: 'Load failed', detail: `Users: ${String(err?.message || err)}`, life: 3000 })
-  }
-}
-
-
-
-const wards = ref([])
-
-const nextWardId = ref(4)
-
-// Load from backend
-async function loadWards () {
-  loading1.value = true
-  try {
-    const data = await apiListWards()
-    wards.value = (data || []).map(w => {
-      const leaderId = w?.leader?.User?.id ?? w?.leaderId ?? w?.leader_id ?? null
-      const staffIds = Array.isArray(w?.staff)
-        ? w.staff.map(s => s?.User?.id ?? s?.user_id ?? s?.id).filter(Boolean)
-        : Array.isArray(w?.staffIds) ? w.staffIds.filter(Boolean) : []
-      return {
-        id: w.id,
-        name: w.name,
-        code: w.code,
-        leaderId,
-        staffIds,
-        _originalLeaderId: leaderId ?? null,
-        _originalStaffIds: [...staffIds],
-      }
-    })
-  } catch (err) {
-    console.error('Failed to load wards', err)
-    toast.add({ severity: 'error', summary: 'Load failed', detail: String(err?.message || err), life: 3000 })
-  } finally {
-    loading1.value = false
-  }
-}
-
-function refreshWards () {
-  loadWards()
-}
-
-
-// Filtering state 
-const createInitialFilters = () => ({
-  global: { value: null, matchMode: 'contains' },
-  name: { operator: 'and', constraints: [{ value: null, matchMode: 'contains' }] },
-  leaderName: { value: null, matchMode: 'in' },
-})
-const filters1 = ref(createInitialFilters())
-const loading1 = ref(false)
-
-// Leader names for the multiselect filter
-const leaderNameOptions = computed(() => {
-    return people.value.filter(p => p.role === 'communityleader').map(l => l.name)
-})
-
-// Rows augmented with leaderName for filtering/display 
-const rows = computed(() =>
-  wards.value.map(w => ({
-    ...w,
-    leaderName: people.value.find(p => p.id === w.leaderId)?.name ?? '—',
-  }))
-)
-
-function clearFilter () {
-  filters1.value = createInitialFilters()
-}
-
-// Add Ward 
-const showCreate = ref(false)
-const newName = ref('')
-const toast = useToast()
-
-function openCreate() {
-  newName.value = ''
-  showCreate.value = true
-}
-async function createWard() {
-  const name = newName.value.trim()
-  if (!name) return
-  try {
-    const res = await fetch(`${API_BASE}/api/wards`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-      credentials: 'include'
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const json = await res.json()
-    const w = json?.data || json
-    // Push mapped record
-    const leaderId = w?.leader?.User?.id ?? w?.leaderId ?? w?.leader_id ?? null
-    const staffIds = Array.isArray(w?.staff)
-      ? w.staff.map(s => s?.User?.id ?? s?.user_id ?? s?.id).filter(Boolean)
-      : Array.isArray(w?.staffIds) ? w.staffIds.filter(Boolean) : []
-    wards.value.push({
-      id: w.id,
-      name: w.name,
-      code: w.code,
-      leaderId,
-      staffIds,
-      _originalLeaderId: leaderId ?? null,
-      _originalStaffIds: [...staffIds],
-    })
-    showCreate.value = false
-    toast.add({ severity: 'success', summary: 'Created', detail: 'Ward added', life: 2000 })
-  } catch (err) {
-    console.error('Create ward failed', err)
-    toast.add({ severity: 'error', summary: 'Create failed', detail: String(err?.message || err), life: 3000 })
-  }
-}
-
-const leaderOptions = computed(() =>
-    people.value.filter(p => p.role === 'communityleader').map(l => ({ label: l.name, value: l.id }))
-)
-
-const staffList = computed(() => people.value.filter(p => p.role === 'staff'))
-const staffOptions = computed(() => staffList.value.map(s => ({ label: s.name, value: s.id })))
-
-function staffOptionsForWard(wardId) {
-  const assignedElsewhere = new Set()
-  wards.value.forEach(w => {
-    if (w.id !== wardId) (w.staffIds || []).forEach(id => assignedElsewhere.add(id))
-  })
-  return staffOptions.value.filter(opt => !assignedElsewhere.has(opt.value))
-}
-
-async function saveStaffForWard(w) {
-  const idx = wards.value.findIndex(x => x.id === w.id)
-  if (idx === -1) return
-  const before = new Set(w._originalStaffIds || [])
-  const after = new Set(w.staffIds || [])
-  const toAdd = [...after].filter(id => !before.has(id))
-  const toRemove = [...before].filter(id => !after.has(id))
-  try {
-    // Apply removals
-    for (const uid of toRemove) {
-      const res = await fetch(`${API_BASE}/api/wards/${w.id}/staff/${uid}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error(`Remove failed: HTTP ${res.status}`)
-    }
-    // Apply additions
-    for (const uid of toAdd) {
-      const res = await fetch(`${API_BASE}/api/wards/${w.id}/staff/${uid}`, {
-        method: 'POST',
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error(`Add failed: HTTP ${res.status}`)
-    }
-    // Update originals
-    w._originalStaffIds = [...(w.staffIds || [])]
-    wards.value[idx] = { ...wards.value[idx], staffIds: [...w.staffIds] }
-    toast.add({ severity: 'success', summary: 'Saved', detail: 'Staff assignment updated', life: 1500 })
-  } catch (err) {
-    console.error('Save staff failed', err)
-    toast.add({ severity: 'error', summary: 'Save failed', detail: String(err?.message || err), life: 3000 })
-  }
-}
-
-function staffNames(ids) {
-  return (ids || []).map(id => people.value.find(p => p.id === id)?.name || `#${id}`)
-}
-
-async function saveWardInline(w) {
-  const idx = wards.value.findIndex(x => x.id === w.id)
-  if (idx === -1) return
-  try {
-    // Update basic fields (name, code)
-    const res = await fetch(`${API_BASE}/api/wards/${w.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: w.name, code: w.code }),
-      credentials: 'include'
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    // Assign leader if changed
-    if (w.leaderId !== w._originalLeaderId) {
-      const res2 = await fetch(`${API_BASE}/api/wards/${w.id}/leader`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leaderUserId: w.leaderId }),
-        credentials: 'include'
-      })
-      if (!res2.ok) throw new Error(`Leader assign failed: HTTP ${res2.status}`)
-      w._originalLeaderId = w.leaderId ?? null
-    }
-    wards.value[idx] = { ...wards.value[idx], name: w.name, leaderId: w.leaderId ?? null }
-    toast.add({ severity: 'success', summary: 'Saved', detail: 'Ward updated', life: 1500 })
-  } catch (err) {
-    console.error('Update ward failed', err)
-    toast.add({ severity: 'error', summary: 'Save failed', detail: String(err?.message || err), life: 3000 })
-  }
-}
-
-async function removeWard(w) {
-  if (!w?.id) return
-  if (!window.confirm(`Delete "${w.name}"?`)) return
-  try {
-    const res = await fetch(`${API_BASE}/api/wards/${w.id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    wards.value = wards.value.filter(x => x.id !== w.id)
-    toast.add({ severity: 'info', summary: 'Deleted', detail: 'Ward removed', life: 1500 })
-  } catch (err) {
-    console.error('Delete ward failed', err)
-    toast.add({ severity: 'error', summary: 'Delete failed', detail: String(err?.message || err), life: 3000 })
-  }
-}
-
-onMounted(async () => {
-  // Read role and wardId from JWT
-  const token = sessionStorage.getItem(TOKEN_KEY)
-  if (token) {
-    const payload = decodeJwtPayload(token)
-    if (payload && typeof payload === 'object') {
-      userRole.value = String(payload.role || 'guest').toLowerCase()
-      userId.value = payload.userId || payload.user_id || payload.id || null
-      userWardId.value = payload.wardId || payload.ward_id || null
-    }
-  }
-  await Promise.all([loadPeople(), loadWards()])
-  tryInferWardFromData()
-})
-</script>
-
 <template>
-  <Toast />
-
   <div class="card">
-    <!-- Non-admin view: show only quick actions for own ward -->
-    <div v-if="!canAdmin" class="mb-4">
-      <div class="flex justify-between items-center">
-        <div class="font-semibold text-xl">My Ward</div>
-      </div>
-      <div class="mt-3 flex gap-2 flex-wrap">
-        <Button label="Open My Ward Profile" icon="pi pi-id-card" @click="goToMyWardProfile" :disabled="!hasOwnWard" />
-        <Button label="Open My Ward Stats" icon="pi pi-chart-bar" @click="goToMyWardStats" :disabled="!hasOwnWard" />
-      </div>
-      <p class="mt-2 text-sm text-color-secondary" v-if="!hasOwnWard">No ward linked to your account yet.</p>
-      <hr class="my-4" />
-    </div>
+    <div class="font-semibold text-xl mb-4">Wards</div>
 
-    <template v-if="canAdmin">
-      <div class="flex justify-between items-center mb-4">
-        <div class="font-semibold text-xl">Wards</div>
-        <Button label="New Ward" icon="pi pi-plus" @click="openCreate" />
-      </div>
-    </template>
-
-    <TabView v-if="canAdmin || canLeader">
-      <!-- All Wards -->
-      <TabPanel header="All Wards" v-if="canAdmin">
+    <TabView v-model:activeIndex="activeTab">
+      <!-- TAB 1: LIST -->
+      <TabPanel header="List">
         <DataTable
-          :value="rows"
-          dataKey="id"
+          :value="visibleRows"
           :paginator="true"
           :rows="10"
+          dataKey="token"
           :rowHover="true"
-          v-model:filters="filters1"
+          v-model:filters="filters"
           filterDisplay="menu"
-          :loading="loading1"
-          :filters="filters1"
-          :globalFilterFields="['name','leaderName']"
+          :loading="loading"
+          :globalFilterFields="['name', 'leaderName']"
           showGridlines
-          responsiveLayout="scroll"
         >
           <template #header>
-            <div class="flex justify-between items-center gap-3">
-              <div class="flex items-center gap-2">
-                <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
-
-                <Button type="button" icon="pi pi-refresh" label="Refresh" outlined @click="refreshWards()" />
+            <div class="flex justify-between items-center gap-2">
+              <div class="flex gap-2">
+                <Button v-if="isAdmin" type="button" icon="pi pi-plus" label="New" @click="openNew" />
+                <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter" />
               </div>
               <IconField>
-                <InputIcon>
-                  <i class="pi pi-search" />
-                </InputIcon>
-                <InputText v-model="filters1['global'].value" placeholder="Keyword Search" />
+                <InputIcon><i class="pi pi-search" /></InputIcon>
+                <InputText v-model="filters['global'].value" placeholder="Search..." />
               </IconField>
             </div>
           </template>
-          <template #empty> No wards found. </template>
-          <template #loading> Loading wards data. Please wait. </template>
 
-
-          <Column field="name" header="Name" style="min-width: 12rem">
-            <template #body="{ data }">
-              {{ data.name }}
-            </template>
-            <template #filter="{ filterModel }">
-              <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
+          <Column field="name" header="Ward Name" sortable :showFilterMenu="false" style="width: 14rem">
+            <template #body="slotProps">
+              <span class="truncate block max-w-56" :title="slotProps.data.name">{{ slotProps.data.name }}</span>
             </template>
           </Column>
+          <Column field="leaderName" header="Leader" :showFilterMenu="false" style="width: 12rem" />
 
-          <Column header="Leader" filterField="leaderName" style="min-width: 12rem" :showFilterMatchModes="false">
-            <template #body="{ data }">
-              {{ data.leaderName }}
-            </template>
-            <template #filter="{ filterModel }">
-              <MultiSelect v-model="filterModel.value" :options="leaderNameOptions" placeholder="Any" display="chip" />
-            </template>
-          </Column>
-          <Column header="Actions" style="min-width: 10rem">
-            <template #body="{ data }">
-              <div class="flex gap-2">
-                <Button label="View Profile" icon="pi pi-id-card" @click="router.push({ name: 'ward-profile', params: { wardId: data.id } })" />
-                <Button label="View Stats" icon="pi pi-chart-bar" @click="router.push({ name: 'ward-stats', params: { wardId: data.id } })" />
+          <Column header="Actions" style="width: 18rem">
+            <template #body="slotProps">
+              <div class="flex gap-2 flex-nowrap">
+                <Button icon="pi pi-user" label="View Profile" size="small" outlined @click="goProfile(slotProps.data)" />
+                <Button icon="pi pi-chart-line" label="View Stats" size="small" outlined severity="secondary" @click="goStats(slotProps.data)" />
               </div>
             </template>
           </Column>
+
+          <template #empty>
+            <div class="text-center p-4">No wards found.</div>
+          </template>
+
+          <template #loading> Loading wards... </template>
         </DataTable>
       </TabPanel>
 
-      <!-- Ward Management -->
-      <TabPanel header="Ward Management" v-if="canAdmin">
-        <DataTable :value="wards" dataKey="id" showGridlines responsiveLayout="scroll">
-          <template #empty> No wards to manage. </template>
+      <!-- TAB 2: WARD MANAGEMENT -->
+      <TabPanel header="Ward Management" v-if="canSeeWardManagement">
+        <div class="grid gap-4">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">Selected Ward:</span>
+            <Dropdown
+              class="w-60"
+              :options="visibleRows"
+              optionLabel="name"
+              v-model="manage.selected"
+              placeholder="Choose a ward"
+              :disabled="loading || !visibleRows.length"
+            />
+            <Button icon="pi pi-refresh" text @click="loadRows" />
+          </div>
 
+          <div v-if="manage.selected" class="surface-card p-4 border-round-md border-1 surface-border">
+            <div class="field">
+              <label class="font-medium block mb-2" for="m_name">Ward Name</label>
+              <InputText id="m_name" v-model.trim="manage.name" placeholder="e.g. Ward 1" />
+            </div>
 
-          <Column field="name" header="Name" style="min-width: 14rem">
-            <template #body="{ data }">
-              <InputText v-model="data.name" placeholder="Ward name" />
-            </template>
-          </Column>
-
-          <Column header="Leader" field="leaderId" style="min-width: 14rem">
-            <template #body="{ data }">
-              <Dropdown v-model="data.leaderId" :options="leaderOptions" optionLabel="label" optionValue="value" placeholder="Select leader" showClear />
-            </template>
-          </Column>
-
-          <Column header="Actions" style="min-width: 14rem">
-            <template #body="{ data }">
-              <div class="flex gap-2">
-                <Button label="Save" icon="pi pi-check" severity="success" @click="saveWardInline(data)" />
-                <Button label="Delete" icon="pi pi-trash" severity="danger" @click="removeWard(data)" />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
-      </TabPanel>
-
-      <!-- Staff Assignment -->
-      <TabPanel header="Staff Assignment" v-if="canManageWard">
-        <DataTable :value="wards" dataKey="id" showGridlines responsiveLayout="scroll">
-          <template #empty> No wards available. </template>
-
-          <Column field="name" header="Ward" style="min-width: 14rem" />
-
-          <Column header="Assigned Staff" style="min-width: 18rem">
-            <template #body="{ data }">
-              <MultiSelect
-                v-model="data.staffIds"
-                :options="staffOptionsForWard(data.id)"
-                optionLabel="label"
-                optionValue="value"
-                placeholder="Select staff"
-                display="chip"
-                showClear
+            <div class="field">
+              <label class="font-medium block mb-2">Assign Leader</label>
+              <Dropdown
+                class="w-80"
+                :options="leaders"
+                optionLabel="fullName"
+                optionValue="id"
+                v-model="manage.leaderId"
+                :loading="leadersLoading"
+                placeholder="Select a leader"
+                :showClear="true"
               />
-            </template>
-          </Column>
+              <small v-if="leadersError" class="p-error block mt-2">{{ leadersError }}</small>
+            </div>
 
-          <Column header="Summary" style="min-width: 16rem">
-            <template #body="{ data }">
-              {{ staffNames(data.staffIds).join(', ') || '—' }}
-            </template>
-          </Column>
+            <div class="flex gap-2 mt-3">
+              <Button :label="saving ? 'Saving...' : 'Save Changes'" :disabled="saving" icon="pi pi-check" @click="saveManage" />
+              <Button label="Delete Ward" icon="pi pi-trash" severity="danger" outlined @click="confirmDeleteWard" />
+            </div>
+          </div>
 
-          <Column header="Actions" style="min-width: 12rem">
-            <template #body="{ data }">
-              <Button label="Save" icon="pi pi-check" severity="success" @click="saveStaffForWard(data)" />
-            </template>
-          </Column>
-        </DataTable>
+          <div v-else class="text-600">Pick a ward to manage.</div>
+        </div>
+      </TabPanel>
+
+      <!-- TAB 3: STAFF MANAGEMENT -->
+      <TabPanel header="Staff Management" v-if="canSeeStaffManagement">
+        <div class="grid gap-4">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">Selected Ward:</span>
+            <Dropdown
+              class="w-60"
+              :options="visibleRows"
+              optionLabel="name"
+              v-model="staff.selected"
+              placeholder="Choose a ward"
+              :disabled="loading || !visibleRows.length"
+            />
+            <Button icon="pi pi-refresh" text @click="loadRows" />
+          </div>
+
+          <div v-if="staff.selected" class="surface-card p-4 border-round-md border-1 surface-border">
+            <div class="field">
+              <label class="font-medium block mb-2">Assign Staff Members</label>
+              <MultiSelect
+                class="w-80"
+                :options="staffOptions"
+                optionLabel="fullName"
+                optionValue="id"
+                v-model="staff.memberIds"
+                :loading="staffLoading"
+                placeholder="Choose staff"
+                display="chip"
+              />
+              <small v-if="staffError" class="p-error block mt-2">{{ staffError }}</small>
+            </div>
+
+            <div class="mt-3">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="font-medium">Currently Assigned</div>
+                <Button icon="pi pi-refresh" text size="small" :loading="assignedLoading" @click="reloadAssigned" />
+              </div>
+              <ul class="list-none pl-3">
+                <li v-for="m in staffSummary" :key="m.id" class="mb-2 flex items-center gap-2">
+                  <span>• {{ m.fullName }} <span class="text-600">({{ m.email || 'no email' }})</span></span>
+                  <Button
+                    icon="pi pi-times"
+                    size="small"
+                    severity="danger"
+                    outlined
+                    :disabled="savingStaff"
+                    @click="removeAssigned(m.id)"
+                  />
+                </li>
+                <li v-if="!staffSummary.length" class="text-600">No staff assigned.</li>
+              </ul>
+            </div>
+
+            <div class="flex gap-2 mt-3">
+              <Button :label="savingStaff ? 'Saving...' : 'Save Staff'" :disabled="savingStaff" icon="pi pi-check" @click="saveStaff" />
+            </div>
+          </div>
+
+          <div v-else class="text-600">Pick a ward to manage staff.</div>
+        </div>
       </TabPanel>
     </TabView>
-  </div>
 
-  <!-- Create -->
-  <Dialog v-model:visible="showCreate" header="New Ward" modal :style="{width: '30rem'}">
-    <div class="flex flex-column gap-3">
-      <span class="p-float-label">
-        <InputText id="name" v-model="newName" />
-        <label for="name">Ward name</label>
-      </span>
-      <div class="flex justify-content-end gap-2">
-        <Button label="Cancel" severity="secondary" @click="showCreate=false" />
-        <Button label="Create" icon="pi pi-check" @click="createWard" />
+    <!-- Create / Edit Dialog for quick add -->
+    <Dialog v-model:visible="dialogVisible" modal :header="dialogTitle" :style="{ width: '32rem' }">
+      <div class="flex flex-col gap-3">
+        <div class="field">
+          <label class="font-medium block mb-2" for="name">Ward Name</label>
+          <InputText id="name" v-model.trim="form.name" placeholder="e.g. Ward 1" />
+          <small v-if="v.name" class="p-error">{{ v.name }}</small>
+        </div>
+
+        <div class="field flex items-center gap-2">
+          <Checkbox inputId="isActive" v-model="form.isActive" :binary="true" />
+          <label for="isActive">Active</label>
+        </div>
       </div>
-    </div>
-  </Dialog>
+
+      <template #footer>
+        <Button label="Cancel" icon="pi pi-times" text @click="hideDialog" />
+        <Button :label="saving ? 'Saving...' : 'Save'" :disabled="saving" icon="pi pi-check" @click="saveRow" />
+      </template>
+    </Dialog>
+
+    <!-- Delete Confirm -->
+    <Dialog v-model:visible="deleteDialog" modal header="Confirm" :style="{ width: '28rem' }">
+      <span>Are you sure you want to delete <b>{{ selectedName }}</b>?</span>
+      <template #footer>
+        <Button label="No" icon="pi pi-times" text @click="deleteDialog = false" />
+        <Button label="Yes" icon="pi pi-check" severity="danger" @click="deleteRow" />
+      </template>
+    </Dialog>
+  </div>
 </template>
 
+<script setup>
+// --- Access Control ---
+const me = ref(null);
+const myRole = ref('');
+const myWardIds = ref([]); // wards the current user may access explicitly from backend
+
+const isAdmin = computed(() => String(myRole.value || '').toLowerCase() === 'admin');
+const isLeader = computed(() => String(myRole.value || '').toLowerCase().replace(/\s|_/g,'') === 'communityleader');
+const isResident = computed(() => String(myRole.value || '').toLowerCase() === 'resident');
+
+const canSeeWardManagement = computed(() => isAdmin.value);
+const canSeeStaffManagement = computed(() => isAdmin.value || isLeader.value);
+
+// rows the user is allowed to see (admins see all)
+const allowedWardIds = computed(() => {
+  if (isAdmin.value) return rows.value.map(r => r.id).filter(v => v != null);
+  if (Array.isArray(myWardIds.value) && myWardIds.value.length) return myWardIds.value;
+
+  // Derive for leaders from the loaded rows when possible
+  if (isLeader.value) {
+    const myUserId = me.value?.id || me.value?.user_id || me.value?.token;
+    return rows.value
+      .filter(r => {
+        const lid = r.leaderId ?? r.leader_id ?? r?.leader?.id ?? r?.leader?.user_id;
+        return /* eslint-disable eqeqeq */ lid == myUserId /* eslint-enable eqeqeq */;
+      })
+      .map(r => r.id)
+      .filter(v => v != null);
+  }
+
+  // Residents
+  if (isResident.value) {
+    const wid = me.value?.ward_id || me.value?.resident?.ward_id || me.value?.profile?.ward_id;
+    return wid != null ? [wid] : [];
+  }
+  return [];
+});
+
+const canSeeRow = (row) => {
+  if (isAdmin.value) return true;
+  const id = row?.id;
+  return allowedWardIds.value.includes(id);
+};
+
+const visibleRows = computed(() => rows.value.filter(canSeeRow));
+
+async function fetchMe() {
+  // load current user & role
+  const tries = ['/api/auth/me', '/api/users/me', '/api/me'];
+  for (const p of tries) {
+    try {
+      const { data } = await api.get(p);
+      
+      const user = data?.data?.user || data?.user || data?.data || data;
+      if (user) {
+        me.value = user;
+        myRole.value = user.role || user.user_role || user.type || user.position || '';
+        break;
+      }
+    } catch (_) { /* try next */ }
+  }
+
+  if (!me.value) {
+    const storedRole = sessionStorage.getItem('ROLE') || localStorage.getItem('ROLE');
+    if (storedRole) myRole.value = storedRole;
+  }
+
+  await fetchMyWardIds();
+}
+
+async function fetchMyWardIds() {
+  const out = new Set();
+  // Resident self endpoint
+  try {
+    const { data } = await api.get('/api/residents/me');
+    const r = data?.data || data;
+    const wid = r?.ward_id || r?.wardId;
+    if (wid != null) out.add(wid);
+  } catch (_) {}
+
+  // Leader self endpoint
+  try {
+    const { data } = await api.get('/api/community-leaders/me');
+    const r = data?.data || data;
+    const wid = r?.ward_id || r?.wardId;
+    if (wid != null) out.add(wid);
+  } catch (_) {}
+
+  myWardIds.value = Array.from(out);
+}
+import { onMounted, ref, computed, watch } from 'vue'
+import api from '@/utils/api'
+import { getAllWards, getWard, createWard, updateWard, deleteWard, getWardsWithLeaders } from "@/utils/ward_helper";
+import { FilterMatchMode } from '@primevue/core/api'
+import { useToast } from 'primevue/usetoast'
+import { useRouter } from 'vue-router'
+
+// PrimeVue
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import Checkbox from 'primevue/checkbox'
+import Dropdown from 'primevue/dropdown'
+import MultiSelect from 'primevue/multiselect'
+import TabView from 'primevue/tabview'
+import TabPanel from 'primevue/tabpanel'
+
+const toast = useToast()
+const router = useRouter()
+
+// ---- Tabs ----
+const activeTab = ref(0)
+
+// ---- State (list + CRUD) ----
+const loading = ref(false)
+const saving = ref(false)
+const rows = ref([])
+const dialogVisible = ref(false)
+const deleteDialog = ref(false)
+const selectedRow = ref(null)
+const form = ref({ id: null, name: '', isActive: true })
+const v = ref({})
+
+const dialogTitle = computed(() => (form.value.id ? 'Edit Ward' : 'New Ward'))
+
+const selectedName = computed(() => {
+  if (manage.value?.selected && typeof manage.value.selected === 'object') {
+    return manage.value.selected.name || '';
+  }
+  if (selectedRow.value && typeof selectedRow.value === 'object') {
+    return selectedRow.value.name || '';
+  }
+  return '';
+});
+
+// ---- Filters (list tab) ----
+const filters = ref({
+  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  name: { value: null, matchMode: FilterMatchMode.STARTS_WITH }
+})
+
+function clearFilter() {
+  filters.value = {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.STARTS_WITH }
+  }
+}
+
+// ---- Helpers ----
+function leaderDisplay(row) {
+  if (row?.leaderName) return row.leaderName;
+  if (row?.leader_id && row?.leaderFullName) return row.leaderFullName; // optional prejoined fields
+  if (row?.leader?.first_name || row?.leader?.last_name) {
+    return `${row.leader.first_name || ''} ${row.leader.last_name || ''}`.trim();
+  }
+  if (row?.leader?.fullName) return row.leader.fullName;
+  return '';
+}
+
+function normalize(row) {
+  const id = row.id ?? row.ward_id ?? row.token ?? row.uuid ?? null;
+  const token = row.token ?? row.id ?? row.ward_id ?? row.uuid ?? null;
+  return {
+    ...row,
+    id,
+    token,
+    leaderName: leaderDisplay(row),
+    isActive: !!row.isActive,
+    isActiveText: row.isActive ? 'Yes' : 'No'
+  }
+}
+
+function openNew() {
+  if (!isAdmin.value) { toast.add({ severity: 'warn', summary: 'Permission', detail: 'Only admins can create wards', life: 2500 }); return; }
+  v.value = {}
+  form.value = { id: null, name: '', isActive: true }
+  dialogVisible.value = true
+}
+
+function editRow(row) {
+  v.value = {}
+  form.value = { id: row.id, name: row.name, isActive: !!row.isActive }
+  dialogVisible.value = true
+}
+
+function hideDialog() {
+  dialogVisible.value = false
+}
+
+function confirmDeleteRow(row) {
+  selectedRow.value = row
+  deleteDialog.value = true
+}
+
+// ---- API (list + CRUD) ----
+async function loadRows() {
+  loading.value = true
+  try {
+    const resp = await getWardsWithLeaders()
+    const list = Array.isArray(resp?.data) ? resp.data : Array.isArray(resp) ? resp : []
+    rows.value = list.map(normalize)
+    // Enforce client-side visibility immediately after load
+    if (!isAdmin.value) {
+      rows.value = rows.value.filter(canSeeRow);
+    }
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Load failed', detail: getErr(err), life: 4000 })
+  } finally {
+    loading.value = false
+  }
+}
+
+function validate() {
+  const errs = {}
+  if (!form.value.name) errs.name = 'Ward name is required'
+  v.value = errs
+  return Object.keys(errs).length === 0
+}
+
+async function saveRow() {
+  if (!validate()) return
+  if (!isAdmin.value) { toast.add({ severity: 'warn', summary: 'Permission', detail: 'Only admins can save ward changes', life: 2500 }); return; }
+  saving.value = true
+  try {
+    if (form.value.id) {
+      await api.put(`/api/wards/${form.value.id}`, {
+        name: form.value.name,
+        isActive: form.value.isActive
+      })
+      toast.add({ severity: 'success', summary: 'Updated', detail: 'Ward updated', life: 2500 })
+    } else {
+      await api.post('/api/wards', {
+        name: form.value.name,
+        isActive: form.value.isActive
+      })
+      toast.add({ severity: 'success', summary: 'Created', detail: 'Ward created', life: 2500 })
+    }
+    dialogVisible.value = false
+    await loadRows()
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Save failed', detail: getErr(err), life: 4000 })
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteRow() {
+  if (!isAdmin.value) { toast.add({ severity: 'warn', summary: 'Permission', detail: 'Only admins can delete wards', life: 2500 }); return; }
+  const id =
+    manage.value?.selected?.id ||
+    selectedRow.value?.id ||
+    manage.value?.selectedId ||
+    staff.value?.selectedId;
+
+  if (!id) {
+    toast.add({ severity: 'warn', summary: 'Delete', detail: 'No ward selected to delete', life: 2500 });
+    return;
+  }
+  try {
+    await api.delete(`/api/wards/${id}`);
+    toast.add({ severity: 'success', summary: 'Deleted', detail: 'Ward removed', life: 2500 });
+    deleteDialog.value = false;
+    selectedRow.value = null;
+    manageReset();
+    await loadRows();
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Delete failed', detail: getErr(err), life: 4000 });
+  }
+}
+
+function getErr(err) {
+  if (err?.response?.data?.message) return err.response.data.message
+  if (err?.response?.status) return `HTTP ${err.response.status}`
+  return err?.message || 'Unknown error'
+}
+
+// ---- Navigation actions (List tab) ----
+async function goProfile(row) {
+  if (row && !canSeeRow(row)) { toast.add({ severity: 'warn', summary: 'Access denied', detail: 'You cannot open this ward', life: 2500 }); return; }
+  const id = row?.id
+  if (!id) {
+    toast.add({ severity: 'warn', summary: 'Profile', detail: 'No ward id found', life: 2500 })
+    return
+  }
+  try {
+    // Prefer named route if it exists
+    await router.push({ name: 'WardProfile', params: { wardId: id } })
+  } catch {
+    // Fallback 
+    try {
+      await router.push(`/wards/${id}/profile`)
+    } catch (e) {
+      toast.add({ severity: 'error', summary: 'Navigation failed', detail: getErr(e), life: 4000 })
+    }
+  }
+}
+
+async function goStats(row) {
+  if (row && !canSeeRow(row)) { toast.add({ severity: 'warn', summary: 'Access denied', detail: 'You cannot open this ward', life: 2500 }); return; }
+  const id = row?.id
+  if (!id) {
+    toast.add({ severity: 'warn', summary: 'Stats', detail: 'No ward id found', life: 2500 })
+    return
+  }
+  try {
+    // Prefer named route if it exists
+    await router.push({ name: 'WardStats', params: { wardId: id } })
+  } catch {
+    // Fallback 
+    try {
+      await router.push(`/wards/${id}/stats`)
+    } catch (e) {
+      toast.add({ severity: 'error', summary: 'Navigation failed', detail: getErr(e), life: 4000 })
+    }
+  }
+}
+
+function openManage(row) {
+  activeTab.value = 1
+  manage.value.selected = row
+}
+
+// ---- Ward Management tab ----
+const manage = ref({
+  selected: null,
+  selectedId: null,
+  name: '',
+  leaderId: null
+})
+
+const leaders = ref([])
+const leadersLoading = ref(false)
+const leadersError = ref('')
+
+async function fetchLeaders() {
+  leadersLoading.value = true
+  leadersError.value = ''
+  try {
+    const { data } = await api.get('/api/users', { params: { role: 'communityleader' } })
+    const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+
+    // Accept various role shapes from backend and keep only community leaders
+    const onlyLeaders = raw.filter((u) => {
+      const rolesArr = Array.isArray(u?.roles)
+        ? u.roles.map(r => (typeof r === 'string' ? r : (r?.name || r?.role || '')))
+        : []
+      const roleStrs = [u?.role, u?.user_role, u?.type, u?.position]
+        .filter(Boolean)
+        .map(r => String(r))
+      const allRoles = rolesArr.concat(roleStrs).map(r => r.toLowerCase())
+      return allRoles.includes('communityleader') || allRoles.includes('community_leader')
+    })
+
+    
+    const seen = new Map()
+    for (const u of onlyLeaders) {
+      const id = u.id || u.user_id || u.token
+      if (!seen.has(id)) seen.set(id, u)
+    }
+
+    const list = Array.from(seen.values()).map(u => ({
+      id: u.id || u.user_id || u.token,
+      fullName: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.fullName || u.name || u.email || 'Unknown',
+      email: u.email || ''
+    }))
+
+    // Sort A->Z by name
+    leaders.value = list.sort((a, b) => a.fullName.localeCompare(b.fullName))
+  } catch (e) {
+    leadersError.value = getErr(e)
+    leaders.value = []
+  } finally {
+    leadersLoading.value = false
+  }
+}
+
+function manageReset() {
+  manage.value = { selected: null, selectedId: null, name: '', leaderId: null }
+}
+
+async function saveManage() {
+  if (!isAdmin.value) { toast.add({ severity: 'warn', summary: 'Permission', detail: 'Only admins can change ward details', life: 2500 }); return; }
+  const mv = manage.value;
+  if (!mv.selected) {
+    toast.add({ severity: 'warn', summary: 'Save', detail: 'Pick a ward first', life: 2000 });
+    return;
+  }
+  const newName = (mv.name || '').trim();
+  if (!newName) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Ward name is required', life: 2500 });
+    return;
+  }
+
+  saving.value = true;
+  try {
+    // 1) Update basic ward fields
+    await api.put(`/api/wards/${mv.selected.id}`, {
+      name: newName,
+      isActive: !!mv.selected.isActive,
+    });
+
+    // 2) Assign/Update/REMOVE leader
+    {
+      const ok = await assignLeader(mv.selected.id, mv.leaderId);
+      if (!ok && mv.leaderId != null) {
+        try {
+          await api.put(`/api/wards/${mv.selected.id}`, { leader_id: mv.leaderId });
+        } catch (_) {
+          await api.put(`/api/wards/${mv.selected.id}`, { leaderId: mv.leaderId });
+        }
+      }
+    }
+
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Ward changes saved', life: 2500 });
+    await loadRows();
+
+    // Reselect the updated ward so dropdown & fields stay in sync
+    mv.selected = rows.value.find(x => x.id === (mv.selectedId || mv.selected?.id)) || null;
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Save failed', detail: getErr(err), life: 4000 });
+  } finally {
+    saving.value = false;
+  }
+}
+/**
+ * Best-effort leader assignment that tries common backend patterns.
+ * Returns true if any attempt succeeds.
+ * Supports clearing leader if leaderId is null.
+ */
+async function assignLeader(wardId, leaderId) {
+  // If clearing the leader
+  if (leaderId == null) {
+    // Try a dedicated DELETE first
+    try {
+      await api.delete(`/api/wards/${wardId}/leader`)
+      return true
+    } catch (_) {}
+
+    // Some backends accept POST with empty body to clear
+    try {
+      await api.post(`/api/wards/${wardId}/leader`, {})
+      return true
+    } catch (_) {}
+
+    // Try deleting from a join/assignment collection
+    try {
+      await api.delete(`/api/community-leaders/${wardId}`)
+      return true
+    } catch (_) {}
+
+    // Fallback: send explicit nulls to a PUT ward endpoint
+    try {
+      await api.put(`/api/wards/${wardId}`, { leader_id: null })
+      return true
+    } catch (_) {
+      try {
+        await api.put(`/api/wards/${wardId}`, { leaderId: null })
+        return true
+      } catch (_) {}
+    }
+
+    return false
+  }
+
+  // Otherwise assign a leader (non-null)
+  try {
+    await api.post(`/api/wards/${wardId}/leader`, { leaderId })
+    return true
+  } catch (_) {}
+
+  try {
+    await api.post(`/api/wards/${wardId}/leader`, { leader_id: leaderId })
+    return true
+  } catch (_) {}
+
+  try {
+    await api.post(`/api/community-leaders`, { ward_id: wardId, user_id: leaderId })
+    return true
+  } catch (_) {}
+
+  try {
+    await api.put(`/api/community-leaders/${wardId}`, { user_id: leaderId })
+    return true
+  } catch (_) {}
+
+  return false
+}
+
+function confirmDeleteWard() {
+  selectedRow.value = manage.value.selected
+  deleteDialog.value = true
+}
+
+function asOptionIds(inIds) {
+  const opts = staffOptions?.value || [];
+  const out = [];
+  if (!Array.isArray(inIds) || !opts.length) return [];
+  for (const raw of inIds) {
+   
+    const match = opts.find(o => /* eslint-disable eqeqeq */ o.id == raw /* eslint-enable eqeqeq */);
+    if (match) out.push(match.id);
+  }
+  return Array.from(new Set(out));
+}
+
+// ---- Staff Management tab ----
+const staff = ref({
+  selected: null,
+  selectedId: null,
+  memberIds: []
+})
+const staffOptions = ref([])
+const staffLoading = ref(false)
+const savingStaff = ref(false)
+const staffError = ref('')
+const assignedLoading = ref(false)
+// Load assigned staff for a ward from backend and update staff.value.memberIds
+async function loadAssigned(wardId) {
+  assignedLoading.value = true;
+  try {
+    const res = await api.get(`/api/wards/${wardId}/staff`);
+    const data = res?.data?.data || res?.data || {};
+    let ids = Array.isArray(data.staffUserIds) ? data.staffUserIds
+            : Array.isArray(data.staff_user_ids) ? data.staff_user_ids
+            : Array.isArray(data.staffIds) ? data.staffIds
+            : Array.isArray(data.staff) ? data.staff.map(s => s.id ?? s.user_id ?? s.token).filter(v => v != null)
+            : [];
+    staff.value.memberIds = asOptionIds(ids);
+  } catch (_) {
+    // leave existing selection if fetch fails
+  } finally {
+    assignedLoading.value = false;
+  }
+}
+
+async function reloadAssigned() {
+  const wardId = staff.value.selected?.id || staff.value.selectedId;
+  if (!wardId) return;
+  await loadAssigned(wardId);
+}
+
+async function removeAssigned(userId) {
+  const wardId = staff.value.selected?.id || staff.value.selectedId;
+  if (!wardId || userId == null) return;
+  savingStaff.value = true;
+  try {
+    await api.delete(`/api/wards/${wardId}/staff/${userId}`);
+    // update local selection
+    staff.value.memberIds = staff.value.memberIds.filter(id => /* eslint-disable eqeqeq */ id != userId /* eslint-enable eqeqeq */);
+    toast.add({ severity: 'success', summary: 'Removed', detail: 'Staff member removed from ward', life: 2000 });
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Remove failed', detail: getErr(e), life: 3500 });
+  } finally {
+    savingStaff.value = false;
+  }
+}
+
+async function fetchStaff() {
+  staffLoading.value = true;
+  staffError.value = '';
+  try {
+    const { data } = await api.get('/api/users', { params: { role: 'staff' } });
+    const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+
+    // Keep only staff
+    const onlyStaff = raw.filter((u) => {
+      const rolesArr = Array.isArray(u?.roles)
+        ? u.roles.map((r) => (typeof r === 'string' ? r : (r?.name || r?.role || '')))
+        : [];
+      const roleStrs = [u?.role, u?.user_role, u?.type, u?.position]
+        .filter(Boolean)
+        .map((r) => String(r));
+      const allRoles = rolesArr.concat(roleStrs).map((r) => r.toLowerCase());
+      return allRoles.includes('staff') || allRoles.includes('municipal_staff') || allRoles.includes('municipalstaff');
+    });
+
+    const seen = new Map();
+    for (const u of onlyStaff) {
+      const id = u.id || u.user_id || u.token;
+      if (id != null && !seen.has(id)) seen.set(id, u);
+    }
+
+    // Map to dropdown options and sort by name
+    const list = Array.from(seen.values()).map((u) => ({
+      id: u.id || u.user_id || u.token,
+      fullName:
+        [u.first_name, u.last_name].filter(Boolean).join(' ') ||
+        u.fullName ||
+        u.name ||
+        u.email ||
+        'Unknown',
+      email: u.email || '',
+    }));
+
+    staffOptions.value = list.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  } catch (e) {
+    staffError.value = getErr(e);
+    staffOptions.value = [];
+  } finally {
+    staffLoading.value = false;
+  }
+}
+
+const staffSummary = computed(() => {
+  const set = new Set(staff.value.memberIds)
+  return staffOptions.value.filter(s => set.has(s.id))
+})
+
+async function saveStaff() {
+  if (!staff.value.selected) {
+    toast.add({ severity: 'warn', summary: 'Save Staff', detail: 'Pick a ward first', life: 2500 });
+    return;
+  }
+
+  const wardId = staff.value.selected.id || staff.value.selectedId;
+  const desired = Array.isArray(staff.value.memberIds) ? staff.value.memberIds : [];
+  const desiredSet = new Set(desired);
+
+  savingStaff.value = true;
+  try {
+    // 1) Load current assignment from backend to compute a diff
+    let currentIds = [];
+    try {
+      const res = await api.get(`/api/wards/${wardId}/staff`);
+      const data = res?.data?.data || res?.data || {};
+      currentIds = Array.isArray(data.staffUserIds) ? data.staffUserIds
+                 : Array.isArray(data.staff_user_ids) ? data.staff_user_ids
+                 : Array.isArray(data.staffIds) ? data.staffIds
+                 : Array.isArray(data.staff) ? data.staff.map(s => s.id ?? s.user_id ?? s.token).filter(v => v != null)
+                 : [];
+    } catch (_) {
+      // If GET not available, fall back to what the row had when selected
+      if (Array.isArray(staff.value.selected?.staff)) {
+        currentIds = staff.value.selected.staff.map(s => s.id ?? s.user_id ?? s.token).filter(v => v != null);
+      } else if (Array.isArray(staff.value.selected?.staff_user_ids)) {
+        currentIds = staff.value.selected.staff_user_ids;
+      } else if (Array.isArray(staff.value.selected?.staffUserIds)) {
+        currentIds = staff.value.selected.staffUserIds;
+      } else if (Array.isArray(staff.value.selected?.staffIds)) {
+        currentIds = staff.value.selected.staffIds;
+      }
+    }
+
+    // Normalize to dropdown option ids
+    currentIds = asOptionIds(currentIds);
+
+    // 2) Diff
+    const currentSet = new Set(currentIds);
+    const toAdd = desired.filter(id => !currentSet.has(id));
+    const toRemove = currentIds.filter(id => !desiredSet.has(id));
+
+    // 3) Apply changes using single-user endpoints to avoid bulk creation paths
+    if (desired.length === 0) {
+      // Nothing selected => clear all via dedicated endpoint
+      await api.delete(`/api/wards/${wardId}/staff`);
+    } else {
+      // Remove first (in case of unique constraints), then add
+      for (const id of toRemove) {
+        try { await api.delete(`/api/wards/${wardId}/staff/${id}`); } catch (_) {}
+      }
+      for (const id of toAdd) {
+        await api.post(`/api/wards/${wardId}/staff/${id}`);
+      }
+    }
+
+    // Refresh + keep selection and current choices
+    await loadRows();
+    staff.value.selected = rows.value.find(x => x.id == wardId) || null;
+    staff.value.memberIds = asOptionIds(desired);
+
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Staff assignments saved', life: 2500 });
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Save failed', detail: getErr(e), life: 4000 });
+  } finally {
+    savingStaff.value = false;
+  }
+}
+
+// Keep derived fields in sync when selection changes
+watch(() => manage.value.selected, (r) => {
+  manage.value.selectedId = r && typeof r === 'object' ? (r.id || null) : null;
+  manage.value.name = r && typeof r === 'object' ? (r.name || '') : '';
+  manage.value.leaderId = r && typeof r === 'object'
+    ? (r.leaderId || r?.leader_id || r?.leader?.id || null)
+    : null;
+})
+
+watch(() => staff.value.selected, async (r) => {
+  staff.value.selectedId = r?.id || null;
+  if (staff.value.selectedId) {
+    await loadAssigned(staff.value.selectedId);
+  } else {
+    staff.value.memberIds = [];
+  }
+})
+
+onMounted(async () => {
+  await fetchMe();
+  await loadRows();
+  fetchLeaders();
+  fetchStaff();
+})
+</script>
+
 <style scoped>
+.field {
+  margin-bottom: 0.75rem;
+}
 </style>

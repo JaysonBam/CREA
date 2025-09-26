@@ -18,6 +18,8 @@ import WardRequests from '@/views/pages/ward/WardRequests.vue';
 import Wards from "@/views/pages/ward/Wards.vue";
 import WardProfile from "@/views/pages/ward/WardProfile.vue";
 import WardStats from "@/views/pages/ward/WardStats.vue";
+
+import StateChanges from "@/views/pages/stateMachine/StateChanges.vue";
 import ManageReportIssue from "@/views/pages/report/ManageReportIssue.vue";
 import StaffWorkloadDashboard from "@/views/pages/staff-workload/StaffWorkloadDashboard.vue";
 const router = createRouter({
@@ -50,11 +52,11 @@ const router = createRouter({
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
-        // IMPORTANT: no leading slash for children
-        { path: "", redirect: { name: "report-issue" } },
+    // IMPORTANT: no leading slash for children
+    { path: "", redirect: { name: "report-issue" } },
         { path: "test-crud", name: "test-crud", component: Testcrud },
-        { path: "report-issue", name: "report-issue", component: ReportIssue },
-        { path: "reports", name: "reports", component: Report },
+  { path: "report-issue", name: "report-issue", component: ReportIssue },
+  { path: "reports", name: "reports", component: Report },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
         { path: "profile", name: "profile", component: Profile },
@@ -81,6 +83,8 @@ const router = createRouter({
           component: WardStats,
           props: true,
         },
+
+        {path: "state-updates", name: "state-updates", component: StateChanges},
 
       ],
     },
@@ -118,10 +122,10 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-    return { name: "reports" };
+  return { name: "reports" };
   }
   if (adminOnly && userRole !== "admin") {
-    return { name: "reports" };
+  return { name: "reports" };
   }
 });
 

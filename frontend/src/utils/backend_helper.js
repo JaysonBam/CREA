@@ -36,6 +36,8 @@ export const getUserIssueTitleSuggestions = (userToken, q) =>
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
 export const updateIssueReport = (token, data) =>
   api.put(`/api/issue-reports/${token}`, data);
+export const updateIssueReportStatus = (token, data) =>
+  api.put(`/api/issue-reports/${token}/status`, data);
 export const deleteIssueReport = (token) =>
   api.delete(`/api/issue-reports/${token}`);
 
