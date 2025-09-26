@@ -5,6 +5,9 @@ const {
   FileAttachment,
   Ward,
   ReportIssueWatchlist,
+  Resident,
+  MunicipalStaff,
+  CommunityLeader,
 } = require("../models");
 // Import Sequelize's operators (e.g., Op.iLike, Op.between) for more complex queries.
 const { Op } = require("sequelize");
@@ -530,5 +533,71 @@ exports.unsubscribeWatchlist = async (req, res) => {
       success: false,
       message: "Failed to unsubscribe from watchlist",
     });
+  }
+};
+//Get wards for a role if the user has that role
+async function getWardIdsForSingleRole(userId, role) {
+  const ids = new Set();
+
+  if (role === "resident") {
+    const rows = await Resident.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
+  } else if (role === "staff") {
+    const rows = await MunicipalStaff.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
+  } else if (role === "communityleader") {
+    const rows = await CommunityLeader.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
+  } else if (role === "admin") {
+    // Admin: handled upstream, but doesn't have wards
+  }
+
+  return Array.from(ids);
+}
+//List all the wards for the user
+exports.listForMyWards = async (req, res) => {
+  try {
+    userId=  req.auth?.userId;
+    role =  req.auth?.role;
+    // Admins: show all (remove this if you want admins to be scoped too)
+    let wardIds = [];
+    const isAdmin = role === "admin";
+    if (!isAdmin) {
+      wardIds = await getWardIdsForSingleRole(userId, role);
+      if (!wardIds.length) {
+        return res.json([]); 
+      }
+    }
+
+    const { category, status, title } = req.query;
+
+    const where = {};
+    if (!isAdmin) where.ward_id = { [Op.in]: wardIds };
+    if (category) where.category = category;
+    if (status) where.status = status;
+
+    if (title && String(title).trim() !== "") {
+      const t = String(title).trim();
+      // Postgres:
+      where.title = { [Op.iLike]: `%${t}%` };
+    }
+
+    const reports = await IssueReport.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      include: [
+        { model: User, as: "user", attributes: ["id", "token", "email", "first_name", "last_name"] },
+        { model: Ward, as: "ward", attributes: ["id", "name", "code"] },
+        { model: Location, as: "location" },
+        { model: FileAttachment, as: "attachments" },
+      ],
+    });
+
+    return res.json(reports);
+  } catch (err) {
+    console.error("listForMyWards error:", err);
+    console.log(err)
+    console.error("listForMyWards error:", err?.stack || err);
+    return res.status(500).json({ success: false, message: "Failed to list ward-scoped reports" });
   }
 };

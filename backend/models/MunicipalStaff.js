@@ -6,6 +6,18 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       MunicipalStaff.belongsTo(models.User, { foreignKey: "user_id" });
       MunicipalStaff.belongsTo(models.Ward, { foreignKey: "ward_id" });
+
+      MunicipalStaff.hasMany(models.MunicipalStaffIssueReport, {
+        foreignKey: "municipal_staff_id",
+        as: "assignments",
+      });
+      MunicipalStaff.belongsToMany(models.IssueReport, {
+        through: models.MunicipalStaffIssueReport,
+        foreignKey: "municipal_staff_id",
+        otherKey: "issue_report_id",
+        as: "issues",
+      });
+
     }
   }
 

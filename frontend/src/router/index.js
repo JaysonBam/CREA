@@ -18,6 +18,7 @@ import WardRequests from '@/views/pages/ward/WardRequests.vue';
 import Wards from "@/views/pages/ward/Wards.vue";
 import WardProfile from "@/views/pages/ward/WardProfile.vue";
 import WardStats from "@/views/pages/ward/WardStats.vue";
+import ManageReportIssue from "@/views/pages/report/ManageReportIssue.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -56,6 +57,7 @@ const router = createRouter({
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
         { path: "profile", name: "profile", component: Profile },
+        { path: "my-ward-report-issues", name: "my-ward-report-issues", component: ManageReportIssue },
 
         {
           path: "ward-requests",

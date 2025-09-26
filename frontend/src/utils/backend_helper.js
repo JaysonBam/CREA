@@ -103,3 +103,22 @@ export const updateMaintenanceSchedule = (token, data) =>
 
 export const deleteMaintenanceSchedule = (token) =>
   api.delete(`/api/maintenance-schedules/${token}`);
+
+
+export const listIssueReportsForMyWards = (params) =>
+  api.get("/api/issue-reports/wards", { params });
+
+export const listIssueStaffAssignments = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/staff`);
+
+export const listEligibleStaffForIssue = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/staff/eligible`);
+
+export const addIssueStaffAssignment = (issueToken, { municipalStaffToken, note }) =>
+  api.post(`/api/issue-reports/${issueToken}/staff`, { municipalStaffToken, note });
+
+export const updateIssueStaffAssignment = (msirToken, { note }) =>
+  api.put(`/api/issue-reports/staff/${msirToken}`, { note });
+
+export const deleteIssueStaffAssignment = (msirToken) =>
+  api.delete(`/api/issue-reports/staff/${msirToken}`);

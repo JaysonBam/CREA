@@ -47,6 +47,18 @@ module.exports = (sequelize, DataTypes) => {
         as: "watchlist",
       });
 
+      IssueReport.hasMany(models.MunicipalStaffIssueReport, {
+        foreignKey: "issue_report_id",
+        as: "staffLinks",
+      });
+      IssueReport.belongsToMany(models.MunicipalStaff, {
+        through: models.MunicipalStaffIssueReport,
+        foreignKey: "issue_report_id",
+        otherKey: "municipal_staff_id",
+        as: "assignedStaff",
+      });
+
+
       // An Issue Report has one Message Thread
       // IssueReport.hasOne(models.MessageThread, {
       //   foreignKey: "issue_report_id",

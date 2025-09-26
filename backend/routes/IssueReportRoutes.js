@@ -11,7 +11,7 @@ const controller = require("../controllers//IssueReportController");
 const messageController = require("../controllers/MessageController");
 // Import the controller for managing the read/unread status of issue report chats.
 const readController = require("../controllers/IssueChatReadController");
-
+const municipallIssRepController = require("../controllers/MunicipalStaffIssueReportController");
 // --- Middleware Imports ---
 // Import the authentication middleware. This function will be used to protect routes,
 // ensuring that a user must have a valid JSON Web Token (JWT) to access them.
@@ -53,6 +53,10 @@ router.get(
   controller.titleSuggestionsForUser
 );
 
+
+router.get("/wards", auth, controller.listForMyWards);
+
+
 // GET /api/issue-reports/:token
 // Retrieves a single, specific issue report by its unique token.
 router.get("/:token", auth, controller.getOne);
@@ -86,6 +90,14 @@ router.get("/:token/messages/read", auth, readController.get);
 // PUT /api/issue-reports/:token/messages/read
 // Creates or updates the timestamp for when a user read the messages (marks the chat as "read").
 router.put("/:token/messages/read", auth, readController.upsert);
+
+router.get("/:issueToken/staff", auth, municipallIssRepController.listForIssue);
+router.get("/:issueToken/staff/eligible", auth, municipallIssRepController.listEligibleStaffForIssue);
+router.post("/:issueToken/staff", auth, municipallIssRepController.addToIssue);
+
+// Assignment item endpoints (by assignment token)
+router.put("/staff/:msirToken", auth, municipallIssRepController.updateAssignment);
+router.delete("/staff/:msirToken", auth, municipallIssRepController.removeAssignment);
 
 // Export the router so it can be mounted by the main Express application.
 module.exports = router;
