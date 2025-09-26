@@ -7,7 +7,7 @@ const {
   Ward,
 } = require("../models");
 
-/** helper */
+//helper function to find IssueReport with valid token
 async function getIssueByTokenOr404(issueToken, res) {
   const issue = await IssueReport.findOne({
     where: { token: issueToken },
@@ -21,7 +21,7 @@ async function getIssueByTokenOr404(issueToken, res) {
   return issue;
 }
 
-/** GET /api/issue-reports/:issueToken/staff */
+//List Municipal Staff assigned to Issue
 exports.listForIssue = async (req, res, next) => {
   try {
     const issue = await getIssueByTokenOr404(req.params.issueToken, res);
@@ -50,10 +50,7 @@ exports.listForIssue = async (req, res, next) => {
     next(err);
   }
 };
-
-/** GET /api/issue-reports/:issueToken/staff/eligible
- *  Staff assignable to this issue (same ward)
- */
+//List all staff for ward
 exports.listEligibleStaffForIssue = async (req, res, next) => {
   try {
     const issue = await getIssueByTokenOr404(req.params.issueToken, res);
@@ -72,9 +69,7 @@ exports.listEligibleStaffForIssue = async (req, res, next) => {
   }
 };
 
-/** POST /api/issue-reports/:issueToken/staff
- * body: { municipalStaffToken, note? }
- */
+//Add Municipal staff to Issue
 exports.addToIssue = async (req, res, next) => {
   try {
     const issue = await getIssueByTokenOr404(req.params.issueToken, res);
@@ -125,9 +120,7 @@ exports.addToIssue = async (req, res, next) => {
   }
 };
 
-/** PUT /api/issue-reports/staff/:msirToken
- * body: { note? }
- */
+//Update note
 exports.updateAssignment = async (req, res, next) => {
   try {
     const row = await MunicipalStaffIssueReport.findOne({
@@ -144,8 +137,7 @@ exports.updateAssignment = async (req, res, next) => {
     next(err);
   }
 };
-
-/** DELETE /api/issue-reports/staff/:msirToken */
+//Remove staff from Issue report
 exports.removeAssignment = async (req, res, next) => {
   try {
     const row = await MunicipalStaffIssueReport.findOne({

@@ -150,11 +150,11 @@ async function load(){
   staffMap.value = new Map();
 
   try {
-    // 1) Get all issues for the community leader's wards
+    //Get all issues for the community leader's wards
     const { data } = await listIssueReportsForMyWards({});
     issues.value = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 
-    // 2) For each issue, load staff assignments (limited concurrency)
+    //For each issue, load staff assignments
     const concurrency = 5;
     let i = 0;
     async function worker(){
@@ -190,7 +190,6 @@ async function load(){
             entry.__workload = entry.__issues.length;
           }
         } catch {
-          // ignore per-issue failure, continue
         }
       }
     }
@@ -211,7 +210,6 @@ async function load(){
 }
 
 function openIssue(row){
-  // Hook to navigate or open a details modal; for now, a toast is fine.
   toast.add({ severity:"info", summary:"Open Issue", detail: row.title || row.display_id || row.token, life: 2000 });
 }
 
@@ -220,7 +218,6 @@ load();
 </script>
 
 <style scoped>
-/* Slightly nicer table header spacing & weight */
 :deep(.p-datatable .p-datatable-header){
   padding: 0.75rem 1rem;
 }
@@ -228,7 +225,7 @@ load();
   font-weight: 600;
 }
 
-/* Truncated description look (single line with ellipsis). Title attribute shows full on hover. */
+ /* Truncate description for hover tooltip  */
 .truncate-desc{
   display: inline-block;
   max-width: 36rem;
