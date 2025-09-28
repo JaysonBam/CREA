@@ -502,92 +502,203 @@ exports.profile = async (req, res) => {
 }
 
 /**
- * Compute average seconds from first ACKNOWLEDGED → first RESOLVED for issues in a ward.
- * Supports two possible foreign-key column names in status_changes: issue_id OR issue_report_id.
+ * Compute average seconds to resolve issues in a ward using only issue_reports table.
+ * Only considers issues in state RESOLVED and where updatedAt > createdAt.
  * Returns: number (seconds) | null
  */
 async function computeAvgResolutionSeconds(wardId) {
-  // Candidates: try status_changes with issue_id, then issue_report_id, then fallback to issue_reports.createdAt/updatedAt
-  const candidates = [
-    { table: 'status_changes', idCol: 'issue_id', tsCol: 'createdAt', toCol: 'to_status' },
-    { table: 'status_changes', idCol: 'issue_report_id', tsCol: 'createdAt', toCol: 'to_status' },
-  ];
-  const tryOne = async ({ table, idCol, tsCol, toCol }) => {
-    // Build safe identifiers (we only interpolate from our whitelist above)
+  // Simplified: Only consider issues currently RESOLVED for this ward
+  // and where updatedAt > createdAt. Return average seconds, or null if none.
+  try {
     const sql = `
-      WITH ack AS (
-        SELECT ${idCol} AS fk_id, MIN("${tsCol}") AS ack_at
-        FROM ${table}
-        WHERE UPPER(${toCol}) = 'ACKNOWLEDGED'
-        GROUP BY ${idCol}
-      ),
-      res AS (
-        SELECT ${idCol} AS fk_id, MIN("${tsCol}") AS res_at
-        FROM ${table}
-        WHERE UPPER(${toCol}) = 'RESOLVED'
-        GROUP BY ${idCol}
-      ),
-      resolved_issues AS (
-        SELECT ir.id, ir."createdAt" AS ir_created_at, ir."updatedAt" AS ir_updated_at
-        FROM issue_reports ir
-        WHERE ir.ward_id = :wardId AND UPPER(ir.status) = 'RESOLVED'
-      ),
-      pairs AS (
-        SELECT
-          ri.id,
-          COALESCE(a.ack_at, ri.ir_created_at) AS ack_at,
-          COALESCE(r.res_at, ri.ir_updated_at) AS res_at
-        FROM resolved_issues ri
-        LEFT JOIN ack a ON a.fk_id = ri.id
-        LEFT JOIN res r ON r.fk_id = ri.id
-      )
       SELECT
         COUNT(*) AS n,
-        AVG(EXTRACT(EPOCH FROM (CASE WHEN res_at >= ack_at THEN res_at - ack_at ELSE INTERVAL '0 seconds' END))) AS avg_seconds
-      FROM pairs;
+        AVG(EXTRACT(EPOCH FROM (ir."updatedAt" - ir."createdAt"))) AS avg_seconds
+      FROM issue_reports ir
+      WHERE ir.ward_id = :wardId
+        AND ir.status = 'RESOLVED'::enum_issue_reports_status
+        AND ir."createdAt" IS NOT NULL
+        AND ir."updatedAt" IS NOT NULL
+        AND ir."updatedAt" > ir."createdAt";
     `;
     const [rows] = await sequelize.query(sql, { replacements: { wardId } });
     const row = Array.isArray(rows) ? rows[0] : rows;
     const n = row && row.n != null ? Number(row.n) : 0;
     const avgSec = row && row.avg_seconds != null ? Number(row.avg_seconds) : null;
-    if (n > 0) return Number.isFinite(avgSec) ? avgSec : 0;
+    if (n > 0 && Number.isFinite(avgSec)) return avgSec;
     return null;
-  };
-  for (const c of candidates) {
-    try {
-      const v = await tryOne(c);
-      if (v !== null) return v;
-    } catch (_) { /* ignore and try next */ }
+  } catch (e) {
+    return null;
   }
-  // FINAL FALLBACK (no status history required): use issue_reports timestamps only
-  // Uses exact, known columns: issue_reports.(ward_id, status, "createdAt"/created_at, "updatedAt"/updated_at)
+}
+
+
+/**
+ * Time-series stats for a ward over the last N days (default 30).
+ * Returns daily buckets with { date, new, resolved, open } where:
+ *  - new:     issues created on that date
+ *  - resolved:issues whose first RESOLVED status-change happened on that date (fallback: issue_reports.updatedAt)
+ *  - open:    running total of open issues at end of that date (prev + new - resolved)
+ * Query params: ?days=30 (1..180)
+ */
+exports.statsSeries = async (req, res) => {
   try {
-    const sqlFallback = `
-      SELECT
-        COUNT(*) AS n,
-        AVG(
-          EXTRACT(
-            EPOCH FROM (
-              COALESCE(ir."updatedAt", ir.updated_at) - COALESCE(ir."createdAt", ir.created_at)
-            )
-          )
-        ) AS avg_seconds
+    const { id } = req.params;
+    let days = Number(req.query.days || 30);
+    if (!Number.isFinite(days) || days < 1) days = 30;
+    if (days > 180) days = 180;
+
+    const ward = await Ward.findByPk(id);
+    if (!ward) return res.status(404).json({ success: false, message: 'Ward not found' });
+
+    // Build date range [start .. today] (inclusive) in UTC by date boundaries
+    const today = new Date();
+    const endDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())); // 00:00 UTC today
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(endDate.getUTCDate() - (days - 1)); // n days window
+
+    // Helper to format YYYY-MM-DD
+    const ymd = (d) => d.toISOString().slice(0, 10);
+
+    // 1) NEW per day (createdAt)
+    const sqlNew = `
+      SELECT DATE(ir."createdAt") AS d, COUNT(*)::int AS c
       FROM issue_reports ir
       WHERE ir.ward_id = :wardId
-        AND UPPER(ir.status) = 'RESOLVED'
-        AND COALESCE(ir."createdAt", ir.created_at) IS NOT NULL
-        AND COALESCE(ir."updatedAt", ir.updated_at) IS NOT NULL;
+        AND DATE(ir."createdAt") BETWEEN :start::date AND :end::date
+      GROUP BY 1
+      ORDER BY 1
     `;
-    const [rows] = await sequelize.query(sqlFallback, { replacements: { wardId } });
-    const row = Array.isArray(rows) ? rows[0] : rows;
-    const n = row && row.n != null ? Number(row.n) : 0;
-    const avgSec = row && row.avg_seconds != null ? Number(row.avg_seconds) : null;
-    if (n > 0) return Number.isFinite(avgSec) ? avgSec : 0;
-  } catch (_) {
-    // swallow and fall through to null
+    const [newRows] = await sequelize.query(sqlNew, {
+      replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+    });
+    const newMap = new Map(newRows.map(r => [String(r.d), Number(r.c) || 0]));
+
+    // 2) RESOLVED per day via status_changes first, fallback to issue_reports.updatedAt
+    const tryResolved = async (idCol) => {
+      const sql = `
+        WITH first_res AS (
+          SELECT sc.${idCol} AS fk_id, MIN(sc."createdAt") AS resolved_at
+          FROM status_changes sc
+          WHERE UPPER(sc.to_status) = 'RESOLVED'
+          GROUP BY sc.${idCol}
+        ),
+        candidates AS (
+          SELECT ir.id, DATE(fr.resolved_at) AS d
+          FROM issue_reports ir
+          JOIN first_res fr ON fr.fk_id = ir.id
+          WHERE ir.ward_id = :wardId
+            AND DATE(fr.resolved_at) BETWEEN :start::date AND :end::date
+        )
+        SELECT d, COUNT(*)::int AS c
+        FROM candidates
+        GROUP BY d
+        ORDER BY d;
+      `;
+      const [rows] = await sequelize.query(sql, {
+        replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+      });
+      return rows;
+    };
+
+    let resolvedRows = [];
+    try {
+      resolvedRows = await tryResolved('issue_id'); // variant 1
+      if (!resolvedRows || resolvedRows.length === 0) {
+        resolvedRows = await tryResolved('issue_report_id'); // variant 2
+      }
+    } catch (_) { /* fall through */ }
+
+    // Fallback: use issue_reports updatedAt for currently RESOLVED
+    if (!resolvedRows || resolvedRows.length === 0) {
+      const sqlResolvedFallback = `
+        SELECT DATE(ir."updatedAt") AS d, COUNT(*)::int AS c
+        FROM issue_reports ir
+        WHERE ir.ward_id = :wardId
+          AND ir.status = 'RESOLVED'::enum_issue_reports_status
+          AND DATE(ir."updatedAt") BETWEEN :start::date AND :end::date
+        GROUP BY 1
+        ORDER BY 1
+      `;
+      const [rows] = await sequelize.query(sqlResolvedFallback, {
+        replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+      });
+      resolvedRows = rows;
+    }
+    const resMap = new Map((resolvedRows || []).map(r => [String(r.d), Number(r.c) || 0]));
+
+    // 3) Compute an initial OPEN count before startDate using first resolved_at if available, otherwise updatedAt proxy
+    const tryInitialOpen = async (idCol) => {
+      const sql = `
+        WITH first_res AS (
+          SELECT sc.${idCol} AS fk_id, MIN(sc."createdAt") AS resolved_at
+          FROM status_changes sc
+          WHERE UPPER(sc.to_status) = 'RESOLVED'
+          GROUP BY sc.${idCol}
+        )
+        SELECT COUNT(*)::int AS open_before
+        FROM issue_reports ir
+        LEFT JOIN first_res fr ON fr.fk_id = ir.id
+        WHERE ir.ward_id = :wardId
+          AND ir."createdAt" < :start::timestamp
+          AND (fr.resolved_at IS NULL OR fr.resolved_at >= :start::timestamp);
+      `;
+      const [rows] = await sequelize.query(sql, {
+        replacements: { wardId: id, start: startDate.toISOString() },
+      });
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      return row ? Number(row.open_before) || 0 : 0;
+    };
+
+    let initialOpen = 0;
+    try {
+      initialOpen = await tryInitialOpen('issue_id');
+      if (!Number.isFinite(initialOpen) || initialOpen === 0) {
+        const alt = await tryInitialOpen('issue_report_id');
+        if (Number.isFinite(alt)) initialOpen = alt;
+      }
+    } catch (_) { /* fall through */ }
+
+    if (!Number.isFinite(initialOpen)) initialOpen = 0;
+
+    // Fallback initialOpen (no status_changes table usable): approximate using updatedAt as resolved_at proxy
+    if (initialOpen === 0) {
+      const sqlInitialFallback = `
+        SELECT COUNT(*)::int AS open_before
+        FROM issue_reports ir
+        WHERE ir.ward_id = :wardId
+          AND ir."createdAt" < :start::timestamp
+          AND (ir.status <> 'RESOLVED'::enum_issue_reports_status OR ir."updatedAt" >= :start::timestamp);
+      `;
+      const [rows] = await sequelize.query(sqlInitialFallback, {
+        replacements: { wardId: id, start: startDate.toISOString() },
+      });
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      initialOpen = row ? Number(row.open_before) || 0 : 0;
+    }
+
+    // 4) Build series by iterating dates and computing running open
+    const series = [];
+    let runningOpen = initialOpen;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setUTCDate(startDate.getUTCDate() + i);
+      const key = ymd(d);
+      const added = newMap.get(key) || 0;
+      const resolved = resMap.get(key) || 0;
+      runningOpen = Math.max(0, runningOpen + added - resolved);
+      series.push({ date: key, new: added, resolved, open: runningOpen });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Ward time-series stats loaded',
+      data: { days, series },
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
-  return null;
-}
+};
 
 //  Stats 
 exports.stats = async (req, res) => {
