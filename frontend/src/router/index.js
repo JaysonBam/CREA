@@ -67,7 +67,7 @@ const router = createRouter({
           path: "ward-requests",
           name: "ward-requests",
           component: WardRequests,
-          meta: { requiresAuth: true, adminOnly: true },
+          meta: { requiresAuth: true },
         },
 
         { path: "wards", name: "wards", component: Wards },
@@ -94,18 +94,30 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = sessionStorage.getItem("JWT");
   const isAuthenticated = !!token;
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
   const guestOnly = to.matched.some((r) => r.meta.guestOnly);
-  const adminOnly = to.matched.some((r) => r.meta.adminOnly);
 
   let userRole = null;
+  let userWardAssigned = false;
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       userRole = payload.role;
+      // Fetch user info from API for accurate ward assignment check
+      let userInfo = null;
+      try {
+        const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          userInfo = data.user;
+        }
+      } catch {}
+      userWardAssigned = userInfo && userInfo.ward_id && userInfo.ward_name && userInfo.ward_code;
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
         sessionStorage.removeItem("JWT");
@@ -122,10 +134,11 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-  return { name: "reports" };
+    return { name: "reports" };
   }
-  if (adminOnly && userRole !== "admin") {
-  return { name: "reports" };
+  // Ward Requests: allow admin OR communityleader with assigned ward
+  if (to.name === 'ward-requests' && !(userRole === 'admin' || (userRole === 'communityleader' && userWardAssigned))) {
+    return { name: "reports" };
   }
 });
 
