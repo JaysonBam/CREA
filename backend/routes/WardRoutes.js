@@ -30,5 +30,7 @@ router.get("/:id/profile", controller.profile);
 
 // Ward stats 
 router.get("/:id/stats", controller.stats);
+router.get("/:id/stats/series", controller.statsSeries); // ?days=30 (default 30)
+router.get("/:id/stats/avg-resolution-time", controller.avgResolutionTime);
 
 module.exports = router;

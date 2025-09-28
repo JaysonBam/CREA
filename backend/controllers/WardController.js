@@ -501,6 +501,205 @@ exports.profile = async (req, res) => {
   }
 }
 
+/**
+ * Compute average seconds to resolve issues in a ward using only issue_reports table.
+ * Only considers issues in state RESOLVED and where updatedAt > createdAt.
+ * Returns: number (seconds) | null
+ */
+async function computeAvgResolutionSeconds(wardId) {
+  // Simplified: Only consider issues currently RESOLVED for this ward
+  // and where updatedAt > createdAt. Return average seconds, or null if none.
+  try {
+    const sql = `
+      SELECT
+        COUNT(*) AS n,
+        AVG(EXTRACT(EPOCH FROM (ir."updatedAt" - ir."createdAt"))) AS avg_seconds
+      FROM issue_reports ir
+      WHERE ir.ward_id = :wardId
+        AND ir.status = 'RESOLVED'::enum_issue_reports_status
+        AND ir."createdAt" IS NOT NULL
+        AND ir."updatedAt" IS NOT NULL
+        AND ir."updatedAt" > ir."createdAt";
+    `;
+    const [rows] = await sequelize.query(sql, { replacements: { wardId } });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    const n = row && row.n != null ? Number(row.n) : 0;
+    const avgSec = row && row.avg_seconds != null ? Number(row.avg_seconds) : null;
+    if (n > 0 && Number.isFinite(avgSec)) return avgSec;
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+
+/**
+ * Time-series stats for a ward over the last N days (default 30).
+ * Returns daily buckets with { date, new, resolved, open } where:
+ *  - new:     issues created on that date
+ *  - resolved:issues whose first RESOLVED status-change happened on that date (fallback: issue_reports.updatedAt)
+ *  - open:    running total of open issues at end of that date (prev + new - resolved)
+ * Query params: ?days=30 (1..180)
+ */
+exports.statsSeries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let days = Number(req.query.days || 30);
+    if (!Number.isFinite(days) || days < 1) days = 30;
+    if (days > 180) days = 180;
+
+    const ward = await Ward.findByPk(id);
+    if (!ward) return res.status(404).json({ success: false, message: 'Ward not found' });
+
+    // Build date range [start .. today] (inclusive) in UTC by date boundaries
+    const today = new Date();
+    const endDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())); // 00:00 UTC today
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(endDate.getUTCDate() - (days - 1)); // n days window
+
+    // Helper to format YYYY-MM-DD
+    const ymd = (d) => d.toISOString().slice(0, 10);
+
+    // 1) NEW per day (createdAt)
+    const sqlNew = `
+      SELECT DATE(ir."createdAt") AS d, COUNT(*)::int AS c
+      FROM issue_reports ir
+      WHERE ir.ward_id = :wardId
+        AND DATE(ir."createdAt") BETWEEN :start::date AND :end::date
+      GROUP BY 1
+      ORDER BY 1
+    `;
+    const [newRows] = await sequelize.query(sqlNew, {
+      replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+    });
+    const newMap = new Map(newRows.map(r => [String(r.d), Number(r.c) || 0]));
+
+    // 2) RESOLVED per day via status_changes first, fallback to issue_reports.updatedAt
+    const tryResolved = async (idCol) => {
+      const sql = `
+        WITH first_res AS (
+          SELECT sc.${idCol} AS fk_id, MIN(sc."createdAt") AS resolved_at
+          FROM status_changes sc
+          WHERE UPPER(sc.to_status) = 'RESOLVED'
+          GROUP BY sc.${idCol}
+        ),
+        candidates AS (
+          SELECT ir.id, DATE(fr.resolved_at) AS d
+          FROM issue_reports ir
+          JOIN first_res fr ON fr.fk_id = ir.id
+          WHERE ir.ward_id = :wardId
+            AND DATE(fr.resolved_at) BETWEEN :start::date AND :end::date
+        )
+        SELECT d, COUNT(*)::int AS c
+        FROM candidates
+        GROUP BY d
+        ORDER BY d;
+      `;
+      const [rows] = await sequelize.query(sql, {
+        replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+      });
+      return rows;
+    };
+
+    let resolvedRows = [];
+    try {
+      resolvedRows = await tryResolved('issue_id'); // variant 1
+      if (!resolvedRows || resolvedRows.length === 0) {
+        resolvedRows = await tryResolved('issue_report_id'); // variant 2
+      }
+    } catch (_) { /* fall through */ }
+
+    // Fallback: use issue_reports updatedAt for currently RESOLVED
+    if (!resolvedRows || resolvedRows.length === 0) {
+      const sqlResolvedFallback = `
+        SELECT DATE(ir."updatedAt") AS d, COUNT(*)::int AS c
+        FROM issue_reports ir
+        WHERE ir.ward_id = :wardId
+          AND ir.status = 'RESOLVED'::enum_issue_reports_status
+          AND DATE(ir."updatedAt") BETWEEN :start::date AND :end::date
+        GROUP BY 1
+        ORDER BY 1
+      `;
+      const [rows] = await sequelize.query(sqlResolvedFallback, {
+        replacements: { wardId: id, start: ymd(startDate), end: ymd(endDate) },
+      });
+      resolvedRows = rows;
+    }
+    const resMap = new Map((resolvedRows || []).map(r => [String(r.d), Number(r.c) || 0]));
+
+    // 3) Compute an initial OPEN count before startDate using first resolved_at if available, otherwise updatedAt proxy
+    const tryInitialOpen = async (idCol) => {
+      const sql = `
+        WITH first_res AS (
+          SELECT sc.${idCol} AS fk_id, MIN(sc."createdAt") AS resolved_at
+          FROM status_changes sc
+          WHERE UPPER(sc.to_status) = 'RESOLVED'
+          GROUP BY sc.${idCol}
+        )
+        SELECT COUNT(*)::int AS open_before
+        FROM issue_reports ir
+        LEFT JOIN first_res fr ON fr.fk_id = ir.id
+        WHERE ir.ward_id = :wardId
+          AND ir."createdAt" < :start::timestamp
+          AND (fr.resolved_at IS NULL OR fr.resolved_at >= :start::timestamp);
+      `;
+      const [rows] = await sequelize.query(sql, {
+        replacements: { wardId: id, start: startDate.toISOString() },
+      });
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      return row ? Number(row.open_before) || 0 : 0;
+    };
+
+    let initialOpen = 0;
+    try {
+      initialOpen = await tryInitialOpen('issue_id');
+      if (!Number.isFinite(initialOpen) || initialOpen === 0) {
+        const alt = await tryInitialOpen('issue_report_id');
+        if (Number.isFinite(alt)) initialOpen = alt;
+      }
+    } catch (_) { /* fall through */ }
+
+    if (!Number.isFinite(initialOpen)) initialOpen = 0;
+
+    // Fallback initialOpen (no status_changes table usable): approximate using updatedAt as resolved_at proxy
+    if (initialOpen === 0) {
+      const sqlInitialFallback = `
+        SELECT COUNT(*)::int AS open_before
+        FROM issue_reports ir
+        WHERE ir.ward_id = :wardId
+          AND ir."createdAt" < :start::timestamp
+          AND (ir.status <> 'RESOLVED'::enum_issue_reports_status OR ir."updatedAt" >= :start::timestamp);
+      `;
+      const [rows] = await sequelize.query(sqlInitialFallback, {
+        replacements: { wardId: id, start: startDate.toISOString() },
+      });
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      initialOpen = row ? Number(row.open_before) || 0 : 0;
+    }
+
+    // 4) Build series by iterating dates and computing running open
+    const series = [];
+    let runningOpen = initialOpen;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setUTCDate(startDate.getUTCDate() + i);
+      const key = ymd(d);
+      const added = newMap.get(key) || 0;
+      const resolved = resMap.get(key) || 0;
+      runningOpen = Math.max(0, runningOpen + added - resolved);
+      series.push({ date: key, new: added, resolved, open: runningOpen });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Ward time-series stats loaded',
+      data: { days, series },
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 //  Stats 
 exports.stats = async (req, res) => {
   try {
@@ -519,31 +718,71 @@ exports.stats = async (req, res) => {
     })
 
     let total = 0
-    let closed = 0
-    let pending = 0
-    let totalResolutionSec = 0
-    let resolvedCount = 0
-
+    let newCount = 0
+    let acknowledged = 0
+    let inProgress = 0
+    let resolved = 0
     for (const r of issues) {
       total += 1
       const status = String(r.status || '').toUpperCase()
-      if (status === 'PENDING') pending += 1
-      if (status === 'CLOSED' || status === 'RESOLVED') {
-        closed += 1
-        const start = r.createdAt ? new Date(r.createdAt).getTime() : null
-        const end = r.updatedAt ? new Date(r.updatedAt).getTime() : null
-        if (start && end && end > start) {
-          totalResolutionSec += (end - start) / 1000
-          resolvedCount += 1
-        }
+      switch (status) {
+        case 'NEW':
+          newCount += 1
+          break
+        case 'ACKNOWLEDGED':
+          acknowledged += 1
+          break
+        case 'IN_PROGRESS':
+          inProgress += 1
+          break
+        case 'RESOLVED':
+          resolved += 1
+          break
+        default:
+          break
       }
     }
 
-    const open = Math.max(0, total - closed - pending)
-    const avgResolution = resolvedCount > 0 ? totalResolutionSec / resolvedCount : null
+    const pending = acknowledged + inProgress
+    const closed = resolved
+    const open = Math.max(0, total - closed - pending) // effectively equals NEW count
+    // Compute average from ACKNOWLEDGED → RESOLVED using status_changes (ward-bounded) with FK name fallback
+    let avgResolution = await computeAvgResolutionSeconds(id);
 
-    return res.json({ success: true, message: 'Ward stats loaded', data: { open, closed, pending, avgResolution } })
+    return res.json({
+      success: true,
+      message: 'Ward stats loaded',
+      data: {
+        open,          // NEW
+        closed,        // RESOLVED
+        pending,       // ACKNOWLEDGED + IN_PROGRESS
+        breakdown: { new: newCount, acknowledged, in_progress: inProgress, resolved },
+        avgResolution, // seconds
+      },
+    })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+//  Average resolution time (ACKNOWLEDGED → RESOLVED) for a ward
+exports.avgResolutionTime = async (req, res) => {
+  try {
+    const { id } = req.params
+    const ward = await Ward.findByPk(id)
+    if (!ward) return res.status(404).json({ success: false, message: 'Ward not found' })
+
+    const avgResolution = await computeAvgResolutionSeconds(id);
+
+    return res.json({
+      success: true,
+      message: 'Average resolution time computed (ACK → RESOLVED)',
+      data: {
+        wardId: Number(id),
+        avgResolutionSeconds: avgResolution, // null if no pairs, 0 allowed
+      },
+    })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
   }
 }
