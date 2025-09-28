@@ -86,9 +86,8 @@ describe('SCRUM 28 — Ward statistics & analytics', () => {
 
       // computeAvgResolutionSeconds likely tries multiple queries.
       // Simulate two failed/unsupported attempts, then a fallback that succeeds with 5400s (1.5h).
-      sequelize.query.onCall(0).rejects(new Error('status_changes with issue_id not available'));
-      sequelize.query.onCall(1).rejects(new Error('status_changes with issue_report_id not available'));
-      sequelize.query.onCall(2).resolves([[{ n: '2', avg_seconds: '5400' }]]);
+      // Controller now uses a single issue_reports-based query for avg resolution.
+      sequelize.query.resolves([[{ n: '2', avg_seconds: '5400' }]]);
 
       const req = { params: { id: 1 } };
       const res = makeRes();
@@ -122,8 +121,8 @@ describe('SCRUM 28 — Ward statistics & analytics', () => {
 
     it('returns avgResolutionSeconds via primary status_changes path', async () => {
       Ward.findByPk.resolves({ id: 2 });
-      // First call returns an average of 120 seconds
-      sequelize.query.onCall(0).resolves([[{ n: '3', avg_seconds: '120' }]]);
+      // Single query returns an average of 120 seconds
+      sequelize.query.resolves([[{ n: '3', avg_seconds: '120' }]]);
 
       const req = { params: { id: 2 } };
       const res = makeRes();
@@ -137,10 +136,8 @@ describe('SCRUM 28 — Ward statistics & analytics', () => {
 
     it('returns null when no resolution time can be computed', async () => {
       Ward.findByPk.resolves({ id: 3 });
-      // Simulate all strategies failing/empty
-      sequelize.query.onCall(0).resolves([[]]);
-      sequelize.query.onCall(1).resolves([[]]);
-      sequelize.query.onCall(2).resolves([[]]);
+      // Single query returns no rows
+      sequelize.query.resolves([[]]);
 
       const req = { params: { id: 3 } };
       const res = makeRes();
