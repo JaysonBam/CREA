@@ -30,5 +30,6 @@ router.get("/:id/profile", controller.profile);
 
 // Ward stats 
 router.get("/:id/stats", controller.stats);
+router.get("/:id/stats/avg-resolution-time", controller.avgResolutionTime);
 
 module.exports = router;

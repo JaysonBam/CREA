@@ -501,6 +501,94 @@ exports.profile = async (req, res) => {
   }
 }
 
+/**
+ * Compute average seconds from first ACKNOWLEDGED → first RESOLVED for issues in a ward.
+ * Supports two possible foreign-key column names in status_changes: issue_id OR issue_report_id.
+ * Returns: number (seconds) | null
+ */
+async function computeAvgResolutionSeconds(wardId) {
+  // Candidates: try status_changes with issue_id, then issue_report_id, then fallback to issue_reports.createdAt/updatedAt
+  const candidates = [
+    { table: 'status_changes', idCol: 'issue_id', tsCol: 'createdAt', toCol: 'to_status' },
+    { table: 'status_changes', idCol: 'issue_report_id', tsCol: 'createdAt', toCol: 'to_status' },
+  ];
+  const tryOne = async ({ table, idCol, tsCol, toCol }) => {
+    // Build safe identifiers (we only interpolate from our whitelist above)
+    const sql = `
+      WITH ack AS (
+        SELECT ${idCol} AS fk_id, MIN("${tsCol}") AS ack_at
+        FROM ${table}
+        WHERE UPPER(${toCol}) = 'ACKNOWLEDGED'
+        GROUP BY ${idCol}
+      ),
+      res AS (
+        SELECT ${idCol} AS fk_id, MIN("${tsCol}") AS res_at
+        FROM ${table}
+        WHERE UPPER(${toCol}) = 'RESOLVED'
+        GROUP BY ${idCol}
+      ),
+      resolved_issues AS (
+        SELECT ir.id, ir."createdAt" AS ir_created_at, ir."updatedAt" AS ir_updated_at
+        FROM issue_reports ir
+        WHERE ir.ward_id = :wardId AND UPPER(ir.status) = 'RESOLVED'
+      ),
+      pairs AS (
+        SELECT
+          ri.id,
+          COALESCE(a.ack_at, ri.ir_created_at) AS ack_at,
+          COALESCE(r.res_at, ri.ir_updated_at) AS res_at
+        FROM resolved_issues ri
+        LEFT JOIN ack a ON a.fk_id = ri.id
+        LEFT JOIN res r ON r.fk_id = ri.id
+      )
+      SELECT
+        COUNT(*) AS n,
+        AVG(EXTRACT(EPOCH FROM (CASE WHEN res_at >= ack_at THEN res_at - ack_at ELSE INTERVAL '0 seconds' END))) AS avg_seconds
+      FROM pairs;
+    `;
+    const [rows] = await sequelize.query(sql, { replacements: { wardId } });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    const n = row && row.n != null ? Number(row.n) : 0;
+    const avgSec = row && row.avg_seconds != null ? Number(row.avg_seconds) : null;
+    if (n > 0) return Number.isFinite(avgSec) ? avgSec : 0;
+    return null;
+  };
+  for (const c of candidates) {
+    try {
+      const v = await tryOne(c);
+      if (v !== null) return v;
+    } catch (_) { /* ignore and try next */ }
+  }
+  // FINAL FALLBACK (no status history required): use issue_reports timestamps only
+  // Uses exact, known columns: issue_reports.(ward_id, status, "createdAt"/created_at, "updatedAt"/updated_at)
+  try {
+    const sqlFallback = `
+      SELECT
+        COUNT(*) AS n,
+        AVG(
+          EXTRACT(
+            EPOCH FROM (
+              COALESCE(ir."updatedAt", ir.updated_at) - COALESCE(ir."createdAt", ir.created_at)
+            )
+          )
+        ) AS avg_seconds
+      FROM issue_reports ir
+      WHERE ir.ward_id = :wardId
+        AND UPPER(ir.status) = 'RESOLVED'
+        AND COALESCE(ir."createdAt", ir.created_at) IS NOT NULL
+        AND COALESCE(ir."updatedAt", ir.updated_at) IS NOT NULL;
+    `;
+    const [rows] = await sequelize.query(sqlFallback, { replacements: { wardId } });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    const n = row && row.n != null ? Number(row.n) : 0;
+    const avgSec = row && row.avg_seconds != null ? Number(row.avg_seconds) : null;
+    if (n > 0) return Number.isFinite(avgSec) ? avgSec : 0;
+  } catch (_) {
+    // swallow and fall through to null
+  }
+  return null;
+}
+
 //  Stats 
 exports.stats = async (req, res) => {
   try {
@@ -519,31 +607,71 @@ exports.stats = async (req, res) => {
     })
 
     let total = 0
-    let closed = 0
-    let pending = 0
-    let totalResolutionSec = 0
-    let resolvedCount = 0
-
+    let newCount = 0
+    let acknowledged = 0
+    let inProgress = 0
+    let resolved = 0
     for (const r of issues) {
       total += 1
       const status = String(r.status || '').toUpperCase()
-      if (status === 'PENDING') pending += 1
-      if (status === 'CLOSED' || status === 'RESOLVED') {
-        closed += 1
-        const start = r.createdAt ? new Date(r.createdAt).getTime() : null
-        const end = r.updatedAt ? new Date(r.updatedAt).getTime() : null
-        if (start && end && end > start) {
-          totalResolutionSec += (end - start) / 1000
-          resolvedCount += 1
-        }
+      switch (status) {
+        case 'NEW':
+          newCount += 1
+          break
+        case 'ACKNOWLEDGED':
+          acknowledged += 1
+          break
+        case 'IN_PROGRESS':
+          inProgress += 1
+          break
+        case 'RESOLVED':
+          resolved += 1
+          break
+        default:
+          break
       }
     }
 
-    const open = Math.max(0, total - closed - pending)
-    const avgResolution = resolvedCount > 0 ? totalResolutionSec / resolvedCount : null
+    const pending = acknowledged + inProgress
+    const closed = resolved
+    const open = Math.max(0, total - closed - pending) // effectively equals NEW count
+    // Compute average from ACKNOWLEDGED → RESOLVED using status_changes (ward-bounded) with FK name fallback
+    let avgResolution = await computeAvgResolutionSeconds(id);
 
-    return res.json({ success: true, message: 'Ward stats loaded', data: { open, closed, pending, avgResolution } })
+    return res.json({
+      success: true,
+      message: 'Ward stats loaded',
+      data: {
+        open,          // NEW
+        closed,        // RESOLVED
+        pending,       // ACKNOWLEDGED + IN_PROGRESS
+        breakdown: { new: newCount, acknowledged, in_progress: inProgress, resolved },
+        avgResolution, // seconds
+      },
+    })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+//  Average resolution time (ACKNOWLEDGED → RESOLVED) for a ward
+exports.avgResolutionTime = async (req, res) => {
+  try {
+    const { id } = req.params
+    const ward = await Ward.findByPk(id)
+    if (!ward) return res.status(404).json({ success: false, message: 'Ward not found' })
+
+    const avgResolution = await computeAvgResolutionSeconds(id);
+
+    return res.json({
+      success: true,
+      message: 'Average resolution time computed (ACK → RESOLVED)',
+      data: {
+        wardId: Number(id),
+        avgResolutionSeconds: avgResolution, // null if no pairs, 0 allowed
+      },
+    })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
   }
 }

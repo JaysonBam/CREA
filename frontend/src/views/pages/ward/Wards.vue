@@ -249,17 +249,17 @@ async function fetchMe() {
     try {
       const { data } = await api.get(p);
       
-      const user = data?.data?.user || data?.user || data?.data || data;
+      const user = data?.user;
       if (user) {
         me.value = user;
-        myRole.value = user.role || user.user_role || user.type || user.position || '';
+        myRole.value = user.role;
         break;
       }
     } catch (_) { /* try next */ }
   }
 
   if (!me.value) {
-    const storedRole = sessionStorage.getItem('ROLE') || localStorage.getItem('ROLE');
+    const storedRole = sessionStorage.getItem('role');
     if (storedRole) myRole.value = storedRole;
   }
 

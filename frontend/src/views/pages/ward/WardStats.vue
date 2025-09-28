@@ -2,35 +2,40 @@
   <div class="card">
     <div class="flex justify-between items-center mb-3">
       <h2 class="m-0">Ward Statistics</h2>
-      <Button label="Back to Wards" icon="pi pi-arrow-left" @click="goBack" />
+      <div class="flex gap-2">
+        <Button label="Refresh" icon="pi pi-refresh" @click="fetchStats" outlined />
+        <Button label="Back to Wards" icon="pi pi-arrow-left" @click="goBack" />
+      </div>
     </div>
 
     <div v-if="loading">Loading statistics...</div>
 
     <div v-else>
       <ul class="list-disc pl-6">
-        <li><strong>Open Issues:</strong> {{ stats.open }}</li>
-        <li><strong>Closed Issues:</strong> {{ stats.closed }}</li>
-        <li><strong>Pending Issues:</strong> {{ stats.pending }}</li>
-        <li><strong>Average Resolution Time:</strong> {{ stats.avgResolution }}</li>
+        <li><strong>Open (NEW):</strong> {{ stats.open }}</li>
+        <li><strong>Resolved:</strong> {{ stats.closed }}</li>
+        <li><strong>Pending (ACK + IN&nbsp;PROGRESS):</strong> {{ stats.pending }}</li>
+        <li><strong>Average Resolution (ACK → RESOLVED):</strong> {{ (typeof stats.avgResolution === 'number' || stats.avgResolution === 0) ? stats.avgResolution : '—' /* shows "—" when null/undefined/NaN */ }}</li>
       </ul>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import api from '@/utils/api'
 import { useToast } from 'primevue/usetoast'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
+
+const toNum = (v) => (typeof v === 'number' ? v : (typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN));
+const isFiniteNum = (v) => Number.isFinite(toNum(v));
 
 function getErr(e) {
   if (e?.response?.data?.message) return e.response.data.message;
   if (typeof e?.message === 'string' && e.message) return e.message;
   return 'Network or server error';
 }
-
 
 const props = defineProps({
   wardId: {
@@ -47,7 +52,7 @@ const stats = ref({
   open: 0,
   closed: 0,
   pending: 0,
-  avgResolution: '—'
+  avgResolution: null
 })
 
 const wardIdNum = computed(() => {
@@ -60,92 +65,85 @@ function goBack() {
   router.push({ name: 'wards' })
 }
 
-function humanizeDuration(input) {
-  // accepts seconds, minutes, hours, or a preformatted string
-  if (input == null) return '—'
-  if (typeof input === 'string' && /day|hour|min|sec/i.test(input)) return input
-
-  let seconds = 0
-  if (typeof input === 'number' && Number.isFinite(input)) {
-    seconds = input
-  } else if (typeof input === 'object') {
-    const { seconds: s, minutes: m, hours: h, days: d } = input
-    seconds =
-      (d ? d * 86400 : 0) +
-      (h ? h * 3600 : 0) +
-      (m ? m * 60 : 0) +
-      (s ? s : 0)
-  }
-  if (!Number.isFinite(seconds) || seconds <= 0) return '—'
-  const days = Math.floor(seconds / 86400)
-  seconds %= 86400
-  const hours = Math.floor(seconds / 3600)
-  seconds %= 3600
-  const minutes = Math.floor(seconds / 60)
-
-  if (days) return `${days} day${days === 1 ? '' : 's'}`
-  if (hours) return `${hours} hour${hours === 1 ? '' : 's'}`
-  if (minutes) return `${minutes} min${minutes === 1 ? '' : 's'}`
-  return `${seconds} sec${seconds === 1 ? '' : 's'}`
-}
-
 function normalizeStats(raw) {
-  if (!raw || typeof raw !== 'object') return stats.value
-  const open = Number(raw.open ?? raw.openIssues ?? raw.count_open ?? 0)
-  const closed = Number(raw.closed ?? raw.closedIssues ?? raw.count_closed ?? 0)
-  const pending = Number(raw.pending ?? raw.pendingIssues ?? raw.count_pending ?? 0)
+  const safeNum = (v) => {
+    if (v === 0 || v === "0") return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
 
-  // Average resolution may arrive as seconds, minutes, hours, or preformatted text
-  const avg =
-    raw.avgResolution ??
-    raw.avg_resolution ??
-    raw.average_resolution ??
-    raw.avg_seconds ??
-    raw.avg_minutes ??
-    raw.avg_hours ??
-    null
+  const open = Number(raw?.open ?? raw?.openIssues ?? raw?.count_open ?? 0) || 0;
+  const closed = Number(raw?.closed ?? raw?.closedIssues ?? raw?.count_closed ?? 0) || 0;
+  const pending = Number(raw?.pending ?? raw?.pendingIssues ?? raw?.count_pending ?? 0) || 0;
 
-  let avgText = '—'
-  if (typeof avg === 'number') {
-    // assume seconds
-    avgText = humanizeDuration(avg)
-  } else if (typeof avg === 'string') {
-    avgText = avg
-  } else if (typeof avg === 'object' && avg) {
-    avgText = humanizeDuration(avg)
-  } else if (raw.avg_minutes) {
-    avgText = humanizeDuration({ minutes: Number(raw.avg_minutes) })
-  } else if (raw.avg_hours) {
-    avgText = humanizeDuration({ hours: Number(raw.avg_hours) })
-  }
+  // Prefer a raw numeric seconds value if present; otherwise keep null
+  const avgResolution =
+    safeNum(raw?.avgResolution) ??
+    safeNum(raw?.avg_resolution) ??
+    safeNum(raw?.average_resolution) ??
+    safeNum(raw?.avg_seconds) ??
+    null;
 
-  return {
-    open: Number.isFinite(open) ? open : 0,
-    closed: Number.isFinite(closed) ? closed : 0,
-    pending: Number.isFinite(pending) ? pending : 0,
-    avgResolution: avgText
-  }
+  return { open, closed, pending, avgResolution };
 }
 
-onMounted(async () => {
+async function fetchStats() {
   loading.value = true
   try {
-    if (!wardIdNum.value) throw new Error('Invalid ward id')
-    // Conventional stats endpoint; adjust if your backend uses a different path
-    const { data } = await api.get(`/api/wards/${wardIdNum.value}/stats`)
-    const payload = data?.data ?? data
-    const normalized = normalizeStats(payload)
-    // if backend returned seconds for avgResolution, humanize it
-    if (typeof payload?.avgResolution === 'number') {
-      normalized.avgResolution = humanizeDuration(payload.avgResolution)
+    if (!wardIdNum.value) throw new Error('Invalid ward id');
+
+    // 1) Fetch aggregate stats
+    const r1 = await api.get(`/api/wards/${wardIdNum.value}/stats`);
+    const payload = r1?.data?.data ?? r1?.data ?? r1 ?? {};
+    const normalized = normalizeStats(payload);
+
+    // 2) Try the dedicated ACK→RES average endpoint; accept 0 as valid
+    try {
+      const r2 = await api.get(`/api/wards/${wardIdNum.value}/stats/avg-resolution-time`);
+      const d2 = r2?.data?.data ?? r2?.data ?? {};
+      const candidate =
+        d2?.avgResolutionSeconds ??
+        d2?.avg_seconds ??
+        (typeof d2 === 'number' ? d2 : null);
+
+      const n = Number(candidate);
+      if (Number.isFinite(n) || candidate === 0) {
+        normalized.avgResolution = candidate === 0 ? 0 : n;
+      }
+    } catch (_) {
+      // keep whatever /stats gave us (may be null)
     }
-    stats.value = normalized
+
+    stats.value = normalized;
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Load failed', detail: getErr(err), life: 4000 })
+    toast.add({ severity: 'error', summary: 'Load failed', detail: getErr(err), life: 4000 });
   } finally {
     loading.value = false
   }
-})
+}
+
+let refreshTimer = null;
+let visibilityHandler = null;
+
+onMounted(() => {
+  fetchStats();
+
+  // Auto-refresh every 30s while on this page
+  refreshTimer = setInterval(fetchStats, 30000);
+
+  // Refresh when tab becomes visible again (e.g., user returns after resolving an issue)
+  visibilityHandler = () => {
+    if (document.visibilityState === 'visible') {
+      fetchStats();
+    }
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
+});
+
+onBeforeUnmount(() => {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
+});
 </script>
 
 <style scoped>

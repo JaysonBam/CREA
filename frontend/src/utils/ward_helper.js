@@ -24,3 +24,13 @@ export const deleteWard = (idOrToken) => {
 export const getWardsWithLeaders = () => {
   return api.get('/api/wards/leaders').then((r) => r.data);
 };
+
+// Get stats for a ward (includes counts and average resolution)
+export const getWardStats = (idOrToken) => {
+  return api.get(`/api/wards/${idOrToken}/stats`).then((r) => r.data);
+};
+
+// Get only average resolution time for a ward
+export const getWardAvgResolutionTime = (idOrToken) => {
+  return api.get(`/api/wards/${idOrToken}/stats/avg-resolution-time`).then((r) => r.data);
+};
