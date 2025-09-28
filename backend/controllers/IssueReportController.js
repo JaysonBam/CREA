@@ -15,7 +15,10 @@ const { Op } = require("sequelize");
 const issueReportSchema = require("../schemas/issueReportSchema");
 // Import Zod's error class to specifically catch validation errors.
 const { ZodError } = require("zod");
-const { renderIssueLeaderEmail } = require("../services/emailRenderer"); // adjust path if needed
+const {
+  renderIssueLeaderEmail,
+  renderIssueStatusEmail,
+} = require("../services/emailRenderer"); // adjust path if needed
 const { sendEmailAsync } = require("../services/emailService");
 
 /**
@@ -258,9 +261,11 @@ exports.create = async (req, res) => {
     });
 
     const ward1 = await Ward.scope("withPeople").findByPk(ward.id);
+
     const leaderEmail =
       ward1?.leader?.User?.email ?? ward1?.leader?.user?.email ?? null;
 
+    // const leaderEmail = "createam.app@gmail.com";
     const [reporter, location] = await Promise.all([
       User.findByPk(created.user_id, {
         attributes: ["first_name", "last_name", "email"],
@@ -337,11 +342,105 @@ exports.updateStatus = async (req, res) => {
     const row = await findByTokenOr404(req.params.token, res);
     if (!row) return;
 
-    const { status } = req.body;
-    await row.update({ status });
-    res.json(row);
+    const prevStatus = row.status;
+    const { status: newStatus } = req.body;
+
+    if (!newStatus) {
+      return res.status(400).json({ error: "status is required" });
+    }
+
+    // Update
+    await row.update({ status: newStatus });
+
+    // If no actual change, just return the row (no emails)
+    if (String(prevStatus) === String(newStatus)) {
+      return res.json(row);
+    }
+
+    //Gather important information to send with the email (who changed it, where did it occur, what is the new status etc. )
+    const [reporter, location, ward, watchlist] = await Promise.all([
+      User.findByPk(row.user_id, {
+        attributes: ["first_name", "last_name", "email"],
+      }),
+      row.location_id
+        ? Location.findByPk(row.location_id, {
+            attributes: ["address", "latitude", "longitude"],
+          })
+        : null,
+      row.ward_id
+        ? Ward.findByPk(row.ward_id, { attributes: ["code", "name"] })
+        : null,
+      ReportIssueWatchlist.findAll({
+        where: { report_issue_id: row.id },
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["email", "first_name", "last_name"],
+          },
+        ],
+      }),
+    ]);
+    //Get corresponding date in correct format
+    const fmt = new Intl.DateTimeFormat("en-ZA", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+    //Just to make an object that collects all important data and group it together (important for the EMAIL html file)
+    const emailData = {
+      title: row.title,
+      category: row.category,
+      oldStatus: prevStatus || "UNKNOWN",
+      newStatus: newStatus,
+      reporterName: reporter
+        ? `${reporter.first_name ?? ""} ${reporter.last_name ?? ""}`.trim() ||
+          "Unknown"
+        : "Unknown",
+      reporterEmail: reporter?.email ?? "unknown",
+      wardCode: ward?.code ?? ward?.name ?? "—",
+      description: row.description || "—",
+      address: location?.address ?? "—",
+      latitude: location?.latitude ?? "—",
+      longitude: location?.longitude ?? "—",
+      mapsLink:
+        location?.latitude && location?.longitude
+          ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+          : "",
+      changedAt: fmt.format(new Date()),
+    };
+
+    const html = await renderIssueStatusEmail(emailData);
+
+    // Collect watcher emails (unique, valid)
+    const recipients = Array.from(
+      new Set(
+        (watchlist || [])
+          .map((w) => w.user?.email)
+          .filter((e) => typeof e === "string" && e.includes("@"))
+      )
+    );
+
+    // let recipients = ["createam.app@gmail.com"];
+
+    if (recipients.length > 0) {
+      const subject = `Status updated: ${emailData.title} (${emailData.oldStatus} → ${emailData.newStatus})`;
+      await Promise.all(
+        recipients.map((to) =>
+          sendEmailAsync({
+            to,
+            subject,
+            html,
+          })
+        )
+      );
+    }
+
+    // Return updated row as before
+    return res.json(row);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    console.error("[updateStatus] error:", e);
+    return res.status(400).json({ error: e.message });
   }
 };
 
@@ -553,13 +652,22 @@ async function getWardIdsForSingleRole(userId, role) {
   const ids = new Set();
 
   if (role === "resident") {
-    const rows = await Resident.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    const rows = await Resident.findAll({
+      where: { user_id: userId },
+      attributes: ["ward_id"],
+    });
     for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
   } else if (role === "staff") {
-    const rows = await MunicipalStaff.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    const rows = await MunicipalStaff.findAll({
+      where: { user_id: userId },
+      attributes: ["ward_id"],
+    });
     for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
   } else if (role === "communityleader") {
-    const rows = await CommunityLeader.findAll({ where: { user_id: userId }, attributes: ["ward_id"] });
+    const rows = await CommunityLeader.findAll({
+      where: { user_id: userId },
+      attributes: ["ward_id"],
+    });
     for (const r of rows) if (r?.ward_id != null) ids.add(Number(r.ward_id));
   } else if (role === "admin") {
     // Admin: handled upstream, but doesn't have wards
@@ -570,15 +678,15 @@ async function getWardIdsForSingleRole(userId, role) {
 //List all the wards for the user
 exports.listForMyWards = async (req, res) => {
   try {
-    userId=  req.auth?.userId;
-    role =  req.auth?.role;
+    userId = req.auth?.userId;
+    role = req.auth?.role;
     // Admins: show all (remove this if you want admins to be scoped too)
     let wardIds = [];
     const isAdmin = role === "admin";
     if (!isAdmin) {
       wardIds = await getWardIdsForSingleRole(userId, role);
       if (!wardIds.length) {
-        return res.json([]); 
+        return res.json([]);
       }
     }
 
@@ -599,7 +707,11 @@ exports.listForMyWards = async (req, res) => {
       where,
       order: [["createdAt", "DESC"]],
       include: [
-        { model: User, as: "user", attributes: ["id", "token", "email", "first_name", "last_name"] },
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "token", "email", "first_name", "last_name"],
+        },
         { model: Ward, as: "ward", attributes: ["id", "name", "code"] },
         { model: Location, as: "location" },
         { model: FileAttachment, as: "attachments" },
@@ -609,8 +721,10 @@ exports.listForMyWards = async (req, res) => {
     return res.json(reports);
   } catch (err) {
     console.error("listForMyWards error:", err);
-    console.log(err)
+    console.log(err);
     console.error("listForMyWards error:", err?.stack || err);
-    return res.status(500).json({ success: false, message: "Failed to list ward-scoped reports" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to list ward-scoped reports" });
   }
 };
