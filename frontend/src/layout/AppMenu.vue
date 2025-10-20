@@ -34,6 +34,10 @@ function isCommunityLeader() {
     return user.value && user.value.role && user.value.role.toLowerCase() === 'communityleader';
 }
 
+function isMunicipalStaff() {
+    return user.value && user.value.role && user.value.role.toLowerCase() === 'staff';
+}
+
 function hasAssignedWard() {
     // Use same logic as WardAssignmentModal
     return user.value && user.value.ward_id && user.value.ward_name && user.value.ward_code;
@@ -71,9 +75,15 @@ const model = computed(() => [{
         (isCommunityLeader() && hasAssignedWard() ? [
             { label: 'Ward Requests', icon: 'pi pi-fw pi-inbox', to: { name: 'ward-requests' } }
         ] : [])),
-        ...(canChangeStates() ? [
-            { label: 'Status Updates', icon: 'pi pi-fw pi-globe', to: { name: 'state-updates' } }
-        ] : [])
+
+        ...(isMunicipalStaff()
+            ? [{ label: 'My Work', icon: 'pi pi-exclamation-circle', to: '/staff-my-work' }]
+            : []),
+
+        
+        // ...(canChangeStates() ? [
+        //     { label: 'Status Updates', icon: 'pi pi-fw pi-globe', to: { name: 'state-updates' } }
+        // ] : [])
     ]
 }]);
 

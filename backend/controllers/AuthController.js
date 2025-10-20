@@ -1,4 +1,4 @@
-const { User, Resident, Ward, Location } = require("../models");
+const { User, Resident, Ward, Location, MunicipalStaff, CommunityLeader  } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
@@ -35,10 +35,12 @@ module.exports = {
       } else if (user.role === "staff") {
         // For staff, get MunicipalStaff profile and associated Ward
         const MunicipalStaff = require("../models").MunicipalStaff;
-        profile = await MunicipalStaff.findOne({
-          where: { user_id: user.id },
-          include: [{ model: Ward }],
-        });
+         profile = await MunicipalStaff.findOne({
+        where: { user_id: user.id },
+        attributes: ["id", "token", "ward_id", "job_description"],
+        include: [{ model: Ward }], // yields profile.Ward
+      });
+      municipal_staff_token = profile?.token || null;
         if (profile && profile.Ward) ward = profile.Ward;
       } else if (user.role === "communityleader") {
         // For community leaders, get CommunityLeader profile and associated Ward
@@ -50,7 +52,10 @@ module.exports = {
         if (profile && profile.Ward) ward = profile.Ward;
       }
 
-      let userJson = user.toJSON();
+      const userJson = {
+        ...user.toJSON(),
+        municipal_staff_token,
+      };
       if (ward) {
         userJson.ward_id = ward.id;
         userJson.ward_name = ward.name;

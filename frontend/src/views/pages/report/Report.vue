@@ -1110,22 +1110,22 @@ const activeRow = ref(null); // keep track of which row is active
 function openRowMenu(event, row) {
   activeRow.value = row;
   rowMenuItems.value = [
-    {
-      label: "Edit",
-      icon: "pi pi-pencil",
-      command: () => openEdit(row),
-    },
-    {
-      label: "Delete",
-      icon: "pi pi-trash",
-      command: () => confirmDelete(row),
-    },
-    { separator: true },
-    {
-      label: "Maintenance",
-      icon: "pi pi-calendar",
-      command: () => openMaintenance(row),
-    },
+    // {
+    //   label: "Edit",
+    //   icon: "pi pi-pencil",
+    //   command: () => openEdit(row),
+    // },
+    // {
+    //   label: "Delete",
+    //   icon: "pi pi-trash",
+    //   command: () => confirmDelete(row),
+    // },
+    // { separator: true },
+    // {
+    //   label: "Maintenance",
+    //   icon: "pi pi-calendar",
+    //   command: () => openMaintenance(row),
+    // },
     {
       label: "Voting",
       icon: "pi pi-chart-line",

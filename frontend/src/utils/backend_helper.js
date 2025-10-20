@@ -124,3 +124,7 @@ export const updateIssueStaffAssignment = (msirToken, { note }) =>
 
 export const deleteIssueStaffAssignment = (msirToken) =>
   api.delete(`/api/issue-reports/staff/${msirToken}`);
+
+
+export const listIssuesForStaff = (staffToken, params) =>
+  api.get(`/api/issue-reports/staff/${staffToken}`, { params });

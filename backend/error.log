@@ -41,3 +41,55 @@ Error
     at async ReportIssueWatchlist.findOne (C:\Users\lefam\Music\My Project\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
     at async exports.subscribeWatchlist (C:\Users\lefam\Music\My Project\crea\backend\controllers\IssueReportController.js:389:29)
 
+[2025-10-20T11:18:50.053Z] POST /api/maintenance-schedules
+ReferenceError: sequelize is not defined
+    at create (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\controllers\MaintenanceScheduleController.js:47:15)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:30:5
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:261:12
+    at getSecret (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at module.exports (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:19:7)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+
+[2025-10-20T11:18:50.064Z] POST /api/maintenance-schedules
+ReferenceError: sequelize is not defined
+    at create (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\controllers\MaintenanceScheduleController.js:47:15)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:30:5
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:261:12
+    at getSecret (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at module.exports (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:19:7)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+
+[2025-10-20T11:19:41.716Z] POST /api/maintenance-schedules
+ReferenceError: sequelize is not defined
+    at create (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\controllers\MaintenanceScheduleController.js:47:15)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:30:5
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:261:12
+    at getSecret (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at module.exports (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\middleware\auth.js:19:7)
+    at Layer.handleRequest (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\router\lib\route.js:157:13)
+
+[2025-10-20T12:17:37.431Z] GET /api/issue-reports/staff/e0ab57bf-31f5-4e9c-b804-aa260d738664
+Error: Association with alias "schedules" does not exist on IssueReport
+    at MunicipalStaffIssueReport._transformStringAssociation (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:275:15)
+    at MunicipalStaffIssueReport._conformInclude (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:300:38)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:270:61
+    at Array.map (<anonymous>)
+    at MunicipalStaffIssueReport._conformIncludes (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:270:39)
+    at MunicipalStaffIssueReport._conformInclude (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:314:16)
+    at C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:270:61
+    at Array.map (<anonymous>)
+    at MunicipalStaffIssueReport._conformIncludes (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:270:39)
+    at MunicipalStaffIssueReport._baseMerge (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:622:10)
+
