@@ -23,6 +23,7 @@ import StateChanges from "@/views/pages/stateMachine/StateChanges.vue";
 import ManageReportIssue from "@/views/pages/report/ManageReportIssue.vue";
 import StaffWorkloadDashboard from "@/views/pages/staff-workload/StaffWorkloadDashboard.vue";
 import StaffMyWork from "@/views/pages/staff-workload/StaffMyWork.vue";
+import LandingPage from "@/views/LandingPage.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -39,6 +40,13 @@ const router = createRouter({
       component: Login,
       meta: { guestOnly: true },
     },
+
+    {
+      path: "/",
+      name: "landing",
+      component: LandingPage,
+      meta: { public: true },
+      },
 
     {
       path: "/register",
@@ -123,7 +131,7 @@ router.beforeEach(async (to) => {
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
         sessionStorage.removeItem("JWT");
-        return { name: "login", query: { redirect: to.fullPath } };
+        return { name: "landing", query: { redirect: to.fullPath } };
       }
     } catch (e) {
       console.error("Invalid JWT:", e);
