@@ -58,6 +58,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "assignedStaff",
       });
 
+      IssueReport.hasMany(models.MaintenanceSchedule, {
+  foreignKey: "issue_report_id",
+  as: "schedules",
+});
+
 
       // An Issue Report has one Message Thread
       // IssueReport.hasOne(models.MessageThread, {

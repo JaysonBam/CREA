@@ -93,6 +93,7 @@ router.get("/:token/messages/read", auth, readController.get);
 // Creates or updates the timestamp for when a user read the messages (marks the chat as "read").
 router.put("/:token/messages/read", auth, readController.upsert);
 
+router.get("/staff/:staffToken", auth, municipallIssRepController.listIssuesForStaff);
 router.get("/:issueToken/staff", auth, municipallIssRepController.listForIssue);
 router.get("/:issueToken/staff/eligible", auth, municipallIssRepController.listEligibleStaffForIssue);
 router.post("/:issueToken/staff", auth, municipallIssRepController.addToIssue);

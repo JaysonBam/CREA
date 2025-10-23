@@ -1,6 +1,4 @@
 <script setup>
-// Jayden
-// Second step of registration: role + (if resident) address + ward
 
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 import { useField } from "vee-validate";
@@ -9,7 +7,6 @@ import { Loader } from "@googlemaps/js-api-loader";
 
 defineEmits(["back", "register"]);
 
-// ----- vee-validate fields -----
 const { value: role, errorMessage: roleError } = useField("role", undefined, {
   keepValueOnUnmount: true,
 });
@@ -37,15 +34,31 @@ const { value: wardCode, errorMessage: wardCodeError } = useField(
   { keepValueOnUnmount: true }
 );
 
-// ----- wards list -----
 const wards = ref([]);
 const wardsLoading = ref(false);
 const wardsError = ref("");
 
 // ----- Google Places -----
-const addressInputRef = ref(null); // real <input> element
-let autocomplete;
-let placeChangedListener;
+const addressInputRef = ref(null); s
+let autocomplete = null;
+let placeChangedListener = null;
+let manualInputListener = null;
+
+
+async function ensurePlacesLoaded() {
+  // Load base Maps at least once
+  if (!window.google?.maps) {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      version: "weekly",
+      libraries: [], // don't rely on this to add 'places' later
+    });
+    await loader.load();
+  }
+
+  const placesLib = await google.maps.importLibrary("places");
+  return placesLib;
+}
 
 // Initialize Places Autocomplete AFTER the input is in the DOM
 async function initAutocomplete() {
@@ -53,23 +66,23 @@ async function initAutocomplete() {
 
   const el = addressInputRef.value;
   if (!(el instanceof HTMLInputElement)) {
-    // If you ever swap to PrimeVue <InputText>, find its inner input:
-    // const real = el?.$el?.querySelector("input");
-    // if (!(real instanceof HTMLInputElement)) return;
+    // If swapping to a wrapped input later, find the inner real input here.
     return;
   }
 
-  // Load Maps JS + Places only if not already loaded
-  if (!window.google?.maps?.places) {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-      version: "weekly",
-      libraries: ["places"],
-    });
-    await loader.load();
+  const { Autocomplete } = await ensurePlacesLoaded();
+
+  // Clean up any previous instances/listeners before re-creating
+  if (placeChangedListener) {
+    placeChangedListener.remove();
+    placeChangedListener = null;
+  }
+  if (manualInputListener) {
+    el.removeEventListener("input", manualInputListener);
+    manualInputListener = null;
   }
 
-  autocomplete = new google.maps.places.Autocomplete(el, {
+  autocomplete = new Autocomplete(el, {
     fields: ["address_components", "geometry", "formatted_address", "place_id"],
     types: ["address"], // only street addresses
     componentRestrictions: { country: ["ZA"] }, // optional
@@ -91,11 +104,12 @@ async function initAutocomplete() {
   });
 
   // Clear meta if user edits text manually after a selection
-  el.addEventListener("input", () => {
+  manualInputListener = () => {
     addressPlaceId.value = "";
     addressLat.value = "";
     addressLng.value = "";
-  });
+  };
+  el.addEventListener("input", manualInputListener);
 }
 
 // When role becomes 'resident', ensure autocomplete is initialized
@@ -125,7 +139,16 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (placeChangedListener) placeChangedListener.remove();
+  if (placeChangedListener) {
+    placeChangedListener.remove();
+    placeChangedListener = null;
+  }
+  const el = addressInputRef.value;
+  if (el && manualInputListener) {
+    el.removeEventListener("input", manualInputListener);
+    manualInputListener = null;
+  }
+  autocomplete = null;
 });
 </script>
 
@@ -133,7 +156,6 @@ onBeforeUnmount(() => {
   <div>
     <label for="role" class="block text-xl mb-4">Select Role</label>
 
-    <!-- Keep Dropdown for now; PrimeVue v4 warns it's deprecated in favor of <Select> -->
     <Dropdown
       id="role"
       class="w-full md:w-[30rem] mb-1"

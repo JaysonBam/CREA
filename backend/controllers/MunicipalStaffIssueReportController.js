@@ -5,6 +5,7 @@ const {
   MunicipalStaffIssueReport,
   User,
   Ward,
+  Location,  
 } = require("../models");
 
 //helper function to find IssueReport with valid token
@@ -147,6 +148,111 @@ exports.removeAssignment = async (req, res, next) => {
 
     await row.destroy();
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET issues for a MunicipalStaff by their token, with next upcoming schedule
+// Route example: GET /api/issue-reports/staff/:staffToken
+exports.listIssuesForStaff = async (req, res, next) => {
+  try {
+    const { staffToken } = req.params;
+    if (!staffToken) {
+      return res.status(400).json({ error: "staffToken is required" });
+    }
+
+    // Find the staff member by token
+    const staff = await MunicipalStaff.findOne({
+      where: { token: staffToken },
+      attributes: ["id", "token", "ward_id", "job_description"],
+      include: [{ model: User, attributes: ["id", "first_name", "last_name", "email"] }],
+    });
+    if (!staff) {
+      return res.status(404).json({ error: "Staff not found" });
+    }
+
+    // Fetch all assignment links for this staff member
+    const links = await MunicipalStaffIssueReport.findAll({
+      where: { municipal_staff_id: staff.id },
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: IssueReport,
+          as: "issue",
+          attributes: [
+            "id",
+            "token",
+            "title",
+            "description",
+            "category",
+            "status",
+            "reference_no",
+            "votes_count",
+            "ward_id",
+            "createdAt",
+          ],
+          include: [
+            { model: Ward, as: "ward", attributes: ["id", "name", "code"] },
+            { model: Location, as: "location", attributes: ["id", "token", "address", "latitude", "longitude"] },
+            // Optional: next upcoming schedule; requires IssueReport.hasMany(MaintenanceSchedule, { as: "schedules" })
+            {
+              association: "schedules",
+              required: false,
+              separate: true,
+              limit: 1,
+              where: { date_time_from: { [Op.gte]: new Date() } },
+              order: [["date_time_from", "ASC"]],
+              attributes: ["id", "token", "date_time_from", "date_time_to"],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Shape response
+    const data = links.map((link) => {
+      const issue = link.issue;
+      const nextSchedule = Array.isArray(issue?.schedules) ? issue.schedules[0] : null;
+
+      return {
+        msirToken: link.token,
+        msirCreatedAt: link.createdAt,
+        note: link.note || null,
+
+        issue: issue
+          ? {
+            token: issue.token,
+            title: issue.title,
+            description: issue.description,
+            category: issue.category,
+            status: issue.status,
+            reference_no: issue.reference_no || null,
+            votes_count: issue.votes_count ?? 0,
+            createdAt: issue.createdAt,
+            ward: issue.ward ? { id: issue.ward.id, name: issue.ward.name, code: issue.ward.code } : null,
+            location: issue.location
+              ? {
+                token: issue.location.token,
+                address: issue.location.address || null,
+                latitude: issue.location.latitude,
+                longitude: issue.location.longitude,
+              }
+              : null,
+          }
+          : null,
+
+        nextSchedule: nextSchedule
+          ? {
+            token: nextSchedule.token,
+            date_time_from: nextSchedule.date_time_from,
+            date_time_to: nextSchedule.date_time_to,
+          }
+          : null,
+      };
+    });
+
+    return res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

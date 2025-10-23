@@ -22,6 +22,7 @@ import WardStats from "@/views/pages/ward/WardStats.vue";
 import StateChanges from "@/views/pages/stateMachine/StateChanges.vue";
 import ManageReportIssue from "@/views/pages/report/ManageReportIssue.vue";
 import StaffWorkloadDashboard from "@/views/pages/staff-workload/StaffWorkloadDashboard.vue";
+import StaffMyWork from "@/views/pages/staff-workload/StaffMyWork.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -85,6 +86,7 @@ const router = createRouter({
         },
 
         {path: "state-updates", name: "state-updates", component: StateChanges},
+        {path: "staff-my-work", name: "staff-my-work", component: StaffMyWork},
 
       ],
     },
