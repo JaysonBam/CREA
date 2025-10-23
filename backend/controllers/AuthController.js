@@ -124,6 +124,7 @@ module.exports = {
         first_name: user.first_name,
         last_name: user.last_name,
         jwt_token: jwtToken,
+        appearance: user.appearance,
       });
     } catch (e) {
       return response.status(500).json({

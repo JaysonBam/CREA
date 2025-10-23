@@ -41,7 +41,7 @@ const handleLogin = async () => {
     console.log("JWT:", res.data.jwt_token);
     sessionStorage.setItem("lat", res.data.location?.latitude || "-25.757168");
     sessionStorage.setItem("long", res.data.location?.longitude || "28.231682");
-
+    sessionStorage.setItem("appearance", res.data.appearance || "light");
     console.log(res.data);
     const redirect = router.currentRoute.value.query.redirect || "/reports";
 

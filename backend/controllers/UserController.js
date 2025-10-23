@@ -27,9 +27,11 @@ module.exports = {
   // POST /api/users
   async create(req, res) {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
 
-    const { first_name, last_name, email, phone, role, password, isActive } = req.body;
+    const { first_name, last_name, email, phone, role, password, isActive } =
+      req.body;
 
     // hash password before save (your model stores password directly)
     const passwordHash = await bcrypt.hash(String(password || ""), 10);
@@ -43,7 +45,7 @@ module.exports = {
         role,
         isActive: isActive !== undefined ? !!isActive : true,
         password: passwordHash, // store the hash in your existing `password` column
-        token: undefined,       // will use default UUID
+        token: undefined, // will use default UUID
       });
       res.status(201).json(sanitizeUser(user));
     } catch (err) {
@@ -58,9 +60,11 @@ module.exports = {
   // PUT /api/users/:id
   async update(req, res) {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
 
-    const { first_name, last_name, email, phone, role, isActive, password } = req.body;
+    const { first_name, last_name, email, phone, role, isActive, password } =
+      req.body;
 
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ error: "User not found" });
@@ -98,7 +102,12 @@ module.exports = {
     const { email, password } = req.body;
 
     const user = await User.findOne({
-      where: { email: String(email || "").toLowerCase().trim(), isActive: true },
+      where: {
+        email: String(email || "")
+          .toLowerCase()
+          .trim(),
+        isActive: true,
+      },
     });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
@@ -107,5 +116,26 @@ module.exports = {
 
     // If you’re issuing JWTs, you can do it here. Otherwise just confirm login.
     res.json({ message: "Login successful", user: sanitizeUser(user) });
+  },
+
+  // PUT /api/users/appearance
+  async updateAppearance(req, res) {
+    const { token } = req.params;
+
+    const userId = req.auth?.userId; // set by auth
+    console.log(req);
+    const { appearance } = req.body;
+    console.log("Updating appearance to:", appearance);
+    if (!["light", "dark"].includes(appearance)) {
+      return res.status(400).json({ error: "Invalid appearance value" });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.appearance = appearance;
+    await user.save();
+    console.log("Appearance updated:", appearance);
+    res.json({ message: "Appearance updated", appearance: user.appearance });
   },
 };
