@@ -9,6 +9,7 @@ module.exports = {
   // Get current user info
   async me(request, response) {
     try {
+      municipal_staff_token = null;
       // Get user ID
       const userId = request.user.user_id;
       // Find user by primary key en exclude password
