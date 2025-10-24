@@ -36,6 +36,8 @@ export const getUserIssueTitleSuggestions = (userToken, q) =>
 export const createIssueReport = (data) => api.post("/api/issue-reports", data);
 export const updateIssueReport = (token, data) =>
   api.put(`/api/issue-reports/${token}`, data);
+export const updateIssueReportStatus = (token, data) =>
+  api.put(`/api/issue-reports/${token}/status`, data);
 export const deleteIssueReport = (token) =>
   api.delete(`/api/issue-reports/${token}`);
 
@@ -94,12 +96,42 @@ export const getMaintenanceSchedule = (token) =>
 export const createMaintenanceSchedule = (data) =>
   api.post("/api/maintenance-schedules", data);
 
-
 // --- Voting / Escalation ---
 export const castVote = (issueToken) => api.post(`/api/votes/${issueToken}`);
-export const getVoteSummary = (issueToken) => api.get(`/api/votes/${issueToken}/summary`);
+export const getVoteSummary = (issueToken) =>
+  api.get(`/api/votes/${issueToken}/summary`);
 export const updateMaintenanceSchedule = (token, data) =>
   api.put(`/api/maintenance-schedules/${token}`, data);
 
 export const deleteMaintenanceSchedule = (token) =>
   api.delete(`/api/maintenance-schedules/${token}`);
+
+export const listIssueReportsForMyWards = (params) =>
+  api.get("/api/issue-reports/wards", { params });
+
+export const listIssueStaffAssignments = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/staff`);
+
+export const listEligibleStaffForIssue = (issueToken) =>
+  api.get(`/api/issue-reports/${issueToken}/staff/eligible`);
+
+export const addIssueStaffAssignment = (
+  issueToken,
+  { municipalStaffToken, note }
+) =>
+  api.post(`/api/issue-reports/${issueToken}/staff`, {
+    municipalStaffToken,
+    note,
+  });
+
+export const updateIssueStaffAssignment = (msirToken, { note }) =>
+  api.put(`/api/issue-reports/staff/${msirToken}`, { note });
+
+export const deleteIssueStaffAssignment = (msirToken) =>
+  api.delete(`/api/issue-reports/staff/${msirToken}`);
+
+export const listIssuesForStaff = (staffToken, params) =>
+  api.get(`/api/issue-reports/staff/${staffToken}`, { params });
+
+export const updateAppearance = (appearance) =>
+  api.put(`/api/users/appearance`, { appearance });

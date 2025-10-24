@@ -2,6 +2,7 @@
 const express = require("express");
 const { body, param } = require("express-validator");
 const UserController = require("../controllers/UserController");
+const auth = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -32,6 +33,8 @@ const updateValidators = [
 const idValidator = [param("id").isInt().withMessage("id must be an integer")];
 
 // Routes
+router.put("/appearance", auth, UserController.updateAppearance);
+
 router.get("/", UserController.list);
 
 router.post(
@@ -44,5 +47,4 @@ router.get("/:id", idValidator, UserController.get);
 router.post("/", createValidators, UserController.create);
 router.put("/:id", idValidator.concat(updateValidators), UserController.update);
 router.delete("/:id", idValidator, UserController.remove);
-
 module.exports = router;

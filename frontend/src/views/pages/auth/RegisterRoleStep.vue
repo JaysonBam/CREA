@@ -1,15 +1,20 @@
 <script setup>
-// Jayden
-// Second step of registration: role + (if resident) address + ward
-
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
+import {
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  watch,
+  computed,
+} from "vue";
 import { useField } from "vee-validate";
 import { getAllWards } from "@/utils/ward_helper";
 import { Loader } from "@googlemaps/js-api-loader";
 
 defineEmits(["back", "register"]);
 
-// ----- vee-validate fields -----
+const showRoleError = computed(() => !role.value);
+// ---- vee-validate fields ----
 const { value: role, errorMessage: roleError } = useField("role", undefined, {
   keepValueOnUnmount: true,
 });
@@ -20,7 +25,6 @@ const { value: address, errorMessage: addressError } = useField(
   { keepValueOnUnmount: true }
 );
 
-// Capture Google place details
 const { value: addressLat } = useField("address_lat", undefined, {
   keepValueOnUnmount: true,
 });
@@ -37,68 +41,116 @@ const { value: wardCode, errorMessage: wardCodeError } = useField(
   { keepValueOnUnmount: true }
 );
 
-// ----- wards list -----
+// ---- data ----
 const wards = ref([]);
 const wardsLoading = ref(false);
 const wardsError = ref("");
 
+// For rendering the selected ward label without an inline function in template
+const selectedWardLabel = computed(() => {
+  if (!wardCode.value) return "";
+  const w = wards.value?.find((x) => x.code === wardCode.value);
+  return w ? `${w.name} (${w.code})` : wardCode.value;
+});
+
 // ----- Google Places -----
-const addressInputRef = ref(null); // real <input> element
-let autocomplete;
-let placeChangedListener;
+const addressInputRef = ref(null);
+let autocomplete = null;
+let placeChangedListener = null;
+let manualInputListener = null;
+let loadingMaps = false;
+let mapsReady = false;
 
-// Initialize Places Autocomplete AFTER the input is in the DOM
-async function initAutocomplete() {
-  await nextTick();
-
-  const el = addressInputRef.value;
-  if (!(el instanceof HTMLInputElement)) {
-    // If you ever swap to PrimeVue <InputText>, find its inner input:
-    // const real = el?.$el?.querySelector("input");
-    // if (!(real instanceof HTMLInputElement)) return;
-    return;
+async function ensurePlacesLoaded() {
+  if (mapsReady) return true;
+  if (loadingMaps) {
+    // small spin-wait to avoid double loads
+    while (loadingMaps && !mapsReady) {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    return mapsReady;
   }
 
-  // Load Maps JS + Places only if not already loaded
-  if (!window.google?.maps?.places) {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-      version: "weekly",
-      libraries: ["places"],
-    });
-    await loader.load();
+  loadingMaps = true;
+  try {
+    if (!window.google?.maps) {
+      const loader = new Loader({
+        apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+        version: "weekly",
+        // don't rely on "libraries" here; we will use importLibrary
+      });
+      await loader.load();
+    }
+    // Import the Places library (_after_ maps script is ready)
+    await google.maps.importLibrary("places");
+    mapsReady = true;
+    return true;
+  } catch (e) {
+    console.error("Failed to load Google Maps Places:", e);
+    mapsReady = false;
+    return false;
+  } finally {
+    loadingMaps = false;
+  }
+}
+
+async function initAutocomplete() {
+  // Only for resident role and when input is present
+  if (role.value !== "resident") return;
+
+  await nextTick();
+
+  // Prime inputs can sometimes be wrappers; accept native input or try to find one
+  let el = addressInputRef.value;
+  if (!(el instanceof HTMLInputElement)) {
+    el = el?.querySelector?.("input") || null;
+  }
+  if (!el) return; // nothing to attach to yet
+
+  const ok = await ensurePlacesLoaded();
+  if (!ok || !google?.maps?.places?.Autocomplete) return;
+
+  // Clean previous
+  if (placeChangedListener) {
+    placeChangedListener.remove();
+    placeChangedListener = null;
+  }
+  if (manualInputListener && el) {
+    el.removeEventListener("input", manualInputListener);
+    manualInputListener = null;
   }
 
   autocomplete = new google.maps.places.Autocomplete(el, {
     fields: ["address_components", "geometry", "formatted_address", "place_id"],
-    types: ["address"], // only street addresses
-    componentRestrictions: { country: ["ZA"] }, // optional
+    types: ["address"],
+    componentRestrictions: { country: ["ZA"] },
   });
 
   placeChangedListener = autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace();
+    const place = autocomplete.getPlace?.();
     if (!place) return;
 
-    // Fill address + meta
-    address.value = place.formatted_address || address.value;
+    address.value = place.formatted_address || address.value || "";
     addressPlaceId.value = place.place_id || "";
 
     const loc = place.geometry?.location;
     if (loc) {
-      addressLat.value = loc.lat();
-      addressLng.value = loc.lng();
+      // guard against null; call functions only if present
+      addressLat.value = typeof loc.lat === "function" ? loc.lat() : "";
+      addressLng.value = typeof loc.lng === "function" ? loc.lng() : "";
     }
   });
 
-  // Clear meta if user edits text manually after a selection
-  el.addEventListener("input", () => {
+  // If user edits text after selecting a place, clear meta fields
+  manualInputListener = () => {
     addressPlaceId.value = "";
     addressLat.value = "";
     addressLng.value = "";
-  });
+  };
+  el.addEventListener("input", manualInputListener);
 }
 
-// When role becomes 'resident', ensure autocomplete is initialized
+// Re-init autocomplete whenever role becomes 'resident'
 watch(role, async (r) => {
   if (r === "resident") {
     await initAutocomplete();
@@ -125,7 +177,21 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (placeChangedListener) placeChangedListener.remove();
+  // Clean listeners
+  if (placeChangedListener) {
+    placeChangedListener.remove();
+    placeChangedListener = null;
+  }
+  const el =
+    addressInputRef.value instanceof HTMLInputElement
+      ? addressInputRef.value
+      : addressInputRef.value?.querySelector?.("input");
+
+  if (el && manualInputListener) {
+    el.removeEventListener("input", manualInputListener);
+    manualInputListener = null;
+  }
+  autocomplete = null;
 });
 </script>
 
@@ -133,7 +199,6 @@ onBeforeUnmount(() => {
   <div>
     <label for="role" class="block text-xl mb-4">Select Role</label>
 
-    <!-- Keep Dropdown for now; PrimeVue v4 warns it's deprecated in favor of <Select> -->
     <Dropdown
       id="role"
       class="w-full md:w-[30rem] mb-1"
@@ -147,12 +212,11 @@ onBeforeUnmount(() => {
       v-model="role"
       placeholder="Select a role"
     />
-    <small class="text-red-500 block mb-4">{{ roleError }}</small>
 
     <template v-if="role === 'resident'">
       <label for="address" class="block text-xl mb-2">Address</label>
 
-      <!-- Real <input> so Google Places can attach -->
+      <!-- Real input so Google Places can attach; wrapper-safe via initAutocomplete -->
       <input
         id="address"
         ref="addressInputRef"
@@ -183,14 +247,7 @@ onBeforeUnmount(() => {
       >
         <template #value="{ value, placeholder }">
           <span v-if="!value">{{ placeholder }}</span>
-          <span v-else>
-            {{
-              (() => {
-                const w = wards.find((x) => x.code === value);
-                return w ? `${w.name} (${w.code})` : value;
-              })()
-            }}
-          </span>
+          <span v-else>{{ selectedWardLabel }}</span>
         </template>
 
         <template #option="{ option }">
@@ -201,7 +258,9 @@ onBeforeUnmount(() => {
         </template>
       </Dropdown>
 
-      <small class="text-red-500 block mb-2" v-if="wardsError">{{ wardsError }}</small>
+      <small class="text-red-500 block mb-2" v-if="wardsError">{{
+        wardsError
+      }}</small>
       <small class="text-red-500 block mb-6">{{ wardCodeError }}</small>
     </template>
 

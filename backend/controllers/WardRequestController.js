@@ -71,18 +71,34 @@ module.exports = {
   async list(request, response) {
     try {
       // Only admins can view all ward requests
-      if (!request.user || request.user.role !== 'admin') {
+      // Community leaders with assigned ward can view requests for their ward
+      const { User, Ward } = require("../models");
+      let allRequests = [];
+      if (request.user.role === 'admin') {
+        allRequests = await WardRequest.findAll({
+          order: [['created_at', 'DESC']],
+          include: [
+            { model: User, as: 'person', attributes: ['id', 'first_name', 'last_name'] },
+            { model: Ward, as: 'ward', attributes: ['id', 'name', 'code'] }
+          ],
+        });
+      } else if (request.user.role === 'communityleader') {
+        // Find leader's assigned ward via CommunityLeader table
+        const leaderRole = await CommunityLeader.findOne({ where: { user_id: request.user.user_id } });
+        if (!leaderRole || !leaderRole.ward_id) {
+          return response.status(403).json({ success: false, message: 'Forbidden' });
+        }
+        allRequests = await WardRequest.findAll({
+          where: { ward_id: leaderRole.ward_id },
+          order: [['created_at', 'DESC']],
+          include: [
+            { model: User, as: 'person', attributes: ['id', 'first_name', 'last_name'] },
+            { model: Ward, as: 'ward', attributes: ['id', 'name', 'code'] }
+          ],
+        });
+      } else {
         return response.status(403).json({ success: false, message: 'Forbidden' });
       }
-      const { User, Ward } = require("../models");
-      // Get all requests, newest first
-      const allRequests = await WardRequest.findAll({
-        order: [['created_at', 'DESC']],
-        include: [
-          { model: User, as: 'person', attributes: ['id', 'first_name', 'last_name'] },
-          { model: Ward, as: 'ward', attributes: ['id', 'name', 'code'] }
-        ],
-      });
       // Only keep the latest request per person (if it's a join request)
       const latestByPerson = {};
       for (const req of allRequests) {
