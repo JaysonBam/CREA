@@ -11,8 +11,8 @@
       <div v-for="req in requests" :key="req.id" class="rounded-lg border border-gray-200 bg-white shadow-sm p-4 flex flex-col gap-1 hover:shadow-md transition-shadow">
         <div class="flex items-center gap-2 mb-1">
           <span class="text-xs text-gray-500"><i class="pi pi-calendar"></i> {{ formatDate(req.created_at) }}</span>
-          <span class="ml-auto px-2 py-0.5 rounded text-xs font-semibold"
-                :class="req.type === 'accept' ? 'bg-green-100 text-green-700' : req.type === 'reject' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'">
+      <span class="ml-auto px-2 py-0.5 rounded text-xs font-semibold"
+        :class="req.type === 'accept' ? 'bg-green-100 text-green-700' : req.type === 'reject' ? 'bg-red-100 text-red-700' : req.type === 'leave' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">
             {{ req.type.charAt(0).toUpperCase() + req.type.slice(1) }}
           </span>
         </div>

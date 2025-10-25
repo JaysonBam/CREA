@@ -1,5 +1,6 @@
-const { WardRequest } = require("../models");
-const { User, MunicipalStaff, CommunityLeader, Ward } = require("../models");
+const db = require("../models");
+const { WardRequest } = db;
+const { User, MunicipalStaff, CommunityLeader, Ward } = db;
 
 module.exports = {
   async create(request, response) {
@@ -16,6 +17,11 @@ module.exports = {
       let actualSenderId = userId;
       // If no person_id provided, default to sender (self-request)
       if (!actualPersonId) actualPersonId = userId;
+
+      // Authorization (simple): only allow leaving on behalf of another user if caller is admin
+      if (type === 'leave' && actualSenderId !== actualPersonId && request.user.role !== 'admin') {
+        return response.status(403).json({ success: false, message: 'Forbidden' });
+      }
 
       // If this is an acceptance, assign the user to the ward
       let jobDescToUse = job_description;
@@ -41,6 +47,42 @@ module.exports = {
             user_id: user.id,
             ward_id,
           });
+        }
+      } else if (type === 'leave') {
+        // Handle leaving a ward: remove the assignment record for staff or community leader
+        user = await User.findByPk(actualPersonId);
+        if (!user) {
+          return response.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Wrap deletion and audit (ward request creation) in a transaction
+        const t = await db.sequelize.transaction();
+        try {
+          if (user.role === 'staff') {
+            await MunicipalStaff.destroy({ where: { user_id: user.id, ward_id }, transaction: t });
+          } else if (user.role === 'communityleader') {
+            await CommunityLeader.destroy({ where: { user_id: user.id, ward_id }, transaction: t });
+          } else {
+            // User role not applicable for leave
+            await t.rollback();
+            return response.status(400).json({ success: false, message: 'User role cannot leave a ward' });
+          }
+
+          // create audit record inside the same transaction
+          const newRequest = await WardRequest.create({
+            person_id: actualPersonId,
+            sender_id: actualSenderId,
+            ward_id,
+            job_description: jobDescToUse,
+            message,
+            type,
+          }, { transaction: t });
+
+          await t.commit();
+          return response.status(201).json({ success: true, request: newRequest });
+        } catch (err) {
+          await t.rollback();
+          return response.status(500).json({ success: false, message: 'Failed to remove user from ward' });
         }
       } else {
         // For new requests, set job_description based on role if not provided

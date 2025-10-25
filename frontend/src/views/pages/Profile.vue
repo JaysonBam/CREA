@@ -7,21 +7,24 @@ const user = ref(null);
 const loading = ref(true);
 const error = ref(null);
 
-onMounted(async () => {
-    // Use api to get user data
+async function fetchProfile() {
+    loading.value = true;
+    error.value = null;
     try {
         const res = await get('/api/auth/me');
         if (res.data && res.data.success) {
-        user.value = res.data.user;
+            user.value = res.data.user;
         } else {
-        error.value = 'Failed to fetch profile info';
+            error.value = 'Failed to fetch profile info';
         }
     } catch (e) {
         error.value = 'Failed to fetch profile info';
     } finally {
         loading.value = false;
     }
-});
+}
+
+onMounted(fetchProfile);
 </script>
 
 <template>
@@ -30,6 +33,6 @@ onMounted(async () => {
         <h1 class="text-2xl font-bold mb-6">My Profile</h1>
         <div v-if="loading" class="text-center py-16 text-lg text-gray-500">Loading profile...</div>
         <div v-else-if="error" class="text-center py-16 text-red-500">{{ error }}</div>
-        <ProfileDetailModal v-else :user="user" />
+    <ProfileDetailModal v-else :user="user" @profile-updated="fetchProfile" />
     </div>
 </template>
