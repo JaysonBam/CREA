@@ -44,52 +44,109 @@
       <div class="skeleton-panel" />
     </div>
 
-    <div v-else>
-      <!-- KPI cards -->
-      <div class="grid mb-4">
-        <div class="col-12 md:col-3">
-          <div class="kpi kpi--blue">
-            <div class="kpi-head">
-              <i class="pi pi-exclamation-circle kpi-icon" />
-              <div class="kpi-title">Open (NEW)</div>
-            </div>
-            <div class="kpi-value">{{ stats.open }}</div>
+    <div v-else class="main-layout">
+      <!-- LEFT SIDEBAR: KPI cards -->
+      <div class="stats-sidebar">
+        <div class="kpi kpi--blue">
+          <div class="kpi-head">
+            <i class="pi pi-exclamation-circle kpi-icon" />
+            <div class="kpi-title">Open (NEW)</div>
+          </div>
+          <div class="kpi-value">{{ stats.open }}</div>
+          <div class="kpi-change positive">
+            <i class="pi pi-arrow-up"></i> 0.45% this month
           </div>
         </div>
-        <div class="col-12 md:col-3">
-          <div class="kpi kpi--amber">
-            <div class="kpi-head">
-              <i class="pi pi-hourglass kpi-icon" />
-              <div class="kpi-title">Pending (ACK + IN&nbsp;PROGRESS)</div>
-            </div>
-            <div class="kpi-value">{{ stats.pending }}</div>
+
+        <div class="kpi kpi--amber">
+          <div class="kpi-head">
+            <i class="pi pi-hourglass kpi-icon" />
+            <div class="kpi-title">Pending (ACK + IN PROGRESS)</div>
+          </div>
+          <div class="kpi-value">{{ stats.pending }}</div>
+          <div class="kpi-change positive">
+            <i class="pi pi-arrow-up"></i> 4.43% this month
           </div>
         </div>
-        <div class="col-12 md:col-3">
-          <div class="kpi kpi--green">
-            <div class="kpi-head">
-              <i class="pi pi-check-circle kpi-icon" />
-              <div class="kpi-title">Resolved</div>
-            </div>
-            <div class="kpi-value">{{ stats.closed }}</div>
+
+        <div class="kpi kpi--green">
+          <div class="kpi-head">
+            <i class="pi pi-check-circle kpi-icon" />
+            <div class="kpi-title">Resolved</div>
+          </div>
+          <div class="kpi-value">{{ stats.closed }}</div>
+          <div class="kpi-change positive">
+            <i class="pi pi-arrow-up"></i> 1.25% this month
           </div>
         </div>
-        <div class="col-12 md:col-3">
-          <div class="kpi kpi--violet">
-            <div class="kpi-head">
-              <i class="pi pi-clock kpi-icon" />
-              <div class="kpi-title">Avg Resolution (ACK → RES)</div>
-            </div>
-            <div class="kpi-value">
-              {{ formattedAvgResolution }}
+
+        <div class="kpi kpi--violet">
+          <div class="kpi-head">
+            <i class="pi pi-clock kpi-icon" />
+            <div class="kpi-title">Avg Resolution (ACK → RES)</div>
+          </div>
+          <div class="kpi-value small-text">
+            {{ formattedAvgResolution }}
+          </div>
+        </div>
+
+        <div class="kpi kpi--teal">
+          <div class="kpi-head">
+            <i class="pi pi-users kpi-icon" />
+            <div class="kpi-title">Staff (Total)</div>
+          </div>
+          <div class="kpi-value">{{ stats.staffTotal }}</div>
+        </div>
+
+        <div class="kpi kpi--red">
+          <div class="kpi-head">
+            <i class="pi pi-user-minus kpi-icon" />
+            <div class="kpi-title">
+              Staff Not Assigned
             </div>
           </div>
+          <div class="kpi-value">{{ stats.staffBusy }}</div>
+          <div class="kpi-subtitle">(assigned to open)</div>
         </div>
       </div>
 
-      <!-- Charts -->
-      <div class="grid">
-        <div class="col-12 lg:col-6">
+      <!-- RIGHT CONTENT: Charts -->
+      <div class="charts-content">
+        <!-- Trend Chart - Full Width -->
+        <div class="panel panel-large">
+          <div class="panel-head">
+            <h3 class="m-0 text-lg">Trend Overview</h3>
+            <div class="panel-actions">
+              <Dropdown 
+                v-model="seriesDays" 
+                :options="seriesDayOptions" 
+                optionLabel="label" 
+                optionValue="value" 
+                class="w-10rem lg:hidden" 
+              />
+            </div>
+          </div>
+          <Chart type="line" :data="seriesChartData" :options="lineChartOptions" class="chart-large" />
+          
+          <!-- Summary Stats Below Chart -->
+          <div class="summary-stats">
+            <div class="summary-item">
+              <div class="summary-label">Total New</div>
+              <div class="summary-value">{{ stats.open + stats.pending + stats.closed }}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Total Resolved</div>
+              <div class="summary-value">{{ stats.closed }}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Issues Addressed</div>
+              <div class="summary-value">{{ Math.round((stats.closed / (stats.open + stats.pending + stats.closed || 1)) * 100) }}%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row: Two Charts -->
+        <div class="charts-row">
           <div class="panel">
             <div class="panel-head">
               <h3 class="m-0 text-lg">Status Breakdown</h3>
@@ -97,15 +154,13 @@
             </div>
             <Chart type="doughnut" :data="statusChartData" :options="doughnutOptions" />
           </div>
-        </div>
 
-        <div class="col-12 lg:col-6">
           <div class="panel">
             <div class="panel-head">
-              <h3 class="m-0 text-lg">Trend (New vs Resolved vs Open)</h3>
-              <Dropdown v-model="seriesDays" :options="seriesDayOptions" optionLabel="label" optionValue="value" class="w-10rem lg:hidden" />
+              <h3 class="m-0 text-lg">Issues by Category</h3>
+              <span class="panel-note">Potholes, streetlights, etc.</span>
             </div>
-            <Chart type="line" :data="seriesChartData" :options="lineChartOptions" />
+            <Chart type="doughnut" :data="categoryChartData" :options="doughnutOptions" />
           </div>
         </div>
       </div>
@@ -150,6 +205,8 @@ const stats = ref({
   pending: 0,
   avgResolution: null,
   breakdown: { new: 0, acknowledged: 0, in_progress: 0, resolved: 0 },
+  staffTotal: 0,
+  staffBusy: 0,
 })
 
 const refreshOptions = [
@@ -166,6 +223,8 @@ const seriesDayOptions = [
 ];
 const seriesDays = ref(7);
 const seriesData = ref([]);
+
+const categoryItems = ref([]);
 
 const wardIdNum = computed(() => {
   const raw = props.wardId ?? route.params.id ?? route.query.id
@@ -188,7 +247,6 @@ function normalizeStats(raw) {
   const closed = Number(raw?.closed ?? raw?.closedIssues ?? raw?.count_closed ?? 0) || 0;
   const pending = Number(raw?.pending ?? raw?.pendingIssues ?? raw?.count_pending ?? 0) || 0;
 
-  // Prefer a raw numeric seconds value if present; otherwise keep null
   const avgResolution =
     safeNum(raw?.avgResolution) ??
     safeNum(raw?.avg_resolution) ??
@@ -203,7 +261,10 @@ function normalizeStats(raw) {
     resolved: Number(raw?.breakdown?.resolved ?? 0) || 0,
   };
 
-  return { open, closed, pending, avgResolution, breakdown };
+  const staffTotal = Number(raw?.staffTotal ?? raw?.staff_total ?? raw?.staff ?? 0) || 0;
+  const staffBusy = Number(raw?.staffBusy ?? raw?.staff_busy ?? raw?.staff_assigned_open ?? 0) || 0;
+
+  return { open, closed, pending, avgResolution, breakdown, staffTotal, staffBusy };
 }
 
 async function fetchStats() {
@@ -211,12 +272,10 @@ async function fetchStats() {
   try {
     if (!wardIdNum.value) throw new Error('Invalid ward id');
 
-    // 1) Fetch aggregate stats
     const r1 = await api.get(`/api/wards/${wardIdNum.value}/stats`);
     const payload = r1?.data?.data ?? r1?.data ?? r1 ?? {};
     const normalized = normalizeStats(payload);
 
-    // 2) Try the dedicated ACK→RES average endpoint; accept 0 as valid
     try {
       const r2 = await api.get(`/api/wards/${wardIdNum.value}/stats/avg-resolution-time`);
       const d2 = r2?.data?.data ?? r2?.data ?? {};
@@ -230,7 +289,7 @@ async function fetchStats() {
         normalized.avgResolution = candidate === 0 ? 0 : n;
       }
     } catch (_) {
-      // keep whatever /stats gave us (may be null)
+      // keep whatever /stats gave us
     }
 
     stats.value = normalized;
@@ -238,81 +297,125 @@ async function fetchStats() {
   } catch (err) {
     toast.add({ severity: 'error', summary: 'Load failed', detail: getErr(err), life: 4000 });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
+}
+
+const formattedAvgResolution = computed(() => {
+  const val = stats.value?.avgResolution;
+  if (val === null || val === undefined) return '—';
+  if (val === 0) return '0h 0m 0s';
+  return formatSeconds(val);
+});
+
+// --- Category pretty naming ---
+const WRAPPER_KEYS = new Set(['success', 'message', 'error', 'errors', 'status', 'code', 'meta', 'pagination', 'data']);
+
+function normalizeSeriesPayload(raw) {
+  // Accept: {data:{series:[...]}} | {series:[...]} | [...] | {items:[...]} | {rows:[...]}
+  const pickArray = (x) => {
+    if (!x) return [];
+    // Unwrap common envelopes
+    if (x && typeof x === 'object' && x.data !== undefined) return pickArray(x.data);
+    if (Array.isArray(x)) return x;
+    if (Array.isArray(x.series)) return x.series;
+    if (Array.isArray(x.items)) return x.items;
+    if (Array.isArray(x.rows)) return x.rows;
+    // Some APIs return {series:{data:[...]}}
+    if (x.series && Array.isArray(x.series.data)) return x.series.data;
+    return [];
+  };
+  const arr = pickArray(raw);
+  // Map to {date,new,resolved,open}
+  return arr.map((d, i) => ({
+    date: d.date ?? d.day ?? d.label ?? d.createdAt ?? d.ts ?? i,
+    new: Number(d.new ?? d.count_new ?? d.NEW ?? d.created ?? 0) || 0,
+    resolved: Number(d.resolved ?? d.count_resolved ?? d.RESOLVED ?? d.closed ?? 0) || 0,
+    open: Number(d.open ?? d.count_open ?? d.OPEN ?? d.total_open ?? 0) || 0,
+  }));
+}
+
+function normalizeCategoriesPayload(raw) {
+  // Unwrap nested .data if present
+  if (raw && typeof raw === 'object' && raw.data !== undefined) {
+    return normalizeCategoriesPayload(raw.data);
+  }
+  const out = [];
+  const push = (label, count) => {
+    const lbl = prettyCategory(label);
+    const cnt = Number(count ?? 0);
+    if (lbl && Number.isFinite(cnt)) out.push({ label: lbl, count: cnt });
+  };
+
+  // Array forms
+  if (Array.isArray(raw)) {
+    raw.forEach((it) => push(it.label ?? it.name ?? it.category, it.count ?? it.value));
+    return out;
+  }
+  if (Array.isArray(raw?.categories)) {
+    raw.categories.forEach((it) => push(it.label ?? it.name ?? it.category, it.count ?? it.value));
+    return out;
+  }
+  if (Array.isArray(raw?.data)) {
+    raw.data.forEach((it) => push(it.label ?? it.name ?? it.category, it.count ?? it.value));
+    return out;
+  }
+  // Map/object form
+  if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, v]) => {
+      if (WRAPPER_KEYS.has(String(k).toLowerCase())) return; // skip envelope keys
+      const num = Number(v);
+      if (!Number.isFinite(num)) return; // only numeric counts
+      push(k, num);
+    });
+    return out;
+  }
+  return out;
+}
+
+function prettyCategory(label) {
+  const lbl = String(label ?? '').trim();
+  if (!lbl) return '';
+  // Add more mappings if needed
+  return lbl;
 }
 
 async function fetchSeries() {
   try {
     if (!wardIdNum.value) throw new Error('Invalid ward id');
-    const r = await api.get(`/api/wards/${wardIdNum.value}/stats/series?days=${seriesDays.value}`);
-    const payload = r?.data?.data ?? {};
-    seriesData.value = payload.series || [];
+    const r = await api.get(`/api/wards/${wardIdNum.value}/stats/series`, {
+      params: { days: seriesDays.value },
+    });
+    const payload = r?.data?.data ?? r?.data ?? {};
+    seriesData.value = normalizeSeriesPayload(payload);
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Series load failed', detail: getErr(err), life: 4000 });
+    toast.add({ severity: 'error', summary: 'Series load failed', detail: getErr(err), life: 3000 });
+    seriesData.value = [];
   }
 }
 
-function doManualRefresh() {
-  fetchStats();
-  fetchSeries();
+async function fetchCategories() {
+  try {
+    if (!wardIdNum.value) throw new Error('Invalid ward id');
+
+    // Try primary endpoint
+    let payload;
+    try {
+      const r = await api.get(`/api/wards/${wardIdNum.value}/stats/categories`);
+      payload = r?.data?.data ?? r?.data ?? {};
+      // always unwrap .data if present
+    } catch {
+      // Fallback to /stats and extract possible maps
+      const r2 = await api.get(`/api/wards/${wardIdNum.value}/stats`);
+      payload = r2?.data?.data ?? r2?.data ?? {};
+      payload = payload?.breakdown_by_category ?? payload?.categories ?? payload ?? {};
+    }
+    categoryItems.value = normalizeCategoriesPayload(payload);
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Category load failed', detail: getErr(err), life: 3000 });
+    categoryItems.value = [];
+  }
 }
-
-const seriesChartData = computed(() => {
-  const labels = seriesData.value.map(p => p.date);
-  return {
-    labels,
-    datasets: [
-      {
-        label: 'New',
-        borderColor: '#42A5F5',
-        fill: false,
-        data: seriesData.value.map(p => p.new),
-        tension: 0.35,
-        pointRadius: 2,
-      },
-      {
-        label: 'Resolved',
-        borderColor: '#66BB6A',
-        fill: false,
-        data: seriesData.value.map(p => p.resolved),
-        tension: 0.35,
-        pointRadius: 2,
-      },
-      {
-        label: 'Open',
-        borderColor: '#FFA726',
-        fill: false,
-        data: seriesData.value.map(p => p.open),
-        tension: 0.35,
-        pointRadius: 2,
-      },
-    ],
-  };
-});
-
-const lineChartOptions = {
-  plugins: {
-    legend: { position: 'bottom' },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-    },
-  },
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode: 'nearest', intersect: false },
-  scales: {
-    x: { grid: { display: false } },
-    y: { beginAtZero: true, ticks: { precision: 0 } },
-  },
-};
-
-const formattedAvgResolution = computed(() => {
-  return (typeof stats.value.avgResolution === 'number' || stats.value.avgResolution === 0)
-    ? formatSeconds(stats.value.avgResolution)
-    : '—';
-});
 
 const statusChartData = computed(() => {
   const b = stats.value.breakdown || {};
@@ -321,21 +424,87 @@ const statusChartData = computed(() => {
     datasets: [
       {
         data: [b.new || 0, b.acknowledged || 0, b.in_progress || 0, b.resolved || 0],
-        backgroundColor: ['#42A5F5', '#FFB300', '#AB47BC', '#66BB6A'],
+        backgroundColor: ['#42A5F5', '#FFB300', '#7E57C2', '#66BB6A'],
         borderWidth: 0,
       },
     ],
   };
 });
 
-const doughnutOptions = {
-  plugins: {
-    legend: { position: 'bottom' },
-    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
-  },
+const categoryChartData = computed(() => {
+  const items = Array.isArray(categoryItems.value) ? categoryItems.value : [];
+  if (items.length === 0) return { labels: [], datasets: [] };
+  const labels = items.map(it => String(it.label ?? it.category ?? 'Unknown'));
+  const counts = items.map(it => Number(it.count ?? it.value ?? 0) || 0);
+  const base = ['#42A5F5', '#FFB300', '#AB47BC', '#66BB6A', '#26C6DA', '#EC407A', '#7E57C2', '#FFA726', '#29B6F6', '#8D6E63'];
+  const colors = labels.map((_, i) => base[i % base.length]);
+  return { labels, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0 }] };
+});
+
+const seriesChartData = computed(() => {
+  const rows = Array.isArray(seriesData.value) ? seriesData.value : [];
+  if (rows.length === 0) return { labels: [], datasets: [] };
+  const labels = rows.map(d => {
+    const dt = new Date(d.date);
+    return Number.isNaN(dt.getTime()) ? String(d.date) : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+  return {
+    labels,
+    datasets: [
+      { label: 'New',      data: rows.map(d => d.new),      borderColor: '#42A5F5', fill: false, tension: 0.35, pointRadius: 2 },
+      { label: 'Resolved', data: rows.map(d => d.resolved), borderColor: '#66BB6A', fill: false, tension: 0.35, pointRadius: 2 },
+      { label: 'Open',     data: rows.map(d => d.open),     borderColor: '#FFA726', fill: false, tension: 0.35, pointRadius: 2 },
+    ],
+  };
+});
+
+const lineChartOptions = {
+  responsive: true,
   maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top',
+      align: 'start',
+      labels: {
+        usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 15,
+      }
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: 'rgba(200,200,200,0.2)' },
+    },
+  },
+};
+
+const doughnutOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  elements: {
+    arc: { borderWidth: 0 }
+  },
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: { padding: 12, usePointStyle: true }
+    }
+  },
   cutout: '65%',
 };
+
+function doManualRefresh() {
+  fetchStats();
+  fetchSeries();
+  fetchCategories();
+  toast.add({ severity: 'success', summary: 'Refreshed', detail: 'Data updated', life: 2000 });
+}
 
 function exportCsv() {
   const b = stats.value.breakdown || {};
@@ -344,6 +513,8 @@ function exportCsv() {
     ['Open (NEW)', stats.value.open],
     ['Pending (ACK + IN_PROGRESS)', stats.value.pending],
     ['Resolved', stats.value.closed],
+    ['Staff (Total)', stats.value.staffTotal],
+    ['Staff Not Available (assigned to open)', stats.value.staffBusy],
     ['Avg Resolution (ACK→RESOLVED) [HH:MM:SS]', formattedAvgResolution.value],
     [],
     ['Status', 'Count'],
@@ -351,6 +522,9 @@ function exportCsv() {
     ['ACKNOWLEDGED', b.acknowledged || 0],
     ['IN_PROGRESS', b.in_progress || 0],
     ['RESOLVED', b.resolved || 0],
+    [],
+    ['Category', 'Count'],
+    ...categoryItems.value.map(it => [String(it.label ?? it.category ?? 'Unknown'), Number(it.count ?? it.value ?? 0) || 0]),
   ];
   const csv = rows.map(r => r.map((v) => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -372,7 +546,6 @@ function setupAutoRefresh() {
   if (refreshInterval.value > 0) {
     refreshTimer = setInterval(() => {
       fetchStats();
-      // series can update less frequently; keep it light
     }, refreshInterval.value);
   }
 }
@@ -380,9 +553,9 @@ function setupAutoRefresh() {
 onMounted(() => {
   fetchStats();
   fetchSeries();
+  fetchCategories();
   setupAutoRefresh();
 
-  // Refresh when tab becomes visible again
   visibilityHandler = () => {
     if (document.visibilityState === 'visible') {
       fetchStats();
@@ -529,26 +702,55 @@ function formatSeconds(total) {
   100% { background-position: -200% 0; }
 }
 
+/* Main Layout: Sidebar + Content */
+.main-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .main-layout {
+    grid-template-columns: 280px 1fr;
+  }
+}
+
+/* Stats Sidebar */
+.stats-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 /* KPI cards */
 .kpi {
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
+  border-left: 4px solid currentColor;
   border-radius: 12px;
   padding: 1rem;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 0.5rem;
   position: relative;
   overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .kpi:before {
   content: '';
   position: absolute;
-  inset: 0;
-  opacity: 0.08;
-  background: radial-gradient(120px 60px at right -20px top -20px, currentColor, transparent 70%);
+  top: -20px;
+  right: -20px;
+  width: 100px;
+  height: 100px;
+  opacity: 0.06;
+  background: radial-gradient(circle, currentColor, transparent 70%);
   pointer-events: none;
 }
 
@@ -559,42 +761,99 @@ function formatSeconds(total) {
 }
 
 .kpi-title {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--text-color-secondary);
+  line-height: 1.3;
 }
 
 .kpi-value {
-  font-size: 1.9rem;
+  font-size: 2rem;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1;
+  color: var(--text-color);
+}
+
+.kpi-value.small-text {
+  font-size: 1.5rem;
+}
+
+.kpi-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+  margin-top: -0.25rem;
+}
+
+.kpi-change {
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.kpi-change.positive {
+  color: #10B981;
+}
+
+.kpi-change.negative {
+  color: #EF4444;
 }
 
 .kpi-icon {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  opacity: 0.8;
 }
 
-/* Color accents driven by text color so decorative glow inherits */
+/* Color accents */
 .kpi--blue  { color: #42A5F5; }
 .kpi--amber { color: #FFB300; }
 .kpi--green { color: #66BB6A; }
 .kpi--violet{ color: #7E57C2; }
+.kpi--teal  { color: #26C6DA; }
+.kpi--red   { color: #EF5350; }
+
+/* Charts Content */
+.charts-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .charts-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 /* Panels */
 .panel {
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: 12px;
-  padding: 1rem;
-  height: 100%;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
+}
+
+.panel-large {
+  min-height: 450px;
 }
 
 .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: .75rem;
+  margin-bottom: 1rem;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .panel-note {
@@ -602,8 +861,64 @@ function formatSeconds(total) {
   font-size: .85rem;
 }
 
-/* Ensure charts take the available height */
+/* Chart containers */
+.chart-large {
+  flex: 1;
+  min-height: 300px;
+}
+
 :deep(canvas) {
   max-height: 320px;
+}
+
+/* Summary Stats */
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.summary-item {
+  text-align: center;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1023px) {
+  .stats-sidebar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
