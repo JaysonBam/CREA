@@ -58,6 +58,7 @@ import { post } from '@/utils/api';
 const props = defineProps({
   user: { type: Object, required: true }
 });
+const emit = defineEmits(['profile-updated']);
 
 // States
 const wards = ref([]);
@@ -177,6 +178,8 @@ async function submitLeaveRequest() {
       showLeaveConfirm.value = false;
       leaveConfirmText.value = '';
       leaveMessage.value = 'Leave request submitted. You are now unassigned.';
+      // notify parent to refresh profile from server
+      emit('profile-updated');
     } else {
       leaveMessage.value = 'Failed to submit leave request.';
     }

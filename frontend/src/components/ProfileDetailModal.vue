@@ -37,8 +37,8 @@
         <span class="text-gray-500 font-medium">Updated</span>
         <span class="text-gray-900 dark:text-gray-100">{{ formatDate(user.updatedAt) }}</span>
       </div>
-      <!-- Ward assignment and request chain for non-admins -->
-      <WardAssignmentModal v-if="user.role !== 'admin'" :user="user" />
+  <!-- Ward assignment and request chain for non-admins -->
+  <WardAssignmentModal v-if="user.role !== 'admin'" :user="user" @profile-updated="onProfileUpdated" />
       <div v-if="user.role === 'staff' || user.role === 'communityleader'" class="mt-6">
         <WardRequestChain :userId="user.id" />
       </div>
@@ -53,6 +53,12 @@ import WardRequestChain from './WardRequestChain.vue';
 const props = defineProps({
   user: { type: Object, required: true }
 });
+const emit = defineEmits(['profile-updated']);
+
+function onProfileUpdated() {
+  // Re-emit upward so the top-level Profile view can refresh from server
+  emit('profile-updated');
+}
 // Format date
 function formatDate(date) {
   if (!date) return '';
