@@ -177,7 +177,7 @@
               placeholder="Select a Category"
             />
           </div>
-          <div>
+          <!-- <div>
             <label for="status" class="block text-sm font-medium mb-1">Status</label>
             <Dropdown
               id="status"
@@ -186,7 +186,7 @@
               class="w-full"
               placeholder="Select a Status"
             />
-          </div>
+          </div> -->
         </div>
       </div>
 

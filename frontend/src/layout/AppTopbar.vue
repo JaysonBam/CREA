@@ -1,12 +1,11 @@
+<!-- AppTopbar.vue -->
 <script setup>
 import { useLayout } from "@/layout/composables/layout";
-import AppConfigurator from "./AppConfigurator.vue";
-import { ref } from "vue";
-import { useRouter } from 'vue-router';
-const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
-//Jayden
-//I am using the overlayMenu from the template under "menu" and prettier for formatting
+import { ref, onBeforeMount, computed } from "vue";
+import { useRouter } from "vue-router";
+import { updateAppearance } from "@/utils/backend_helper";
 
+const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
 const menu = ref(null);
 const router = useRouter();
 
@@ -14,9 +13,7 @@ const overlayProfileMenuItems = ref([
   {
     label: "Profile",
     icon: "pi pi-user",
-    command: () => {
-      router.push({ name: 'profile' });
-    },
+    command: () => router.push({ name: "profile" }),
   },
   {
     label: "Logout",
@@ -28,8 +25,32 @@ const overlayProfileMenuItems = ref([
   },
 ]);
 
+// Ensure correct theme before first paint
+onBeforeMount(() => {
+  const appearance = sessionStorage.getItem("appearance") || "light";
+  const shouldBeDark = appearance === "dark";
+  if (shouldBeDark !== isDarkTheme.value) toggleDarkMode();
+});
+
+// Reactive logo based on theme
+const logoSrc = computed(() =>
+  isDarkTheme.value ? "/logo_dark.svg" : "/logo_light.svg"
+);
+
+// Toggle handler: compute next theme BEFORE toggling
+const handleThemeToggle = async () => {
+  const nextAppearance = isDarkTheme.value ? "light" : "dark";
+  toggleDarkMode();
+  sessionStorage.setItem("appearance", nextAppearance);
+  try {
+    await updateAppearance(nextAppearance);
+  } catch (err) {
+    console.error("Failed to update appearance:", err);
+  }
+};
+
 const toggleProfileMenu = (event) => {
-  menu.value.toggle(event);
+  menu.value?.toggle(event);
 };
 </script>
 
@@ -39,18 +60,22 @@ const toggleProfileMenu = (event) => {
       <button
         class="layout-menu-button layout-topbar-action"
         @click="toggleMenu"
+        aria-label="Toggle menu"
       >
         <i class="pi pi-bars"></i>
       </button>
-      <router-link to="/" class="layout-topbar-logo flex items-center gap-4 min-w-0 py-1" style="height: 48px;">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
-          <rect width="24" height="24" rx="12" fill="#2563eb"/>
-          <path d="M7 8.5C7 7.11929 8.11929 6 9.5 6H14.5C15.8807 6 17 7.11929 17 8.5V13.5C17 14.8807 15.8807 16 14.5 16H10.4142C10.149 16 9.89464 16.1054 9.70711 16.2929L8.35355 17.6464C8.15829 17.8417 7.84171 17.8417 7.64645 17.6464C7.45118 17.4512 7.45118 17.1346 7.64645 16.9393L8.29289 16.2929C8.10536 16.1054 8 15.851 8 15.5858V8.5Z" fill="#fff"/>
-          <path d="M11 11.5L12.5 13L15 10.5" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="font-bold text-lg md:text-2xl lg:text-3xl block whitespace-nowrap" style="max-width: 80vw;">
-          Community Reporting and Engagement App
-        </span>
+
+      <router-link
+        to="/"
+        class="layout-topbar-logo flex items-center gap-4 min-w-0 py-1"
+        style="height: 48px"
+      >
+        <img
+          :src="logoSrc"
+          alt="Logo"
+          class="block shrink-0"
+          style="width: 300px; height: 300px"
+        />
       </router-link>
     </div>
 
@@ -58,21 +83,57 @@ const toggleProfileMenu = (event) => {
       <button
         type="button"
         class="layout-topbar-action"
-        @click="toggleDarkMode"
+        @click="handleThemeToggle"
+        aria-label="Toggle dark mode"
       >
         <i
           :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"
         ></i>
       </button>
+
       <button
         type="button"
         class="layout-topbar-action"
         @click="toggleProfileMenu"
+        aria-label="Open profile menu"
       >
         <i class="pi pi-user"></i>
         <span>Profile</span>
       </button>
+
       <Menu ref="menu" :model="overlayProfileMenuItems" :popup="true" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.layout-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 1rem;
+  height: 64px;
+}
+
+.layout-topbar-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.layout-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.layout-topbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: transparent;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+</style>

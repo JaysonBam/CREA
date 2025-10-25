@@ -29,6 +29,12 @@ module.exports = {
       password: { type: Sequelize.STRING, allowNull: false },
       isActive: { type: Sequelize.BOOLEAN, allowNull: true },
 
+      appearance: {
+        type: Sequelize.ENUM("light", "dark"),
+        allowNull: false,
+        defaultValue: "light",
+      },
+
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
