@@ -1,16 +1,33 @@
 const db = require("../models");
 const { WardRequest } = db;
 const { User, MunicipalStaff, CommunityLeader, Ward } = db;
+const { wardRequestSchema } = require("../schemas/wardRequestSchema");
+
+function zodIssuesToBag(issues = []) {
+  const bag = {};
+  for (const i of issues) {
+    const field = String(i.path?.[0] ?? "");
+    const key = field || "_";
+    if (!bag[key]) bag[key] = i.message;
+  }
+  return bag;
+}
 
 module.exports = {
   async create(request, response) {
     try {
-      // Extract relevant fields from the request body
-      const { message, type = "request", person_id, ward_id, job_description } = request.body;
-      if (!ward_id) {
-        // Must specify a ward to join or assign
-        return response.status(400).json({ success: false, message: "ward_id is required" });
+      // Validate request body using Zod schema
+      const parsed = wardRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return response.status(422).json({
+          success: false,
+          message: "Validation failed",
+          errors: zodIssuesToBag(parsed.error.issues),
+        });
       }
+
+      // Extract validated fields
+      const { message, type = "request", person_id, ward_id, job_description } = parsed.data;
       // The user making the request (from JWT)
       const userId = request.user.user_id;
       let actualPersonId = person_id;
