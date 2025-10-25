@@ -22,6 +22,7 @@
                 v-for="report in reportsWithLocation"
                 :key="report.id"
                 :lat-lng="[report.location.latitude, report.location.longitude]"
+                :icon="getIconByCategory(report.category)"
               >
                 <l-popup>
                   <div class="map-popup">
@@ -67,6 +68,7 @@ import { listIssueReports } from "@/utils/backend_helper"; // Ensure this path i
 // --- Leaflet Map Imports ---
 import "leaflet/dist/leaflet.css";
 import { LMap, LTileLayer, LMarker, LPopup } from "@vue-leaflet/vue-leaflet";
+import * as L from "leaflet";
 
 // --- State Management ---
 const rows = ref([]);
@@ -98,6 +100,28 @@ const reportsWithLocation = computed(() => {
     (report) => report.location && report.location.latitude && report.location.longitude
   );
 });
+
+const getIconByCategory = (category) => {
+  // --- Define a mapping from category to icon filename ---
+  // NOTE: Ensure these icon files exist in your `public/icons/` directory
+  const iconMap = {
+    POTHOLE: '/assets/icons/pothole_pin.png',
+    WATER_LEAK: '/assets/icons/water_leak_pin.png',
+    POWER_OUTAGE: '/assets/icons/power_outage_pin.png',
+    STREETLIGHT_FAILURE: '/assets/icons/streetlight_pin.png',
+    OTHER: '/assets/icons/other_pin.png',
+  };
+
+  const iconFilename = iconMap[category] || '/assets/icons/other_pin.png'; // Fallback icon
+
+  // --- Return a new Leaflet Icon instance ---
+  return L.icon({
+    iconUrl: `/icons/${iconFilename}`, // Assumes icons are in the `public/icons` folder
+    iconSize: [35, 35],       // Size of the icon
+    iconAnchor: [17, 35],     // Point of the icon which will correspond to marker's location
+    popupAnchor: [0, -35],    // Point from which the popup should open relative to the iconAnchor
+  });
+};
 
 // Helper function to get severity for status tags
 const getStatusSeverity = (status) => {

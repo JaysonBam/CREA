@@ -93,3 +93,14 @@ Error: Association with alias "schedules" does not exist on IssueReport
     at MunicipalStaffIssueReport._conformIncludes (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:270:39)
     at MunicipalStaffIssueReport._baseMerge (C:\Users\nathy\OneDrive - University of Pretoria\APP Design\crea\backend\node_modules\sequelize\lib\model.js:622:10)
 
+[2025-10-21T13:41:24.245Z] GET /api/users/me
+Error
+    at Query.run (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PostgresQueryInterface.select (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async User.findAll (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async User.findOne (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async User.findByPk (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\node_modules\sequelize\lib\model.js:1221:12)
+    at async get (C:\Users\vanaa\OneDrive - University of Pretoria\3rd Year\EPE\Community_Reporting\crea\backend\controllers\UserController.js:22:18)
+
