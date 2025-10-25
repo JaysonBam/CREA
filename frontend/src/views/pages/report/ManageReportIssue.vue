@@ -27,8 +27,8 @@
           <h5 class="m-0 text-xl font-semibold">Manage Issue Reports</h5>
           <div class="flex items-center gap-2">
             <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-            <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
-            <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
+            <Select v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" />
+            <Select v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" />
             <span class="relative">
               <i class="pi pi-search absolute top-2/4 -mt-2 left-3 text-surface-400 dark:text-surface-600" />
               <div class="relative">
@@ -510,35 +510,55 @@ const refreshUnread = async ()=>{
 
   }
 };
+const onInvalidate = async () => { await refreshUnread(); };
+const onConnect = () => {
+  if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
+  void refreshUnread();
+};
+const onDisconnect = () => {
+  if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
+};
 
-onMounted(async ()=>{
+
+// --- SETUP LOGIC ---
+// This hook runs when the component is mounted.
+onMounted(async () => {
+  // The 'await' is safe here because no hooks are registered after it.
   await load();
 
   socket = connectSocket();
-  const onInvalidate = async ()=>{ await refreshUnread(); };
-  const onConnect = ()=>{
-    if (unreadTimer){ clearInterval(unreadTimer); unreadTimer = null; }
-    void refreshUnread();
-  };
-  const onDisconnect = ()=>{
-    if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
-  };
 
+  // Attach the listeners
   socket.on("unread:invalidate", onInvalidate);
   socket.on("connect", onConnect);
   socket.on("disconnect", onDisconnect);
 
-  if (!socket.connected && !unreadTimer)
+  // Initial connection check
+  if (!socket.connected && !unreadTimer) {
     unreadTimer = setInterval(refreshUnread, 5000);
+  }
+});
 
-  onUnmounted(()=>{
-    if (unreadTimer){ clearInterval(unreadTimer); unreadTimer = null; }
-    try {
-      socket.off("unread:invalidate", onInvalidate);
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-    } catch {}
-  });
+
+// --- CLEANUP LOGIC ---
+// This hook is registered immediately and runs when the component is unmounted.
+onUnmounted(() => {
+  // Clean up the timer
+  if (unreadTimer) {
+    clearInterval(unreadTimer);
+    unreadTimer = null;
+  }
+  
+  // Clean up the socket connection if it exists
+  if (socket) {
+    // Remove the specific listeners to prevent memory leaks
+    socket.off("unread:invalidate", onInvalidate);
+    socket.off("connect", onConnect);
+    socket.off("disconnect", onDisconnect);
+    
+    // Optional but recommended: disconnect the socket
+    socket.disconnect();
+  }
 });
 
 //Title suggestions

@@ -15,7 +15,6 @@ const emailService = require("../services/emailService");
 const emailRenderer = require("../services/emailRenderer");
 
 describe("IssueReportController", () => {
-  // --- FIX: All stub variables are declared here ---
   let findOneIssueReportStub,
     findAllIssueReportStub,
     createIssueReportStub,
@@ -125,7 +124,6 @@ describe("IssueReportController", () => {
         ...body,
         });
         
-        // --- FIX: Reconfigure the existing stub instead of creating a new one ---
         findByPkUserStub.resolves({
         first_name: "John",
         last_name: "Doe",

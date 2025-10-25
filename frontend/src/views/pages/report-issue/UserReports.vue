@@ -6,8 +6,8 @@
         <h1 class="text-2xl font-bold">My Reported Issues</h1>
         <div class="flex items-center gap-2">
           <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-          <Dropdown v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" @change="loadReports" />
-          <Dropdown v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" @change="loadReports" />
+          <Select v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" @change="loadReports" />
+          <Select v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" @change="loadReports" />
           <div class="relative">
             <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
             <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
@@ -198,7 +198,7 @@ const loading = ref(true);
 const toast = useToast();
 const unread = ref({});
 let unreadTimer = null;
-let socket;
+let socket = null;
 
 const categoryOptions = ['POTHOLE', 'WATER_LEAK', 'POWER_OUTAGE', 'STREETLIGHT_FAILURE', 'OTHER'];
 const statusOptions = ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
@@ -357,10 +357,12 @@ const getStatusSeverity = (status) => {
   }
 };
 
-// Initial load and periodic unread refresh
+// --- onMounted Hook ---
+// Handles setup and connection logic
 onMounted(async () => {
   await loadReports();
   socket = connectSocket();
+
   const onInvalidate = async () => { await refreshUnread(); };
   const onConnect = () => {
     if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
@@ -369,19 +371,30 @@ onMounted(async () => {
   const onDisconnect = () => {
     if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
   };
+
   socket.on('unread:invalidate', onInvalidate);
   socket.on('connect', onConnect);
   socket.on('disconnect', onDisconnect);
-  if (!socket.connected && !unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
 
-  onUnmounted(() => {
-    if (unreadTimer) { clearInterval(unreadTimer); unreadTimer = null; }
-    try {
-      socket.off('unread:invalidate', onInvalidate);
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-    } catch {}
-  });
+  if (!socket.connected && !unreadTimer) {
+    unreadTimer = setInterval(refreshUnread, 5000);
+  }
+});
+
+// --- onUnmounted Hook ---
+// Registered immediately. Handles all cleanup logic.
+onUnmounted(() => {
+  if (unreadTimer) {
+    clearInterval(unreadTimer);
+    unreadTimer = null;
+  }
+  // Check if the socket was ever initialized before trying to use it
+  if (socket) {
+    // It's good practice to remove all listeners, not just the named ones
+    // if you are disconnecting. socket.off() with no arguments does this.
+    socket.off(); 
+    socket.disconnect();
+  }
 });
 
 // note: cleanup handled above

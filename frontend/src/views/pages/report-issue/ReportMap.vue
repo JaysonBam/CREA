@@ -4,7 +4,7 @@
     <h5 class="m-0 text-xl font-semibold mb-4">Map View</h5>
 
       <div class="map-panel">
-          <div style="height: 600px; width: 100%">
+          <div v-if="mapReady" style="height: 600px; width: 100%">
             <l-map
               ref="map"
               v-model:zoom="zoom"
@@ -67,8 +67,8 @@ import { listIssueReports } from "@/utils/backend_helper"; // Ensure this path i
 
 // --- Leaflet Map Imports ---
 import "leaflet/dist/leaflet.css";
-import { LMap, LTileLayer, LMarker, LPopup } from "@vue-leaflet/vue-leaflet";
-import * as L from "leaflet";
+import { LMap, LTileLayer, LMarker, LPopup, LIcon } from "@vue-leaflet/vue-leaflet";
+
 
 // --- State Management ---
 const rows = ref([]);
@@ -78,6 +78,8 @@ const toast = useToast();
 // --- Map Specific State ---
 const zoom = ref(15);
 const center = ref([-25.7546, 28.2314]); // Default center: Pretoria, SA
+
+const mapReady = ref(false);
 
 // --- Data Fetching and Processing ---
 const load = async () => {
@@ -105,17 +107,18 @@ const getIconByCategory = (category) => {
   // --- Define a mapping from category to icon filename ---
   // NOTE: Ensure these icon files exist in your `public/icons/` directory
   const iconMap = {
-    POTHOLE: '/assets/icons/pothole_pin.png',
-    WATER_LEAK: '/assets/icons/water_leak_pin.png',
-    POWER_OUTAGE: '/assets/icons/power_outage_pin.png',
-    STREETLIGHT_FAILURE: '/assets/icons/streetlight_pin.png',
-    OTHER: '/assets/icons/other_pin.png',
+    POTHOLE:              'pothole_pin.png',
+    WATER_LEAK:           'water_leak_pin.png',
+    POWER_OUTAGE:         'power_outage_pin.png',
+    STREETLIGHT_FAILURE:  'streetlight_pin.png',
+    OTHER:                'other_pin.png',
   };
 
-  const iconFilename = iconMap[category] || '/assets/icons/other_pin.png'; // Fallback icon
+  const iconFilename = iconMap[category] || 'other_pin.png'; // Fallback icon
 
   // --- Return a new Leaflet Icon instance ---
-  return L.icon({
+  // const leaflet = L.default || L;
+  return window.L.icon({
     iconUrl: `/icons/${iconFilename}`, // Assumes icons are in the `public/icons` folder
     iconSize: [35, 35],       // Size of the icon
     iconAnchor: [17, 35],     // Point of the icon which will correspond to marker's location
@@ -148,6 +151,8 @@ onMounted(() => {
 
   // Load the issue report data
   load();
+
+  mapReady.value = true;
 });
 </script>
 

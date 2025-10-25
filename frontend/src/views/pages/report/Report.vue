@@ -27,14 +27,14 @@
               rounded
               @click="clearFilters"
             />
-            <Dropdown
+            <Select
               v-model="categoryFilter"
               :options="categoryOptions"
               placeholder="Any Category"
               class="w-44"
               :showClear="true"
             />
-            <Dropdown
+            <Select
               v-model="statusFilter"
               :options="statusOptions"
               placeholder="Any Status"
@@ -978,53 +978,75 @@ const refreshUnread = async () => {
   }
 };
 
+const onInvalidate = async () => {
+  await refreshUnread();
+};
+
+const onConnect = () => {
+  if (unreadTimer) {
+    clearInterval(unreadTimer);
+    unreadTimer = null;
+  }
+  // Ensure a fresh fetch on connect
+  void refreshUnread();
+};
+
+const onDisconnect = () => {
+  if (!unreadTimer) {
+    unreadTimer = setInterval(refreshUnread, 5000);
+  }
+};
+
+const onVoteUpdated = (payload) => {
+  if (!payload?.issueToken) return;
+  // Refresh only that issue's summary (avoid reloading entire list)
+  fetchVoteSummary(payload.issueToken);
+};
+
+
+// --- SETUP LOGIC ---
+// This hook runs when the component is mounted.
 onMounted(async () => {
+  // 'await' is safe here because no hooks are registered after it.
   await load();
+
   socket = connectSocket();
-  const onInvalidate = async () => {
-    await refreshUnread();
-  };
-  const onConnect = () => {
-    if (unreadTimer) {
-      clearInterval(unreadTimer);
-      unreadTimer = null;
-    }
-    // Ensure a fresh fetch on connect
-    void refreshUnread();
-  };
-  const onDisconnect = () => {
-    if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 5000);
-  };
-  const onVoteUpdated = (payload) => {
-    if (!payload?.issueToken) return;
-    // Refresh only that issue's summary (avoid reloading entire list)
-    fetchVoteSummary(payload.issueToken);
-  };
-  // attach listeners
+
+  // Attach all the listeners
   socket.on("unread:invalidate", onInvalidate);
   socket.on("connect", onConnect);
   socket.on("disconnect", onDisconnect);
   socket.on('vote:updated', onVoteUpdated);
-  // If not yet connected, keep polling until connected
-  if (!socket.connected && !unreadTimer)
-    unreadTimer = setInterval(refreshUnread, 5000);
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (unreadTimer) {
-      clearInterval(unreadTimer);
-      unreadTimer = null;
-    }
-    try {
-      socket.off("unread:invalidate", onInvalidate);
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off('vote:updated', onVoteUpdated);
-    } catch {}
-  });
+  // If not yet connected, start polling.
+  if (!socket.connected && !unreadTimer) {
+    unreadTimer = setInterval(refreshUnread, 5000);
+  }
 });
 
-// note: the cleanup is handled inside onMounted's nested onUnmounted
+
+// --- CLEANUP LOGIC ---
+// This hook is registered immediately and runs when the component is unmounted.
+onUnmounted(() => {
+  // Clean up the polling timer
+  if (unreadTimer) {
+    clearInterval(unreadTimer);
+    unreadTimer = null;
+  }
+
+  // Clean up the socket connection if it was initialized
+  if (socket) {
+    // Remove the specific listeners to prevent memory leaks
+    socket.off("unread:invalidate", onInvalidate);
+    socket.off("connect", onConnect);
+    socket.off("disconnect", onDisconnect);
+    socket.off('vote:updated', onVoteUpdated);
+
+    // Recommended: explicitly disconnect the socket
+    socket.disconnect();
+  }
+});
+
 
 /* ---------- Title suggestions ---------- */
 let titleDebounce;

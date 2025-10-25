@@ -68,7 +68,6 @@ const model = computed(() => [{
         ...(isCommunityLeader()
             ? [{ label: 'Staff Workload', icon: 'pi pi-users', to: { name: 'staff-workload' } }]
             : []),
-        { label: 'Test CRUD', icon: 'pi pi-fw pi-database', to: { name: 'test-crud' } },
         ...(isAdmin() ? [
             { label: 'Ward Requests', icon: 'pi pi-fw pi-inbox', to: { name: 'ward-requests' } }
         ] :

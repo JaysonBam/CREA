@@ -82,7 +82,7 @@
                   <label for="ward" class="font-semibold block mb-2"
                     >Ward</label
                   >
-                  <Dropdown
+                  <Select
                     id="ward"
                     class="w-full"
                     :options="wards"
@@ -116,7 +116,7 @@
                         }}</span>
                       </div>
                     </template>
-                  </Dropdown>
+                  </Select>
                   <small class="text-red-500 block" v-if="wardsError">{{
                     wardsError
                   }}</small>
