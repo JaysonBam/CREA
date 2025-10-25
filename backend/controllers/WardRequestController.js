@@ -17,6 +17,11 @@ module.exports = {
       // If no person_id provided, default to sender (self-request)
       if (!actualPersonId) actualPersonId = userId;
 
+      // Authorization (simple): only allow leaving on behalf of another user if caller is admin
+      if (type === 'leave' && actualSenderId !== actualPersonId && request.user.role !== 'admin') {
+        return response.status(403).json({ success: false, message: 'Forbidden' });
+      }
+
       // If this is an acceptance, assign the user to the ward
       let jobDescToUse = job_description;
       let user = null;
