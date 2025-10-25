@@ -20,7 +20,7 @@ const overlayProfileMenuItems = ref([
     icon: "pi pi-sign-out",
     command: () => {
       sessionStorage.clear();
-      window.location.href = "/login";
+      window.location.href = "/";
     },
   },
 ]);
