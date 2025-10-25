@@ -120,38 +120,66 @@
           <div v-if="staff.selected" class="surface-card p-4 border-round-md border-1 surface-border">
             <div class="field">
               <label class="font-medium block mb-2">Assign Staff Members</label>
-              <MultiSelect
-                class="w-80"
-                :options="staffOptions"
-                optionLabel="fullName"
-                optionValue="id"
-                v-model="staff.memberIds"
-                :loading="staffLoading"
-                placeholder="Choose staff"
-                display="chip"
-              />
-              <small v-if="staffError" class="p-error block mt-2">{{ staffError }}</small>
-            </div>
 
-            <div class="mt-3">
-              <div class="flex items-center gap-2 mb-2">
-                <div class="font-medium">Currently Assigned</div>
-                <Button icon="pi pi-refresh" text size="small" :loading="assignedLoading" @click="reloadAssigned" />
+              <div class="flex justify-between items-center mb-2 gap-2">
+                <IconField class="w-full md:w-80">
+                  <InputIcon><i class="pi pi-search" /></InputIcon>
+                  <InputText v-model="staffFilters['global'].value" placeholder="Search staff by name or email..." />
+                </IconField>
+                <div class="text-600 text-sm">Selected: {{ staff.memberIds.length }}</div>
               </div>
-              <ul class="list-none pl-3">
-                <li v-for="m in staffSummary" :key="m.id" class="mb-2 flex items-center gap-2">
-                  <span>• {{ m.fullName }} <span class="text-600">({{ m.email || 'no email' }})</span></span>
-                  <Button
-                    icon="pi pi-times"
-                    size="small"
-                    severity="danger"
-                    outlined
-                    :disabled="savingStaff"
-                    @click="removeAssigned(m.id)"
-                  />
-                </li>
-                <li v-if="!staffSummary.length" class="text-600">No staff assigned.</li>
-              </ul>
+
+              <DataTable
+                :value="staffOptions"
+                dataKey="id"
+                :paginator="true"
+                :rows="10"
+                :rowHover="true"
+                showGridlines
+                v-model:selection="staffSelection"
+                selectionMode="multiple"
+                :metaKeySelection="false"
+                @row-select="onRowSelect"
+                @row-unselect="onRowUnselect"
+                v-model:filters="staffFilters"
+                filterDisplay="menu"
+                :loading="staffLoading"
+                :globalFilterFields="['fullName','email']"
+              >
+                <Column selectionMode="multiple" headerStyle="width:3rem"></Column>
+
+                <Column field="fullName" header="Name" sortable :showFilterMenu="false">
+                  <template #body="slotProps">
+                    <span class="truncate block max-w-64" :title="slotProps.data.fullName">{{ slotProps.data.fullName }}</span>
+                  </template>
+                </Column>
+
+                <Column field="email" header="Email" sortable :showFilterMenu="false">
+                  <template #body="slotProps">
+                    <span class="text-600">{{ slotProps.data.email || 'no email' }}</span>
+                  </template>
+                </Column>
+
+                <Column header="Assigned" :showFilterMenu="false" style="width:8rem">
+                  <template #body="slotProps">
+                    <span
+                      class="badge"
+                      :class="{
+                        'bg-green-100 text-green-700': assignedIdSet.has(String(slotProps.data.id)),
+                        'bg-50 text-600': !assignedIdSet.has(String(slotProps.data.id))
+                      }"
+                    >
+                      {{ assignedIdSet.has(String(slotProps.data.id)) ? 'Yes' : 'No' }}
+                    </span>
+                  </template>
+                </Column>
+
+                <template #empty>
+                  <div class="text-center p-4">No staff found.</div>
+                </template>
+              </DataTable>
+
+              <small v-if="staffError" class="p-error block mt-2">{{ staffError }}</small>
             </div>
 
             <div class="flex gap-2 mt-3">
@@ -303,7 +331,6 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import Checkbox from 'primevue/checkbox'
 import Dropdown from 'primevue/dropdown'
-import MultiSelect from 'primevue/multiselect'
 import TabView from 'primevue/tabview'
 import TabPanel from 'primevue/tabpanel'
 
@@ -695,12 +722,11 @@ function confirmDeleteWard() {
 
 function asOptionIds(inIds) {
   const opts = staffOptions?.value || [];
-  const out = [];
   if (!Array.isArray(inIds) || !opts.length) return [];
+  const out = [];
   for (const raw of inIds) {
-   
     const match = opts.find(o => /* eslint-disable eqeqeq */ o.id == raw /* eslint-enable eqeqeq */);
-    if (match) out.push(match.id);
+    if (match) out.push(normId(match.id));
   }
   return Array.from(new Set(out));
 }
@@ -716,6 +742,44 @@ const staffLoading = ref(false)
 const savingStaff = ref(false)
 const staffError = ref('')
 const assignedLoading = ref(false)
+// --- ID normalization helpers (ensure reactive, type-safe comparisons)
+const normId = (v) => (v == null ? '' : String(v));
+const idsToStrings = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : []).map(normId)));
+
+const staffSelection = ref([]); // selected staff objects in the table
+const staffFilters = ref({
+  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+});
+
+// Server-truth of assigned staff (only updates after load/save)
+const assignedMemberIds = ref([]);
+
+function syncSelectionFromIds() {
+  const ids = idsToStrings(staff.value.memberIds);
+  const byId = new Map(staffOptions.value.map(o => [normId(o.id), o]));
+  staffSelection.value = ids.map(id => byId.get(id)).filter(Boolean);
+  staff.value.memberIds = ids; // keep normalized as strings
+}
+
+function syncIdsFromSelection() {
+  staff.value.memberIds = idsToStrings((staffSelection.value || []).map(o => o.id));
+}
+
+function onRowSelect(event) {
+  const sel = event?.data;
+  if (!sel || sel.id == null) return;
+  const id = normId(sel.id);
+  if (!staff.value.memberIds.includes(id)) {
+    staff.value.memberIds = [...staff.value.memberIds, id];
+  }
+}
+
+function onRowUnselect(event) {
+  const sel = event?.data;
+  if (!sel || sel.id == null) return;
+  const id = normId(sel.id);
+  staff.value.memberIds = staff.value.memberIds.filter(x => x !== id);
+}
 // Load assigned staff for a ward from backend and update staff.value.memberIds
 async function loadAssigned(wardId) {
   assignedLoading.value = true;
@@ -727,7 +791,9 @@ async function loadAssigned(wardId) {
             : Array.isArray(data.staffIds) ? data.staffIds
             : Array.isArray(data.staff) ? data.staff.map(s => s.id ?? s.user_id ?? s.token).filter(v => v != null)
             : [];
-    staff.value.memberIds = asOptionIds(ids);
+    assignedMemberIds.value = asOptionIds(ids);          // server-truth
+    staff.value.memberIds = [...assignedMemberIds.value]; // initialize UI selection from server-truth
+    syncSelectionFromIds();                               // tick checkboxes accordingly
   } catch (_) {
     // leave existing selection if fetch fails
   } finally {
@@ -795,6 +861,7 @@ async function fetchStaff() {
     }));
 
     staffOptions.value = list.sort((a, b) => a.fullName.localeCompare(b.fullName));
+    syncSelectionFromIds();
   } catch (e) {
     staffError.value = getErr(e);
     staffOptions.value = [];
@@ -802,11 +869,20 @@ async function fetchStaff() {
     staffLoading.value = false;
   }
 }
+// Keep selection -> ids in sync (one-way)
+// IMPORTANT: Do NOT mirror ids back into selection reactively, it causes
+// a circular overwrite where the table checkbox unticks immediately.
+// When loading from backend, we explicitly call syncSelectionFromIds().
+watch(staffSelection, () => {
+  syncIdsFromSelection();
+});
 
 const staffSummary = computed(() => {
-  const set = new Set(staff.value.memberIds)
-  return staffOptions.value.filter(s => set.has(s.id))
-})
+  const set = new Set(idsToStrings(staff.value.memberIds));
+  return staffOptions.value.filter(s => set.has(normId(s.id)));
+});
+
+const assignedIdSet = computed(() => new Set(idsToStrings(assignedMemberIds.value)));
 
 async function saveStaff() {
   if (!staff.value.selected) {
@@ -869,6 +945,7 @@ async function saveStaff() {
     await loadRows();
     staff.value.selected = rows.value.find(x => x.id == wardId) || null;
     staff.value.memberIds = asOptionIds(desired);
+    assignedMemberIds.value = [...staff.value.memberIds]; // reflect saved state in "Assigned" badges
 
     toast.add({ severity: 'success', summary: 'Saved', detail: 'Staff assignments saved', life: 2500 });
   } catch (e) {
