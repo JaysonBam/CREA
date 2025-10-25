@@ -532,6 +532,52 @@ async function computeAvgResolutionSeconds(wardId) {
   }
 }
 
+/**
+ * Get staff totals for a ward and count how many are currently "busy"
+ * Busy = assigned to at least one non-RESOLVED issue in this ward.
+ * We try multiple possible assignee column names to support schema variants.
+ */
+async function getStaffCounts(wardId) {
+  try {
+    // Total staff linked to the ward
+    const [totRows] = await sequelize.query(
+      `SELECT COUNT(*)::int AS c FROM municipal_staff WHERE ward_id = :wardId;`,
+      { replacements: { wardId } }
+    );
+    const staffTotal = Array.isArray(totRows) ? (Number(totRows[0]?.c) || 0) : (Number(totRows?.c) || 0);
+
+    // Busy staff: distinct assignees on non-resolved issues for this ward
+    const candidateCols = [
+      'assigned_user_id',
+      'assignee_user_id',
+      'assigned_to_user_id',
+      'assigned_to',
+      'staff_user_id',
+    ];
+
+    let staffBusy = 0;
+    for (const col of candidateCols) {
+      try {
+        const [rows] = await sequelize.query(
+          `SELECT COUNT(DISTINCT ${col})::int AS busy
+           FROM issue_reports
+           WHERE ward_id = :wardId
+             AND status <> 'RESOLVED'::enum_issue_reports_status
+             AND ${col} IS NOT NULL;`,
+          { replacements: { wardId } }
+        );
+        const row = Array.isArray(rows) ? rows[0] : rows;
+        const val = row && row.busy != null ? Number(row.busy) : 0;
+        if (Number.isFinite(val)) { staffBusy = val; break; }
+      } catch (_) { /* try next column name */ }
+    }
+
+    return { staffTotal: Number.isFinite(staffTotal) ? staffTotal : 0, staffBusy: Number.isFinite(staffBusy) ? staffBusy : 0 };
+  } catch (_) {
+    return { staffTotal: 0, staffBusy: 0 };
+  }
+}
+
 
 /**
  * Time-series stats for a ward over the last N days (default 30).
@@ -748,6 +794,7 @@ exports.stats = async (req, res) => {
     const open = Math.max(0, total - closed - pending) // effectively equals NEW count
     // Compute average from ACKNOWLEDGED → RESOLVED using status_changes (ward-bounded) with FK name fallback
     let avgResolution = await computeAvgResolutionSeconds(id);
+    const { staffTotal, staffBusy } = await getStaffCounts(id);
 
     return res.json({
       success: true,
@@ -758,6 +805,8 @@ exports.stats = async (req, res) => {
         pending,       // ACKNOWLEDGED + IN_PROGRESS
         breakdown: { new: newCount, acknowledged, in_progress: inProgress, resolved },
         avgResolution, // seconds
+        staffTotal,
+        staffBusy,
       },
     })
   } catch (e) {
@@ -786,3 +835,32 @@ exports.avgResolutionTime = async (req, res) => {
     return res.status(500).json({ success: false, message: e.message })
   }
 }
+
+//  Issues by category for a ward
+exports.statsCategories = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ward = await Ward.findByPk(id);
+    if (!ward) return res.status(404).json({ success: false, message: 'Ward not found' });
+
+    // Group by category (enum_issue_reports_category)
+    const sql = `
+      SELECT LOWER(CAST(ir.category AS text)) AS label, COUNT(*)::int AS count
+      FROM issue_reports ir
+      WHERE ir.ward_id = :wardId
+      GROUP BY 1
+      ORDER BY 2 DESC, 1 ASC;
+    `;
+    const [rows] = await sequelize.query(sql, { replacements: { wardId: id } });
+
+    // Normalise to { label, count }
+    const categories = (Array.isArray(rows) ? rows : [rows])
+      .filter(Boolean)
+      .map(r => ({ label: String(r.label || '').replace(/_/g, ' ').trim(), count: Number(r.count) || 0 }))
+      .filter(x => x.label);
+
+    return res.json({ success: true, message: 'Categories loaded', data: { categories } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};

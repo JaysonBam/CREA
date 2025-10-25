@@ -40,7 +40,6 @@
           <Column header="Actions" style="width: 18rem">
             <template #body="slotProps">
               <div class="flex gap-2 flex-nowrap">
-                <Button icon="pi pi-user" label="View Profile" size="small" outlined @click="goProfile(slotProps.data)" />
                 <Button icon="pi pi-chart-line" label="View Stats" size="small" outlined severity="secondary" @click="goStats(slotProps.data)" />
               </div>
             </template>
