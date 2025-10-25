@@ -43,7 +43,7 @@ const handleLogin = async () => {
     sessionStorage.setItem("long", res.data.location?.longitude || "28.231682");
     sessionStorage.setItem("appearance", res.data.appearance || "light");
     console.log(res.data);
-    const redirect = router.currentRoute.value.query.redirect || "/reports";
+    const redirect = router.currentRoute.value.query.redirect || "/ward-stats";
 
     router.push(redirect);
   } catch (err) {

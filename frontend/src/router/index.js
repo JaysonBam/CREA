@@ -62,7 +62,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
     // IMPORTANT: no leading slash for children
-    { path: "", redirect: { name: "report-issue" } },
+    { path: "", redirect: { name: "ward-stats" } },
         { path: "test-crud", name: "test-crud", component: Testcrud },
   { path: "report-issue", name: "report-issue", component: ReportIssue },
   { path: "reports", name: "reports", component: Report },
@@ -87,8 +87,28 @@ const router = createRouter({
           props: true,
         },
         {
-          path: "wards/:wardId/stats",
+          path: "ward-stats",
           name: "ward-stats",
+          // Trampoline that sends the user to their own ward's stats page
+          beforeEnter: async (to, from, next) => {
+            const token = sessionStorage.getItem("JWT");
+            if (!token) return next({ name: "login", query: { redirect: to.fullPath } });
+            try {
+              const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              const data = await res.json();
+              if (data.success && data.user && data.user.ward_id) {
+                return next({ name: 'ward-stats-id', params: { wardId: data.user.ward_id } });
+              }
+            } catch (e) {}
+            // Fallback if user has no ward
+            return next({ name: 'wards' });
+          }
+        },
+        {
+          path: "wards/:wardId/stats",
+          name: "ward-stats-id",
           component: WardStats,
           props: true,
         },
@@ -144,7 +164,7 @@ router.beforeEach(async (to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-    return { name: "reports" };
+    return { name: "ward-stats" };
   }
   // Ward Requests: allow admin OR communityleader with assigned ward
   if (to.name === 'ward-requests' && !(userRole === 'admin' || (userRole === 'communityleader' && userWardAssigned))) {

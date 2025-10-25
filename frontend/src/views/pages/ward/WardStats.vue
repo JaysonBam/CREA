@@ -1,8 +1,22 @@
 <template>
-  <div class="card">
-    <div class="flex justify-between items-center mb-3">
-      <h2 class="m-0">Ward Statistics</h2>
-      <div class="flex gap-2">
+  <div class="stats-page">
+    <!-- Hero / Header -->
+    <div class="hero">
+      <div class="hero-left">
+        <i class="pi pi-chart-bar hero-icon" />
+        <div>
+          <h2 class="m-0">Ward Statistics</h2>
+          <div class="hero-sub">
+            <span class="badge">
+              <i class="pi pi-clock mr-1" />
+              <span>Updated {{ lastUpdatedText }}</span>
+            </span>
+            <span v-if="refreshInterval > 0" class="dot-pulse ml-2" title="Auto refresh on"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-actions">
         <Dropdown
           v-model="refreshInterval"
           :options="refreshOptions"
@@ -10,38 +24,62 @@
           optionValue="value"
           class="w-12rem"
         />
+        <Dropdown
+          v-model="seriesDays"
+          :options="seriesDayOptions"
+          optionLabel="label"
+          optionValue="value"
+          class="w-10rem hidden lg:block"
+        />
         <Button label="Export CSV" icon="pi pi-download" @click="exportCsv" outlined />
-        <Button label="Refresh" icon="pi pi-refresh" @click="fetchStats" outlined />
+        <Button label="Refresh" icon="pi pi-refresh" @click="doManualRefresh" outlined />
         <Button label="Back to Wards" icon="pi pi-arrow-left" @click="goBack" />
       </div>
     </div>
 
-    <div v-if="loading">Loading statistics...</div>
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="skeleton-grid">
+      <div class="skeleton-card" v-for="n in 4" :key="'kpi-skel-'+n"></div>
+      <div class="skeleton-panel" />
+      <div class="skeleton-panel" />
+    </div>
 
     <div v-else>
       <!-- KPI cards -->
       <div class="grid mb-4">
         <div class="col-12 md:col-3">
-          <div class="kpi">
-            <div class="kpi-title">Open (NEW)</div>
+          <div class="kpi kpi--blue">
+            <div class="kpi-head">
+              <i class="pi pi-exclamation-circle kpi-icon" />
+              <div class="kpi-title">Open (NEW)</div>
+            </div>
             <div class="kpi-value">{{ stats.open }}</div>
           </div>
         </div>
         <div class="col-12 md:col-3">
-          <div class="kpi">
-            <div class="kpi-title">Pending (ACK + IN&nbsp;PROGRESS)</div>
+          <div class="kpi kpi--amber">
+            <div class="kpi-head">
+              <i class="pi pi-hourglass kpi-icon" />
+              <div class="kpi-title">Pending (ACK + IN&nbsp;PROGRESS)</div>
+            </div>
             <div class="kpi-value">{{ stats.pending }}</div>
           </div>
         </div>
         <div class="col-12 md:col-3">
-          <div class="kpi">
-            <div class="kpi-title">Resolved</div>
+          <div class="kpi kpi--green">
+            <div class="kpi-head">
+              <i class="pi pi-check-circle kpi-icon" />
+              <div class="kpi-title">Resolved</div>
+            </div>
             <div class="kpi-value">{{ stats.closed }}</div>
           </div>
         </div>
         <div class="col-12 md:col-3">
-          <div class="kpi">
-            <div class="kpi-title">Avg Resolution (ACK → RES)</div>
+          <div class="kpi kpi--violet">
+            <div class="kpi-head">
+              <i class="pi pi-clock kpi-icon" />
+              <div class="kpi-title">Avg Resolution (ACK → RES)</div>
+            </div>
             <div class="kpi-value">
               {{ formattedAvgResolution }}
             </div>
@@ -49,19 +87,23 @@
         </div>
       </div>
 
-      <!-- Status breakdown donut -->
+      <!-- Charts -->
       <div class="grid">
         <div class="col-12 lg:col-6">
-          <div class="card-inner">
-            <h3 class="m-0 mb-3 text-lg">Status Breakdown</h3>
-            <Chart type="doughnut" :data="statusChartData" :options="chartOptions" />
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="m-0 text-lg">Status Breakdown</h3>
+              <span class="panel-note">Distribution of all issues</span>
+            </div>
+            <Chart type="doughnut" :data="statusChartData" :options="doughnutOptions" />
           </div>
         </div>
+
         <div class="col-12 lg:col-6">
-          <div class="card-inner">
-            <div class="flex justify-between items-center mb-3">
+          <div class="panel">
+            <div class="panel-head">
               <h3 class="m-0 text-lg">Trend (New vs Resolved vs Open)</h3>
-              <Dropdown v-model="seriesDays" :options="seriesDayOptions" optionLabel="label" optionValue="value" class="w-10rem" />
+              <Dropdown v-model="seriesDays" :options="seriesDayOptions" optionLabel="label" optionValue="value" class="w-10rem lg:hidden" />
             </div>
             <Chart type="line" :data="seriesChartData" :options="lineChartOptions" />
           </div>
@@ -100,6 +142,8 @@ const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const lastUpdated = ref(null)
+
 const stats = ref({
   open: 0,
   closed: 0,
@@ -109,9 +153,9 @@ const stats = ref({
 })
 
 const refreshOptions = [
-  { label: 'Auto: 30s', value: 30000 },
   { label: 'Auto: 60s', value: 60000 },
-  { label: 'Auto: 2 min', value: 120000 },
+  { label: 'Auto: 5 min', value: 300000 },
+  { label: 'Auto: 10 min', value: 600000 },
   { label: 'Auto: Off', value: 0 },
 ];
 const refreshInterval = ref(30000);
@@ -190,6 +234,7 @@ async function fetchStats() {
     }
 
     stats.value = normalized;
+    lastUpdated.value = new Date();
   } catch (err) {
     toast.add({ severity: 'error', summary: 'Load failed', detail: getErr(err), life: 4000 });
   } finally {
@@ -208,6 +253,11 @@ async function fetchSeries() {
   }
 }
 
+function doManualRefresh() {
+  fetchStats();
+  fetchSeries();
+}
+
 const seriesChartData = computed(() => {
   const labels = seriesData.value.map(p => p.date);
   return {
@@ -218,18 +268,24 @@ const seriesChartData = computed(() => {
         borderColor: '#42A5F5',
         fill: false,
         data: seriesData.value.map(p => p.new),
+        tension: 0.35,
+        pointRadius: 2,
       },
       {
         label: 'Resolved',
         borderColor: '#66BB6A',
         fill: false,
         data: seriesData.value.map(p => p.resolved),
+        tension: 0.35,
+        pointRadius: 2,
       },
       {
         label: 'Open',
         borderColor: '#FFA726',
         fill: false,
         data: seriesData.value.map(p => p.open),
+        tension: 0.35,
+        pointRadius: 2,
       },
     ],
   };
@@ -238,9 +294,18 @@ const seriesChartData = computed(() => {
 const lineChartOptions = {
   plugins: {
     legend: { position: 'bottom' },
+    tooltip: {
+      mode: 'index',
+      intersect: false,
+    },
   },
   responsive: true,
   maintainAspectRatio: false,
+  interaction: { mode: 'nearest', intersect: false },
+  scales: {
+    x: { grid: { display: false } },
+    y: { beginAtZero: true, ticks: { precision: 0 } },
+  },
 };
 
 const formattedAvgResolution = computed(() => {
@@ -257,16 +322,19 @@ const statusChartData = computed(() => {
       {
         data: [b.new || 0, b.acknowledged || 0, b.in_progress || 0, b.resolved || 0],
         backgroundColor: ['#42A5F5', '#FFB300', '#AB47BC', '#66BB6A'],
+        borderWidth: 0,
       },
     ],
   };
 });
 
-const chartOptions = {
+const doughnutOptions = {
   plugins: {
     legend: { position: 'bottom' },
+    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
   },
   maintainAspectRatio: false,
+  cutout: '65%',
 };
 
 function exportCsv() {
@@ -302,7 +370,10 @@ let visibilityHandler = null;
 function setupAutoRefresh() {
   if (refreshTimer) clearInterval(refreshTimer);
   if (refreshInterval.value > 0) {
-    refreshTimer = setInterval(fetchStats, refreshInterval.value);
+    refreshTimer = setInterval(() => {
+      fetchStats();
+      // series can update less frequently; keep it light
+    }, refreshInterval.value);
   }
 }
 
@@ -333,6 +404,18 @@ onBeforeUnmount(() => {
   if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
 });
 
+const lastUpdatedText = computed(() => {
+  if (!lastUpdated.value) return '—';
+  const now = new Date();
+  const diff = Math.floor((now - lastUpdated.value) / 1000);
+  if (diff < 5) return 'just now';
+  if (diff < 60) return `${diff}s ago`;
+  const m = Math.floor(diff / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+});
+
 function formatSeconds(total) {
   const s = Math.floor(Number(total) || 0);
   const days = Math.floor(s / 86400);
@@ -345,32 +428,182 @@ function formatSeconds(total) {
 </script>
 
 <style scoped>
-.card {
-  padding: 1.5rem;
+/* Layout */
+.stats-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-.kpi {
+
+/* Hero */
+.hero {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(66,165,245,.12), rgba(102,187,106,.12));
+  border: 1px solid var(--surface-border);
+}
+
+.hero-left {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+}
+
+.hero-icon {
+  font-size: 1.75rem;
+  color: var(--primary-color);
+}
+
+.hero-sub {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .25rem;
+  color: var(--text-color-secondary);
+  font-size: .875rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Badge + pulse */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .125rem .5rem;
+  border-radius: 999px;
   background: var(--surface-100);
-  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+}
+
+.dot-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--primary-color);
+  box-shadow: 0 0 0 0 rgba(63, 81, 181, 0.6);
+  animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(63, 81, 181, 0.5) }
+  70%  { transform: scale(1.35); box-shadow: 0 0 0 10px rgba(63, 81, 181, 0) }
+  100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(63, 81, 181, 0) }
+}
+
+/* Skeletons */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: .75rem;
+}
+.skeleton-card {
+  grid-column: span 12;
+  height: 88px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--surface-100), var(--surface-200), var(--surface-100));
+  background-size: 200% 100%;
+  animation: shimmer 1.25s linear infinite;
+}
+@media (min-width: 768px) {
+  .skeleton-card { grid-column: span 3; }
+}
+.skeleton-panel {
+  grid-column: span 12;
+  height: 360px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--surface-100), var(--surface-200), var(--surface-100));
+  background-size: 200% 100%;
+  animation: shimmer 1.25s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* KPI cards */
+.kpi {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
   padding: 1rem;
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
 }
+
+.kpi:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background: radial-gradient(120px 60px at right -20px top -20px, currentColor, transparent 70%);
+  pointer-events: none;
+}
+
+.kpi-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
 .kpi-title {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   color: var(--text-color-secondary);
-  margin-bottom: 0.25rem;
 }
+
 .kpi-value {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
-.card-inner {
+
+.kpi-icon {
+  font-size: 1.2rem;
+}
+
+/* Color accents driven by text color so decorative glow inherits */
+.kpi--blue  { color: #42A5F5; }
+.kpi--amber { color: #FFB300; }
+.kpi--green { color: #66BB6A; }
+.kpi--violet{ color: #7E57C2; }
+
+/* Panels */
+.panel {
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 1rem;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+}
+
+.panel-note {
+  color: var(--text-color-secondary);
+  font-size: .85rem;
+}
+
+/* Ensure charts take the available height */
+:deep(canvas) {
+  max-height: 320px;
 }
 </style>
