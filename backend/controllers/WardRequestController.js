@@ -42,6 +42,24 @@ module.exports = {
             ward_id,
           });
         }
+      } else if (type === 'leave') {
+        // Handle leaving a ward: remove the assignment record for staff or community leader
+        user = await User.findByPk(actualPersonId);
+        if (!user) {
+          return response.status(404).json({ success: false, message: 'User not found' });
+        }
+        try {
+          if (user.role === 'staff') {
+            await MunicipalStaff.destroy({ where: { user_id: user.id, ward_id } });
+          } else if (user.role === 'communityleader') {
+            await CommunityLeader.destroy({ where: { user_id: user.id, ward_id } });
+          } else {
+            // User role not applicable for leave
+            return response.status(400).json({ success: false, message: 'User role cannot leave a ward' });
+          }
+        } catch (err) {
+          return response.status(500).json({ success: false, message: 'Failed to remove user from ward' });
+        }
       } else {
         // For new requests, set job_description based on role if not provided
         user = await User.findByPk(actualPersonId);
