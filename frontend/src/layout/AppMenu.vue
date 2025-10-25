@@ -61,7 +61,9 @@ const model = computed(() => [{
         { label: 'Reports', icon: 'pi pi-fw pi-file', to: { name: 'reports' } },
         { label: 'Your Reports', icon: 'pi pi-fw pi-list', to: { name: 'user-reports' } },
         { label: 'Map View', icon: 'pi pi-fw pi-map', to: { name: 'report-map' } },
-        { label: 'Ward Stats', icon: 'pi pi-chart-line', to: hasAssignedWard() ? { name: 'ward-stats-id', params: { wardId: user.value.ward_id } } : { name: 'ward-stats' } },
+        ...(!isAdmin() ? [
+            { label: 'Ward Stats', icon: 'pi pi-chart-line', to: hasAssignedWard() ? { name: 'ward-stats-id', params: { wardId: user.value.ward_id } } : { name: 'ward-stats' } }
+        ] : []),
         { label: 'Wards', icon: 'pi pi-map-marker', to: '/wards' },
         ...(isCommunityLeader()
             ? [{ label: 'Manage Report Issue', icon: 'pi pi-exclamation-circle', to: '/my-ward-report-issues' }]
