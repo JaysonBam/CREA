@@ -85,20 +85,21 @@ const handleRegister = handleSubmit(async () => {
   >
     <div class="flex flex-col items-center justify-center">
       <div
-        style="
-          border-radius: 56px;
-          padding: 0.3rem;
-          background: linear-gradient(
-            180deg,
-            var(--primary-color) 10%,
-            rgba(33, 150, 243, 0) 30%
-          );
-        "
-      >
-        <div
-          class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20"
-          style="border-radius: 53px"
+          class="auth-card-outer"
+          style="
+            border-radius: 56px;
+            padding: 0.3rem;
+            background: linear-gradient(
+              180deg,
+              var(--primary-color) 10%,
+              rgba(33, 150, 243, 0) 30%
+            );
+          "
         >
+          <div
+            class="auth-card-inner w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20"
+            style="border-radius: 53px"
+          >
           <div class="text-center mb-8">
             <h2 class="text-2xl font-bold">Register</h2>
             <p class="text-muted-color">Step {{ step }} of 2</p>
@@ -121,3 +122,26 @@ const handleRegister = handleSubmit(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Make auth cards occupy most of the viewport on small screens (about 90%) */
+@media (max-width: 767px) {
+  .auth-card-inner {
+    width: 90vw !important;
+    max-width: 720px !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: 1.25rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .auth-card-outer { padding: 0.15rem !important; }
+}
+@media (max-width: 480px) {
+  .auth-card-inner { width: 94vw !important; max-width: 640px !important; }
+}
+@media (max-width: 767px) {
+  /* Sharper corners on mobile only */
+  .auth-card-outer { border-radius: 12px !important; }
+  .auth-card-inner { border-radius: 12px !important; }
+}
+</style>
