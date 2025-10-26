@@ -22,7 +22,7 @@
           <p class="mt-2">No records found.</p>
         </div>
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
         <Card v-for="data in displayedRows" :key="data.token" class="relative" :class="rowClass(data)" style="width: 100%; height: 420px;">
           <!-- Menu Button (Top Right) -->
           <template #header>
@@ -67,10 +67,10 @@
 
           <template #title>
             <h5 
-              class="font-bold mt-2" 
+              class="font-bold mt-2 line-clamp-1" 
               v-tooltip.top="data.title"
             >
-              {{ truncateTitle(data.title) }}
+              {{ data.title }}
             </h5>
           </template>
 
@@ -85,8 +85,8 @@
           </template>
 
           <template #footer>
-            <div class="mt-2 flex gap-2">
-              <span class="relative inline-block">
+            <div class="mt-2 flex gap-2 width-full items-center">
+              <span class="relative inline-block width-full">
                 <Button
                   icon="pi pi-comments"
                   label="Chat"
@@ -102,7 +102,7 @@
                   {{ unread[data.token] }}
                 </span>
               </span>
-              <span class="relative inline-block">
+              <span class="relative inline-block width-full">
                 <Button
                   :icon="
                     isSubscribed(data.token) ? 'pi pi-bell-slash' : 'pi pi-bell'
