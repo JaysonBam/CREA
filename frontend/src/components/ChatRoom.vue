@@ -440,13 +440,18 @@ const scrollToFirstUnread = async () => {
 .bubble-incoming {
   align-self: flex-start;
   background: var(--p-surface-100);
-  color: var(--p-text-color);
+  color: #000; /* force black text for readability in all modes */
   border: 1px solid var(--p-surface-300);
 }
 .bubble-outgoing {
   align-self: flex-end;
   background: var(--p-primary-200);
   color: var(--p-primary-900);
+}
+
+/* Dark mode: requested to force incoming text to black for maximum contrast */
+:global(.dark) .chatroom :deep(.bubble-incoming) {
+  color: #000; /* force black text in dark mode for incoming bubbles */
 }
 
 .unread-separator { position: relative; text-align: center; margin: 0.75rem 0 1rem; }

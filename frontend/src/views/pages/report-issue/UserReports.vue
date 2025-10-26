@@ -34,14 +34,17 @@
       </div>
 
       <!-- Reports Grid -->
-      <div v-else class="reports-grid">
-        <Card v-for="report in reports" :key="report.token">
+      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
+        <Card v-for="report in reports" :key="report.token" class="relative" style="width: 100%; height: 475px;">
           <!-- =================================================================== -->
           <!-- START: IMAGE GALLERY SECTION                                        -->
           <!-- =================================================================== -->
           <template #header>
+
+            <!-- Galleria for reports with images -->
             <Galleria
               v-if="report.attachments && report.attachments.length"
+              :key="report.token + '-galleria'"
               :value="report.attachments"
               :numVisible="1"
               containerStyle="max-width: 100%"
@@ -56,6 +59,15 @@
                 />
               </template>
             </Galleria>
+
+            <!-- Default image for reports without attachments -->
+            <div v-else class="h-[250px] w-full">
+              <img 
+                :src="`/default-report-image.png`"
+                alt="Default report image"
+                style="width: 100%; display: block; height: 250px; object-fit: cover;"
+              />
+            </div>
           </template>
           <!-- =================================================================== -->
           <!-- END: IMAGE GALLERY SECTION                                          -->
@@ -74,43 +86,51 @@
             Reported on {{ new Date(report.createdAt).toLocaleDateString() }}
           </template>
           <template #content>
-            <p class="m-0 text-surface-700">
+            <p
+              v-tooltip.top="report.description"
+              class="m-0 text-surface-700 line-clamp-2"
+            >
               {{ report.description }}
             </p>
           </template>
           <template #footer>
-            <div class="flex gap-2 mt-4">
-              <Button
-                label="Edit Details"
-                icon="pi pi-pencil"
-                outlined
-                class="w-full"
-                @click="openEditDialog(report)"
-              />
-              <Button
-                label="Upload Files"
-                icon="pi pi-upload"
-                severity="secondary"
-                outlined
-                class="w-full"
-                @click="openUploadDialog(report)"
-              />
-              <span class="relative w-full">
+            <div class="flex flex-col gap-2 mt-4">
+              <!-- First row for Edit and Upload buttons -->
+              <div class="flex gap-2">
                 <Button
-                  label="Chat"
-                  icon="pi pi-comments"
-                  severity="help"
+                  label="Edit Details"
+                  icon="pi pi-pencil"
                   outlined
                   class="w-full"
-                  @click="openChat(report)"
+                  @click="openEditDialog(report)"
                 />
-                <span
-                  v-if="unread[report.token] > 0"
-                  class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
-                >
-                  {{ unread[report.token] }}
+                <Button
+                  label="Upload Files"
+                  icon="pi pi-upload"
+                  severity="secondary"
+                  outlined
+                  class="w-full"
+                  @click="openUploadDialog(report)"
+                />
+              </div>
+              <!-- Second row for the centered Chat button -->
+              <div class="flex justify-center">
+                <span class="relative">
+                  <Button
+                    label="Chat"
+                    icon="pi pi-comments"
+                    severity="help"
+                    outlined
+                    @click="openChat(report)"
+                  />
+                  <span
+                    v-if="unread[report.token] > 0"
+                    class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
+                  >
+                    {{ unread[report.token] }}
+                  </span>
                 </span>
-              </span>
+              </div>
             </div>
           </template>
         </Card>
@@ -128,8 +148,17 @@
       <div class="flex flex-col gap-6 py-4">
         <div class="field">
           <label for="title" class="font-semibold block mb-2">Title</label>
-          <InputText id="title" v-model="currentReport.title" class="w-full" />
+          <InputText
+            id="title"
+            v-model.trim="currentReport.title"
+            class="w-full"
+            :class="{ 'p-invalid': editTriedSave && !editTitleValid }"
+            required
+            @keyup.enter="saveReport"
+          />
+          <small v-if="editTriedSave && !editTitleValid" class="p-error">Title is required.</small>
         </div>
+
         <div class="field">
           <label for="description" class="font-semibold block mb-2">Description</label>
           <Textarea
@@ -181,7 +210,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
@@ -278,6 +307,10 @@ const refreshUnread = async () => {
   }
 };
 
+const editTriedSave = ref(false);
+const editTitleValid = computed(() => !!(currentReport.title && currentReport.title.trim().length));
+
+
 // Prefill and open the Edit dialog
 const openEditDialog = (report) => {
   Object.assign(currentReport, {
@@ -286,12 +319,20 @@ const openEditDialog = (report) => {
     title: report.title,
     description: report.description,
   });
+  editTriedSave.value = false;
   showEditDialog.value = true;
 };
 
 // Save report title/description edits, then reload list
 const saveReport = async () => {
   if (!currentReport.token) return;
+
+  editTriedSave.value = true;
+
+  if (!editTitleValid.value) {
+    toast.add({ severity: "warn", summary: "Validation", detail: "Title is required.", life: 2000 });
+    return;
+  }
   try {
     const payload = {
       title: currentReport.title,

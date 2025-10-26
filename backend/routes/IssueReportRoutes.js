@@ -69,6 +69,8 @@ router.post("/", auth, controller.create);
 // Updates an existing issue report.
 router.put("/:token", auth, controller.update);
 
+router.put("/:token/resolve", auth, controller.resolve);
+
 router.put("/:token/status", auth, controller.updateStatus);
 
 // DELETE /api/issue-reports/:token
