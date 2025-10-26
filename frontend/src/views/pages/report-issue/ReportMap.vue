@@ -270,7 +270,8 @@ onMounted(async () => {
 
 /* Cluster bubble */
 .cluster-icon {
-  background: radial-gradient(circle, #1976d2 0%, #0d47a1 80%);
+  background: radial-gradient(circle, #11ba82 0%, #0b7e58 80%);
+
   border-radius: 50%;
   border: 2px solid #fff;
   color: #fff;
