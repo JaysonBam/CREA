@@ -18,15 +18,21 @@
           showGridlines
         >
           <template #header>
-            <div class="flex justify-between items-center gap-2">
-              <div class="flex gap-2">
-                <Button v-if="isAdmin" type="button" icon="pi pi-plus" label="New" @click="openNew" />
-                <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter" />
+            <!-- Make header controls stack on mobile and inline on desktop -->
+            <div class="table-header flex flex-col md:flex-row md:justify-between gap-2 items-stretch">
+              <div class="controls flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+                <div class="buttons flex gap-2">
+                  <Button v-if="isAdmin" type="button" icon="pi pi-plus" label="New" @click="openNew" />
+                  <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter" />
+                </div>
               </div>
-              <IconField>
-                <InputIcon><i class="pi pi-search" /></InputIcon>
-                <InputText v-model="filters['global'].value" placeholder="Search..." />
-              </IconField>
+
+              <div class="search w-full md:w-64">
+                <IconField class="w-full">
+                  <InputIcon><i class="pi pi-search" /></InputIcon>
+                  <InputText v-model="filters['global'].value" placeholder="Search..." class="w-full" />
+                </IconField>
+              </div>
             </div>
           </template>
 
@@ -983,5 +989,77 @@ onMounted(async () => {
 <style scoped>
 .field {
   margin-bottom: 0.75rem;
+}
+
+/* Mobile compaction: tighten table, tabs and form paddings without changing desktop */
+@media (max-width: 767px) {
+  /* Outer card and inner padding */
+  .card {
+    padding: 0.5rem !important;
+  }
+  .card > .p-4 {
+    padding: 0.5rem !important;
+  }
+
+  /* Tab headers and panels tighter */
+  .p-tabview .p-tabview-nav {
+    margin-bottom: 0.25rem;
+  }
+  .p-tabview .p-tabview-nav li .p-tabview-title {
+    font-size: 0.95rem;
+    padding: 0.4rem 0.6rem;
+  }
+  .p-tabview .p-tabview-panels .p-tabview-panel {
+    padding: 0.5rem !important;
+  }
+
+  /* DataTable: reduce cell paddings and row height */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.45rem 0.5rem !important;
+  }
+  .p-datatable .p-datatable-tbody > tr {
+    min-height: 40px;
+  }
+
+  /* Filters and inputs: full width and smaller */
+  .p-4 .w-60, .p-4 .w-80 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .p-4 .iconfield, .p-4 .inputicon, .p-4 .relative {
+    width: 100%;
+  }
+  .p-4 .p-inputtext, .p-4 .p-dropdown {
+    padding: 0.4rem 0.55rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Buttons smaller where appropriate */
+  .p-button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Dialogs: reduce width on small screens */
+  .p-dialog[style] {
+    max-width: 92% !important;
+  }
+}
+
+/* Additional mobile rules to make the wards table denser and stack filters */
+@media (max-width: 767px) {
+  .table-header { gap: 0.5rem; }
+  .table-header .buttons .p-button { padding: 0.35rem 0.5rem !important; }
+
+  /* Make the datatable denser */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.35rem 0.45rem !important;
+  }
+  .p-datatable .p-datatable-tbody > tr { min-height: 36px; }
+
+  /* Reduce pagination height */
+  .p-paginator .p-paginator-pages .p-paginator-page { min-width: 28px; height: 28px; }
 }
 </style>

@@ -6,7 +6,17 @@
         <img src="/logo_light.svg" alt="CREA" class="brand-logo" />
       </div>
 
-      <!-- Middle: nav -->
+      <!-- Mobile: hamburger (keeps desktop nav unchanged) -->
+      <button
+        class="mobile-menu-button md:hidden"
+        @click="toggleMobileMenu"
+        aria-label="Open menu"
+        :aria-expanded="showMobileMenu"
+      >
+        <i class="pi pi-bars"></i>
+      </button>
+
+      <!-- Middle: nav (desktop only) -->
       <nav class="main-nav hidden md:flex" aria-label="Primary">
         <a class="nav-link" href="#features">Features</a>
         <a class="nav-link" href="#how">How it works</a>
@@ -27,13 +37,37 @@
       </div>
     </div>
   </header>
+  <!-- Mobile nav dropdown (stacked links + auth). Visible only on small screens. -->
+  <div v-if="showMobileMenu" class="mobile-nav md:hidden">
+    <nav class="mobile-nav-inner">
+      <a class="mobile-link" href="#features" @click="closeMobileMenu">Features</a>
+      <a class="mobile-link" href="#how" @click="closeMobileMenu">How it works</a>
+
+      <div class="mobile-auth">
+        <Button
+          label="Log in"
+          class="p-button-text auth-link mobile-auth-btn"
+          @click="() => { router.push({ name: 'login' }); closeMobileMenu(); }"
+        />
+        <Button
+          label="Sign up"
+          class="p-button-rounded signup-cta mobile-auth-btn"
+          @click="() => { router.push({ name: 'register' }); closeMobileMenu(); }"
+        />
+      </div>
+    </nav>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import Button from "primevue/button";
+import { ref } from "vue";
 const router = useRouter();
 const goHome = () => router.push({ name: "landing" });
+const showMobileMenu = ref(false);
+const toggleMobileMenu = () => (showMobileMenu.value = !showMobileMenu.value);
+const closeMobileMenu = () => (showMobileMenu.value = false);
 </script>
 
 <style scoped>
@@ -126,6 +160,53 @@ const goHome = () => router.push({ name: "landing" });
   gap: 0.6rem;
   justify-self: end;
   white-space: nowrap;
+}
+
+/* ---------- Mobile nav ---------- */
+.mobile-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--text-color-secondary);
+}
+.mobile-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--surface-border);
+  z-index: 40;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.mobile-nav-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem 1rem;
+}
+.mobile-link {
+  display: block;
+  padding: 0.75rem 0.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-color-secondary);
+}
+.mobile-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.mobile-auth-btn :deep(.p-button-label) {
+  font-weight: 700;
+}
+.mobile-auth-btn {
+  width: 100%;
 }
 
 /* Log in: readable, link-like but bigger */

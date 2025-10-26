@@ -4,12 +4,18 @@
     <div class="p-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 class="text-2xl font-bold">My Reported Issues</h1>
-        <div class="flex items-center gap-2">
-          <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
-          <Select v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-44" :showClear="true" @change="loadReports" />
-          <Select v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-44" :showClear="true" @change="loadReports" />
-          <div class="relative">
-            <InputText v-model="titleQuery" placeholder="Search title..." class="w-64" @input="onTitleInput" />
+        <!-- Filters: stack vertically on mobile, inline on desktop -->
+        <div class="filters-container flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <Button icon="pi pi-filter-slash" text rounded @click="clearFilters" />
+          </div>
+
+          <Select v-model="categoryFilter" :options="categoryOptions" placeholder="Any Category" class="w-full md:w-44" :showClear="true" @change="loadReports" />
+
+          <Select v-model="statusFilter" :options="statusOptions" placeholder="Any Status" class="w-full md:w-44" :showClear="true" @change="loadReports" />
+
+          <div class="relative w-full md:w-64">
+            <InputText v-model="titleQuery" placeholder="Search title..." class="w-full" @input="onTitleInput" />
             <ul v-if="showTitleSuggestions && titleSuggestions.length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow text-sm max-h-56 overflow-auto">
               <li v-for="t in titleSuggestions" :key="t" class="px-3 py-2 hover:bg-surface-100 cursor-pointer" @click="applyTitleSuggestion(t)">{{ t }}</li>
             </ul>
@@ -34,15 +40,15 @@
       </div>
 
       <!-- Reports Grid -->
-      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
-        <Card v-for="report in reports" :key="report.token" class="relative" style="width: 100%; height: 475px;">
+      <div v-else class="reports-grid">
+        <Card v-for="report in reports" :key="report.token" class="relative report-card" style="width: 100%; height: 475px;">
           <!-- =================================================================== -->
           <!-- START: IMAGE GALLERY SECTION                                        -->
           <!-- =================================================================== -->
           <template #header>
 
             <!-- Galleria for reports with images -->
-            <Galleria
+                <Galleria
               v-if="report.attachments && report.attachments.length"
               :key="report.token + '-galleria'"
               :value="report.attachments"
@@ -55,16 +61,17 @@
                 <img
                   :src="slotProps.item.file_link"
                   :alt="slotProps.item.description || 'Report image'"
-                  style="width: 100%; display: block; height: 200px; object-fit: cover;"
+                      style="width: 100%; display: block; height: 200px; object-fit: cover;"
                 />
               </template>
             </Galleria>
 
             <!-- Default image for reports without attachments -->
-            <div v-else class="h-[250px] w-full">
-              <img 
+            <div v-else class="h-[250px] w-full default-image-wrap">
+              <img
                 :src="`/default-report-image.png`"
                 alt="Default report image"
+                class="default-report-image"
                 style="width: 100%; display: block; height: 250px; object-fit: cover;"
               />
             </div>
@@ -481,8 +488,82 @@ watch(statusFilter, () => {
 <style scoped>
 .reports-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, 280px);
+  gap: 1rem;
 }
 .unread-chip { background: var(--primary-500); color: white; border-radius: 9999px; padding: 0 0.5rem; font-size: 0.75rem; }
+
+/* Mobile compaction rules: keep desktop unchanged */
+@media (max-width: 767px) {
+  /* Make the outer card padding tighter */
+  .card {
+    padding: 0.5rem !important;
+  }
+  .card > .p-4 {
+    padding: 0.5rem !important;
+  }
+
+  /* Filters row: stack on mobile and make inputs full-width */
+  .p-4 > .flex.flex-col.md\:flex-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .p-4 .w-44, .p-4 .w-64 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .p-4 .relative { width: 100%; }
+
+  /* Grid: single column with tighter gap */
+  .reports-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  /* When reports collapse to a single column, center the cards and limit their width
+     so they don't span edge-to-edge on small phones. */
+  .reports-grid {
+    justify-items: center;
+  }
+
+  .report-card {
+    width: 92% !important;
+    max-width: 420px;
+  }
+
+  /* Card height reduced to show more content above the fold */
+  .report-card {
+    height: 360px !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* Reduce image heights inside cards */
+  .report-card .p-galleria img,
+  .report-card .default-report-image {
+    height: 150px !important;
+    object-fit: cover;
+  }
+  .report-card > .p-card-content { padding: 0.5rem !important; }
+
+  /* Title/subtitle/content tighter */
+  .report-card .p-card-title {
+    font-size: 1rem;
+  }
+  .report-card .p-card-subtitle { font-size: 0.85rem; }
+  .report-card p { font-size: 0.95rem; }
+
+  /* Footer buttons: smaller and stacked on mobile */
+  .report-card template[\#footer] .flex.flex-col {
+    gap: 0.4rem;
+  }
+  .report-card .p-button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.95rem !important;
+  }
+  .report-card .flex.gap-2 {
+    gap: 0.5rem !important;
+  }
+}
 </style>

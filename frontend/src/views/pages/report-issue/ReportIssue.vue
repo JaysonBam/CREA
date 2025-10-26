@@ -5,15 +5,12 @@
       <h1 class="text-2xl font-bold mb-6 border-b pb-4">Report a New Issue</h1>
 
       <div class="report-layout">
-        <!-- ===== LEFT COLUMN: Form Details + Upload ===== -->
-        <div class="form-panel p-fluid flex flex-col gap-6">
-          <!-- 1. Describe the Issue -->
+        <!-- Describe panel (left on desktop, top on mobile) -->
+        <div class="describe-panel form-panel p-fluid flex flex-col gap-6">
           <Panel header="1. Describe the Issue">
             <div class="flex flex-col gap-6">
               <div class="field">
-                <label for="title" class="font-semibold block mb-2"
-                  >Title</label
-                >
+                <label for="title" class="font-semibold block mb-2">Title</label>
                 <InputText
                   id="title"
                   v-model="issueDetails.title"
@@ -23,9 +20,7 @@
               </div>
 
               <div class="field">
-                <label for="description" class="font-semibold block mb-2"
-                  >Description</label
-                >
+                <label for="description" class="font-semibold block mb-2">Description</label>
                 <Textarea
                   id="description"
                   v-model="issueDetails.description"
@@ -37,9 +32,7 @@
               </div>
 
               <div class="field">
-                <label for="category" class="font-semibold block mb-2"
-                  >Category</label
-                >
+                <label for="category" class="font-semibold block mb-2">Category</label>
                 <Select
                   id="category"
                   v-model="issueDetails.category"
@@ -49,41 +42,15 @@
               </div>
             </div>
           </Panel>
-
-          <!-- 3. Upload Attachments (Optional) -->
-          <Panel header="3. Upload Attachments (Optional)">
-            <FileUpload
-              ref="fileUploader"
-              name="attachments"
-              :multiple="true"
-              :auto="false"
-              :customUpload="true"
-              accept="image/*"
-              :maxFileSize="5000000"
-              :showUploadButton="false"
-              :showCancelButton="false"
-              @select="onFileSelect"
-              @clear="selectedFiles = []"
-            >
-              <template #empty>
-                <p>
-                  Drag and drop files here. Files will be uploaded when you
-                  submit the report.
-                </p>
-              </template>
-            </FileUpload>
-          </Panel>
         </div>
 
-        <!-- ===== RIGHT COLUMN: Map and Location ===== -->
+        <!-- Map panel (right on desktop, middle on mobile) -->
         <div class="map-panel">
           <Panel header="2. Pinpoint the Location">
             <div class="flex flex-col gap-4">
               <div class="grid gap-4 md:grid-cols-2">
                 <div class="field">
-                  <label for="address" class="font-semibold block mb-2"
-                    >Address</label
-                  >
+                  <label for="address" class="font-semibold block mb-2">Address</label>
                   <div class="relative">
                     <InputText
                       id="address"
@@ -102,9 +69,7 @@
                 </div>
 
                 <div class="field">
-                  <label for="ward" class="font-semibold block mb-2"
-                    >Ward</label
-                  >
+                  <label for="ward" class="font-semibold block mb-2">Ward</label>
                   <Select
                     id="ward"
                     class="w-full"
@@ -134,15 +99,11 @@
                     <template #option="{ option }">
                       <div class="flex flex-col">
                         <span class="font-medium">{{ option.name }}</span>
-                        <span class="text-sm text-muted-color">{{
-                          option.code
-                        }}</span>
+                        <span class="text-sm text-muted-color">{{ option.code }}</span>
                       </div>
                     </template>
                   </Select>
-                  <small class="text-red-500 block" v-if="wardsError">{{
-                    wardsError
-                  }}</small>
+                  <small class="text-red-500 block" v-if="wardsError">{{ wardsError }}</small>
                 </div>
               </div>
 
@@ -174,14 +135,37 @@
             </div>
           </Panel>
         </div>
+
+        <!-- Upload panel (right column on desktop under describe, bottom on mobile) -->
+        <div class="upload-panel form-panel p-fluid flex flex-col gap-6">
+          <Panel header="3. Upload Attachments (Optional)">
+            <FileUpload
+              ref="fileUploader"
+              name="attachments"
+              :multiple="true"
+              :auto="false"
+              :customUpload="true"
+              accept="image/*"
+              :maxFileSize="5000000"
+              :showUploadButton="false"
+              :showCancelButton="false"
+              @select="onFileSelect"
+              @clear="selectedFiles = []"
+            >
+              <template #empty>
+                <p>Drag and drop files here. Files will be uploaded when you submit the report.</p>
+              </template>
+            </FileUpload>
+          </Panel>
+        </div>
       </div>
 
       <!-- Submit -->
-      <div class="mt-6 text-right">
+      <div class="mt-6 submit-actions text-right">
         <Button
           label="Submit Report"
           icon="pi pi-check"
-          class="p-button-lg"
+          class="p-button-lg submit-button"
           :disabled="isFormInvalid"
           :loading="submitting"
           @click="submitReport"
@@ -469,7 +453,20 @@ const submitReport = async () => {
 .report-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "describe map"
+    "upload map";
   gap: 1.5rem;
+}
+
+.describe-panel {
+  grid-area: describe;
+}
+.map-panel {
+  grid-area: map;
+}
+.upload-panel {
+  grid-area: upload;
 }
 
 .map-wrapper {
@@ -492,5 +489,186 @@ const submitReport = async () => {
   z-index: 1000;
   border-radius: 6px;
   color: #6c757d;
+}
+
+@media (max-width: 767px) {
+  /* Stack describe, map, upload vertically on small screens */
+  .report-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "describe"
+      "map"
+      "upload";
+    gap: 0.5rem; /* tighter stacking */
+  }
+
+  /* Make map shorter on mobile to avoid excessive scroll */
+  .map-wrapper {
+    height: 220px;
+  }
+
+  /* Make submit button full-width and easier to tap on mobile */
+  .submit-actions {
+    text-align: center; /* center the button */
+  }
+  .submit-actions .submit-button.p-button {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  /* Slightly increase spacing inside panels for touch targets */
+  .form-panel .field {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Extra compact adjustments for mobile form (reduce paddings, tighten inputs) */
+@media (max-width: 767px) {
+  /* Reduce panel inner padding and margins to fit more content */
+  .form-panel .p-panel .p-panel-content,
+  .map-panel .p-panel .p-panel-content {
+    padding: 0.5rem !important;
+  }
+
+  /* Reduce space between panels */
+  .p-panel {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Smaller labels and reduced vertical gaps */
+  .form-panel .field label {
+    margin-bottom: 0.25rem;
+    font-size: 0.95rem;
+  }
+
+  /* Compact input/textarea/dropdown styling */
+  .form-panel .field .p-inputtext,
+  .form-panel .field .p-inputtextarea,
+  .form-panel .field .p-dropdown,
+  .form-panel .field .p-autocomplete {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* File upload: smaller button and tighter panel */
+  .p-fileupload {
+    padding: 0.4rem !important;
+  }
+  .p-fileupload .p-fileupload-buttonbar .p-button,
+  .p-fileupload .p-fileupload-choose {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Grid fields: reduce gap inside the address/ward row */
+  .grid.gap-4 {
+    gap: 0.5rem;
+  }
+
+  /* Tighter submit button */
+  .submit-actions .submit-button.p-button {
+    padding: 0.6rem 0.75rem;
+    font-size: 1rem;
+  }
+
+  /* Smaller page title for mobile */
+  .p-4 > h1 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Further tighten nested card/panel paddings on mobile to avoid "card-on-card" whitespace */
+@media (max-width: 767px) {
+  /* Reduce outer card padding */
+  .card {
+    padding: 0.5rem !important;
+    border-radius: 8px;
+  }
+
+  /* Reduce the padded container inside the card */
+  .card > .p-4 {
+    padding: 0.5rem !important;
+  }
+
+  /* Panels (PrimeVue) — smaller header and content padding */
+  .p-panel {
+    margin-bottom: 0.45rem !important;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .p-panel .p-panel-header {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 1rem;
+  }
+  .p-panel .p-panel-content {
+    padding: 0.45rem 0.6rem !important;
+  }
+
+  /* Make the upload placeholder tighter */
+  .p-fileupload .p-fileupload-choose {
+    padding: 0.35rem 0.55rem !important;
+  }
+  .p-fileupload .p-fileupload-content {
+    padding: 0.45rem !important;
+  }
+
+  /* Reduce card-internal vertical spacing */
+  .form-panel .flex.flex-col,
+  .map-panel .flex.flex-col {
+    gap: 0.5rem !important;
+  }
+
+  /* Tighter borders and spacing for map wrapper */
+  .map-wrapper {
+    border-radius: 6px;
+  }
+}
+
+/* Extra compact rules for very small screens (phones) */
+@media (max-width: 480px) {
+  /* Make map shorter to fit more above the fold */
+  .map-wrapper { height: 180px; }
+
+  /* Reduce panel padding further */
+  .p-panel .p-panel-header { padding: 0.35rem 0.45rem !important; font-size: 0.95rem; }
+  .p-panel .p-panel-content { padding: 0.35rem 0.45rem !important; }
+
+  /* Image previews inside fileupload or panels should be compact */
+  .p-fileupload .p-fileupload-files img,
+  .p-fileupload .p-fileupload-content img,
+  .form-panel img,
+  .map-panel img,
+  .upload-panel img,
+  .p-panel img {
+    max-height: 80px !important;
+    width: auto !important;
+    border-radius: 6px !important;
+    object-fit: cover !important;
+  }
+
+  /* If fileupload shows files as grid, make items smaller */
+  .p-fileupload .p-fileupload-files {
+    gap: 0.35rem !important;
+  }
+  .p-fileupload .p-fileupload-files .p-fileupload-row {
+    padding: 0.25rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Reduce title size and header spacing to save vertical space */
+  .p-4 > h1 { font-size: 1rem; margin-bottom: 0.35rem; }
+
+  /* Make panels arrange more compactly: reduce gaps inside report layout */
+  .report-layout { gap: 0.4rem; }
+
+  /* Make input paddings slightly smaller to fit more fields */
+  .form-panel .field .p-inputtext,
+  .form-panel .field .p-inputtextarea,
+  .form-panel .field .p-dropdown,
+  .form-panel .field .p-autocomplete {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.9rem !important;
+  }
 }
 </style>
