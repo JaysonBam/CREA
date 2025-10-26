@@ -46,6 +46,29 @@ app.post('/run-seeders', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// TEMPORARY: Endpoint to perform a full reset (undo all migrations, migrate, seed)
+// WARNING: This is dangerous in production. It will attempt to undo ALL migrations which may drop tables/data.
+// Only expose this on development/debug deployments and remove before production use.
+app.post('/reset-db', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    // Chain undo all -> migrate -> seed. Adjust commands if your setup differs.
+    const cmd = 'npx sequelize-cli db:migrate:undo:all && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all';
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Reset error: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+      }
+      if (stderr) {
+        console.warn(`Reset stderr: ${stderr}`);
+      }
+      res.json({ message: 'Database reset complete', stdout, stderr });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Load environment configuration
 // Note we reference the .env variables and not use hardcoded values here
 // This is important for security and flexibility
