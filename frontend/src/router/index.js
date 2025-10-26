@@ -46,7 +46,12 @@ const router = createRouter({
       name: "landing",
       component: LandingPage,
       meta: { public: true },
+      beforeEnter: (to, from, next) => {
+        const token = sessionStorage.getItem("JWT");
+        if (token) next({ name: "ward-stats" });
+        else next();
       },
+    },
 
     {
       path: "/register",
