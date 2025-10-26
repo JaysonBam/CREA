@@ -716,4 +716,51 @@ function openRowMenu(event, row){
   padding-top: 0.75rem;
 }
 .text-red-500 { color: var(--red-500); }
+
+/* Mobile friendliness tweaks */
+@media (max-width: 767px) {
+  /* Stack header controls vertically and make inputs full width */
+  :deep(.p-datatable .p-datatable-header) { padding: 0.25rem; }
+  .flex.flex-col.gap-2.text-left.md\:flex-row.md\:items-center.md\:justify-between {
+    gap: 0.5rem;
+  }
+  .flex.items-center.gap-2 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .w-44, .w-72 { width: 100% !important; max-width: 100% !important; }
+  .relative { width: 100%; }
+
+  /* Make the DataTable more compact: reduce paddings */
+  :deep(.p-datatable .p-datatable-tbody > tr > td), :deep(.p-datatable .p-datatable-thead > tr > th) {
+    padding: 0.5rem 0.6rem !important;
+  }
+
+  /* Hide less important columns on small screens (Category, Reported By, Created At) */
+  :deep(.p-datatable-table thead th:nth-child(2)),
+  :deep(.p-datatable-table thead th:nth-child(4)),
+  :deep(.p-datatable-table thead th:nth-child(5)),
+  :deep(.p-datatable-table tbody td:nth-child(2)),
+  :deep(.p-datatable-table tbody td:nth-child(4)),
+  :deep(.p-datatable-table tbody td:nth-child(5)) {
+    display: none !important;
+  }
+
+  /* Make action buttons smaller and wrap if needed */
+  :deep(.p-button) {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.9rem !important;
+  }
+  .subscribe-btn :deep(.p-button-icon){ font-size: 0.9rem !important; }
+
+  /* Dialogs: ensure they use most of the viewport on phones */
+  :deep(.p-dialog) { width: 95vw !important; max-width: 680px !important; }
+
+  /* Make the unread badge smaller to avoid overflow */
+  .unread-chip { padding: 0 0.4rem; font-size: 0.7rem; }
+
+  /* Make rows appear with more vertical breathing room but compact overall */
+  :deep(.p-datatable-table tbody tr) { border-bottom: 1px solid var(--surface-border); }
+}
 </style>

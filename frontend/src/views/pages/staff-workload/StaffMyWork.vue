@@ -323,4 +323,41 @@ onMounted(async () => {
 
 <style scoped>
 .text-red-500 { color: var(--red-500); }
+
+/* Mobile adjustments: stack header, compact table, hide less-important columns */
+@media (max-width: 767px) {
+  /* Header controls: make search full width and stack buttons */
+  .flex.justify-between.items-center.gap-2 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .flex.gap-2 { display: flex; gap: 0.5rem; }
+  :deep(.p-inputtext) { max-width: 100% !important; }
+
+  /* Compact table cells */
+  :deep(.p-datatable .p-datatable-tbody > tr > td), :deep(.p-datatable .p-datatable-thead > tr > th) {
+    padding: 0.45rem 0.5rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Hide less-important columns: Description, Address, Next Schedule, Note */
+  /* Column order: #, Title, Description, Category, Status, Ward, Address, Next Schedule, Note */
+  :deep(.p-datatable-table thead th:nth-child(3)),
+  :deep(.p-datatable-table thead th:nth-child(7)),
+  :deep(.p-datatable-table thead th:nth-child(8)),
+  :deep(.p-datatable-table thead th:nth-child(9)),
+  :deep(.p-datatable-table tbody td:nth-child(3)),
+  :deep(.p-datatable-table tbody td:nth-child(7)),
+  :deep(.p-datatable-table tbody td:nth-child(8)),
+  :deep(.p-datatable-table tbody td:nth-child(9)) {
+    display: none !important;
+  }
+
+  /* Make status tag slightly smaller on mobile */
+  :deep(.p-tag) { font-size: 0.85rem !important; padding: 0.25rem 0.4rem !important; }
+
+  /* Dialogs use most of viewport on phones */
+  :deep(.p-dialog) { width: 95vw !important; max-width: 680px !important; }
+}
 </style>
