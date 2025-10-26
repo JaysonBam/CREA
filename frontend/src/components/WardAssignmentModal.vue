@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-8 p-4 rounded-lg bg-gray-50 border border-gray-200">
+  <div class="mt-8 p-4 rounded-lg bg-gray-50 dark:bg-surface-900 border border-gray-200 dark:border-surface-700 dark:text-surface-0">
     <!-- Show assigned ward if available -->
     <div v-if="assignedWard">
       <div class="font-semibold text-lg mb-2">Assigned Ward</div>
@@ -11,9 +11,9 @@
       </div>
 
       <!-- Confirm leave flow -->
-      <div v-if="showLeaveConfirm" class="mt-3 p-3 border rounded bg-white">
-        <div class="text-sm text-gray-600 mb-2">Type <strong>CONFIRM</strong> to enable leaving this ward.</div>
-        <input v-model="leaveConfirmText" type="text" class="w-full p-2 border rounded mb-2" placeholder="Type CONFIRM to proceed" />
+      <div v-if="showLeaveConfirm" class="mt-3 p-3 border rounded bg-white dark:bg-surface-800 dark:border-surface-700">
+        <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">Type <strong>CONFIRM</strong> to enable leaving this ward.</div>
+        <input v-model="leaveConfirmText" type="text" class="w-full p-2 border rounded mb-2 bg-white dark:bg-surface-800 dark:text-surface-0 dark:border-surface-600" placeholder="Type CONFIRM to proceed" />
         <div class="flex gap-2">
           <Button :disabled="leaveConfirmText !== 'CONFIRM' || leaving" label="Leave Ward" class="p-button-danger" @click="submitLeaveRequest" />
           <Button label="Cancel" class="p-button-secondary" @click="() => { showLeaveConfirm = false; leaveConfirmText = ''; leaveMessage = ''; }" />
@@ -34,16 +34,16 @@
         :loading="wardsLoading"
         :disabled="wardsLoading"
       />
-      <textarea v-model="motivation" rows="3" class="w-full p-2 border rounded mb-2" placeholder="Write your motivation..."></textarea>
+  <textarea v-model="motivation" rows="3" class="w-full p-2 border rounded mb-2 bg-white dark:bg-surface-800 dark:text-surface-0 dark:border-surface-600" placeholder="Write your motivation..."></textarea>
       <div v-if="props.user.role === 'staff'">
-        <input v-model="jobDescription" type="text" class="w-full p-2 border rounded mb-2" placeholder="Enter your job description" />
+  <input v-model="jobDescription" type="text" class="w-full p-2 border rounded mb-2 bg-white dark:bg-surface-800 dark:text-surface-0 dark:border-surface-600" placeholder="Enter your job description" />
       </div>
       <Button label="Submit Request" class="w-full" :disabled="!selectedWard || !motivation || (props.user.role === 'staff' && !jobDescription) || wardsLoading" @click="submitRequest" />
-      <div v-if="requestMessage" class="mt-2 text-green-600">{{ requestMessage }}</div>
-      <div v-if="wardsError" class="mt-2 text-red-500">{{ wardsError }}</div>
+  <div v-if="requestMessage" class="mt-2 text-green-600 dark:text-green-300">{{ requestMessage }}</div>
+  <div v-if="wardsError" class="mt-2 text-red-500 dark:text-red-400">{{ wardsError }}</div>
     </template>
     <!-- Fallback if no ward assigned and cannot request -->
-    <div v-else class="text-gray-500">No ward assigned.</div>
+    <div v-else class="text-gray-500 dark:text-gray-400">No ward assigned.</div>
   </div>
 </template>
 
