@@ -165,7 +165,7 @@ module.exports = {
       }
       const newEmail = email.toLowerCase();
       //Does user exist (cant assign same email to multiple accounts as it is unique)
-      const existingUser = await User.findOne({ where: { newEmail } });
+      const existingUser = await User.findOne({ where: { email: newEmail } });
       if (existingUser) {
         return response.status(409).json({
           success: false,

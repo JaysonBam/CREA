@@ -1,4 +1,23 @@
-const { sequelize,MaintenanceSchedule, IssueReport } = require("../models");
+const {
+  sequelize,
+  MaintenanceSchedule,
+  IssueReport,
+  User,
+  Location,
+  FileAttachment,
+  Ward,
+  ReportIssueWatchlist,
+  Resident,
+  MunicipalStaff,
+  CommunityLeader,
+} = require("../models");
+
+const {
+  renderIssueLeaderEmail,
+  renderIssueStatusEmail,
+} = require("../services/emailRenderer");
+
+const { sendEmailAsync } = require("../services/emailService");
 
 function toISOOrNull(v) {
   if (!v) return null;
@@ -14,7 +33,10 @@ module.exports = {
       const where = {};
 
       if (issueToken) {
-        const issue = await IssueReport.findOne({ where: { token: issueToken }, attributes: ["id"] });
+        const issue = await IssueReport.findOne({
+          where: { token: issueToken },
+          attributes: ["id"],
+        });
         if (!issue) return res.status(404).json({ error: "Issue not found" });
         where.issueReportId = issue.id;
       }
@@ -31,22 +53,24 @@ module.exports = {
     }
   },
 
-
-//Function to get one instance of the MaintenanceSchedule model using a token
+  //Function to get one instance of the MaintenanceSchedule model using a token
   async getOne(req, res) {
     try {
-      const row = await MaintenanceSchedule.findOne({ where: { token: req.params.token } });
+      const row = await MaintenanceSchedule.findOne({
+        where: { token: req.params.token },
+      });
       if (!row) return res.status(404).json({ error: "Not found" });
       res.json(row);
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   },
-//Function to create a new MaintenanceSchedule record
+  //Function to create a new MaintenanceSchedule record
   async create(req, res) {
     const t = await sequelize.transaction();
     try {
-      const { issueToken, description, date_time_from, date_time_to } = req.body;
+      const { issueToken, description, date_time_from, date_time_to } =
+        req.body;
 
       if (!issueToken)
         return res.status(400).json({ error: "issueToken is required" });
@@ -66,10 +90,19 @@ module.exports = {
           .status(400)
           .json({ error: "date_time_to must be after date_time_from" });
 
-      // Lock the issue row so status change + schedule creation is atomic
+      // Lock issue for atomic schedule creation + optional status change
       const issue = await IssueReport.findOne({
         where: { token: issueToken },
-        attributes: ["id", "status"],
+        attributes: [
+          "id",
+          "status",
+          "title",
+          "category",
+          "description",
+          "user_id",
+          "location_id",
+          "ward_id",
+        ],
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
@@ -88,8 +121,11 @@ module.exports = {
         { transaction: t }
       );
 
-      // Promote to IN_PROGRESS unless already IN_PROGRESS or RESOLVED
-      if (issue.status !== "RESOLVED" && issue.status !== "IN_PROGRESS") {
+      const prevStatus = issue.status;
+      const shouldPromote =
+        issue.status !== "RESOLVED" && issue.status !== "IN_PROGRESS";
+
+      if (shouldPromote) {
         await IssueReport.update(
           { status: "IN_PROGRESS" },
           { where: { id: issue.id }, transaction: t }
@@ -97,43 +133,131 @@ module.exports = {
       }
 
       await t.commit();
-      res.status(201).json(created);
+
+      // === EMAIL: always send after successful create ===
+      const newStatus = shouldPromote ? "IN_PROGRESS" : prevStatus;
+
+      const reporter = await issue.getUser({
+        attributes: ["first_name", "last_name", "email"],
+      });
+
+      const location = await issue.getLocation({
+        attributes: ["address", "latitude", "longitude"],
+      });
+
+      const ward = await issue.getWard({
+        attributes: ["code", "name"],
+      });
+      // Replace the findAll(...) with:
+      const watchlist = await ReportIssueWatchlist.findAll({
+        where: { report_issue_id: issue.id },
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["email", "first_name", "last_name"],
+          },
+        ],
+      });
+      const fmt = new Intl.DateTimeFormat("en-ZA", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      console.log(2);
+
+      const emailData = {
+        title: issue.title,
+        category: issue.category,
+        oldStatus: prevStatus || "UNKNOWN",
+        newStatus,
+        reporterName: reporter
+          ? `${reporter.first_name ?? ""} ${reporter.last_name ?? ""}`.trim() ||
+            "Unknown"
+          : "Unknown",
+        reporterEmail: reporter?.email ?? "unknown",
+        wardCode: ward?.code ?? ward?.name ?? "—",
+        description: issue.description || "—",
+        address: location?.address ?? "—",
+        latitude: location?.latitude ?? "—",
+        longitude: location?.longitude ?? "—",
+        mapsLink:
+          location?.latitude && location?.longitude
+            ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+            : "",
+        changedAt: fmt.format(new Date()),
+      };
+
+      console.log(3);
+      const html = await renderIssueStatusEmail(emailData);
+
+      const recipients = Array.from(
+        new Set(
+          (watchlist || [])
+            .map((w) => w.user?.email)
+            .filter((e) => typeof e === "string" && e.includes("@"))
+        )
+      );
+
+      if (recipients.length > 0) {
+        const subject = `Status updated: ${emailData.title} (${emailData.oldStatus} → ${emailData.newStatus})`;
+        await Promise.all(
+          recipients.map((to) =>
+            sendEmailAsync({
+              to,
+              subject,
+              html,
+            })
+          )
+        );
+      }
+      console.log(4);
+      // === END EMAIL ===
+
+      return res.status(201).json(created);
     } catch (e) {
       await t.rollback();
       console.error(e);
-      res.status(500).json({ error: e.message });
+      return res.status(500).json({ error: e.message });
     }
   },
 
-//Function to update existing MaintenanceSchedule
+  //Function to update existing MaintenanceSchedule
   async update(req, res) {
     try {
-      const row = await MaintenanceSchedule.findOne({ where: { token: req.params.token } });
+      const row = await MaintenanceSchedule.findOne({
+        where: { token: req.params.token },
+      });
       if (!row) return res.status(404).json({ error: "Not found" });
 
       const { description, date_time_from, date_time_to } = req.body;
       const patch = {};
 
-      if (typeof description === "string") patch.description = description.trim();
+      if (typeof description === "string")
+        patch.description = description.trim();
 
       let from = row.date_time_from;
       let to = row.date_time_to;
 
       if (date_time_from) {
         const d = new Date(date_time_from);
-        if (isNaN(+d)) return res.status(400).json({ error: "Invalid date_time_from" });
+        if (isNaN(+d))
+          return res.status(400).json({ error: "Invalid date_time_from" });
         from = d;
         patch.date_time_from = d;
       }
 
       if (date_time_to) {
         const d = new Date(date_time_to);
-        if (isNaN(+d)) return res.status(400).json({ error: "Invalid date_time_to" });
+        if (isNaN(+d))
+          return res.status(400).json({ error: "Invalid date_time_to" });
         to = d;
         patch.date_time_to = d;
       }
 
-      if (from && to && to < from) return res.status(400).json({ error: "date_time_to must be after date_time_from" });
+      if (from && to && to < from)
+        return res
+          .status(400)
+          .json({ error: "date_time_to must be after date_time_from" });
 
       await row.update(patch);
       res.json(row);
@@ -142,10 +266,12 @@ module.exports = {
     }
   },
 
-//Function to remove MaintenanceSchedule record
+  //Function to remove MaintenanceSchedule record
   async remove(req, res) {
     try {
-      const count = await MaintenanceSchedule.destroy({ where: { token: req.params.token } });
+      const count = await MaintenanceSchedule.destroy({
+        where: { token: req.params.token },
+      });
       if (!count) return res.status(404).json({ error: "Not found" });
       res.json({ ok: true });
     } catch (e) {
