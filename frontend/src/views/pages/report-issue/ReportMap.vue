@@ -5,7 +5,7 @@
     <h5 class="m-0 text-xl font-semibold mb-4">Map View</h5>
 
     <div class="map-panel">
-      <div v-if="mapReady" style="height: 600px; width: 100%">
+      <div v-if="mapReady" class="map-viewport">
         <l-map
           ref="map"
           v-model:zoom="zoom"
@@ -320,4 +320,43 @@ onMounted(async () => {
 .leaflet-bottom {
   z-index: 2;
 }
+
+/* Mobile compaction: reduce map height, card paddings and marker sizes */
+@media (max-width: 767px) {
+  .map-viewport {
+    height: 300px !important;
+    width: 100% !important;
+  }
+
+  /* Tighter outer card */
+  .card {
+    padding: 0.5rem !important;
+  }
+  .card > .p-4 {
+    padding: 0.5rem !important;
+  }
+
+  /* Reduce popup font and spacing */
+  .map-popup {
+    font-size: 13px;
+    gap: 0.2rem;
+  }
+
+  /* Smaller marker and cluster visuals on mobile */
+  .marker-badge .badge {
+    width: 32px;
+    height: 32px;
+  }
+  .marker-badge .badge-img {
+    width: 18px;
+    height: 18px;
+  }
+  .cluster-icon {
+    font-size: 12px;
+  }
+  .cluster-badge { line-height: 36px; }
+}
+
+/* Desktop default viewport size */
+.map-viewport { height: 600px; width: 100%; }
 </style>

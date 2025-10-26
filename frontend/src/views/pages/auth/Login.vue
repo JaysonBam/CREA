@@ -60,6 +60,7 @@ const handleLogin = async () => {
     <div class="flex flex-col items-center justify-center">
       <!-- existing UI -->
       <div
+        class="auth-card-outer"
         style="
           border-radius: 56px;
           padding: 0.3rem;
@@ -71,7 +72,7 @@ const handleLogin = async () => {
         "
       >
         <div
-          class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20"
+          class="auth-card-inner w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20"
           style="border-radius: 53px"
         >
           <!-- form -->
@@ -119,3 +120,27 @@ const handleLogin = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Make auth cards occupy most of the viewport on small screens (about 90%) */
+@media (max-width: 767px) {
+  .auth-card-inner {
+    width: 90vw !important;
+    max-width: 720px !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: 1.25rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .auth-card-outer { padding: 0.15rem !important; }
+}
+@media (max-width: 480px) {
+  .auth-card-inner { width: 94vw !important; max-width: 640px !important; }
+  .auth-card-inner .md\:w-\[30rem\] { max-width: 100% !important; }
+}
+@media (max-width: 767px) {
+  /* Sharper corners on mobile only */
+  .auth-card-outer { border-radius: 12px !important; }
+  .auth-card-inner { border-radius: 12px !important; }
+}
+</style>
