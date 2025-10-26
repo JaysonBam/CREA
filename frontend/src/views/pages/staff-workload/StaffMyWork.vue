@@ -224,10 +224,10 @@ function fmt(v) {
 }
 
 const load = async () => {
-  if (!staffToken.value) {
-    toast.add({ severity: "warn", summary: "Missing token", detail: "No staff token set", life: 2500 });
-    return;
-  }
+  // if (!staffToken.value) {
+  //   toast.add({ severity: "warn", summary: "Missing token", detail: "No staff token set", life: 2500 });
+  //   return;
+  // }
   loading.value = true;
   try {
     const { data } = await listIssuesForStaff(staffToken.value);
