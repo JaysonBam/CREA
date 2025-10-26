@@ -163,7 +163,6 @@ module.exports = {
         dateStyle: "medium",
         timeStyle: "short",
       });
-      console.log(2);
 
       const emailData = {
         title: issue.title,
@@ -187,7 +186,6 @@ module.exports = {
         changedAt: fmt.format(new Date()),
       };
 
-      console.log(3);
       const html = await renderIssueStatusEmail(emailData);
 
       const recipients = Array.from(
@@ -210,7 +208,6 @@ module.exports = {
           )
         );
       }
-      console.log(4);
       // === END EMAIL ===
 
       return res.status(201).json(created);

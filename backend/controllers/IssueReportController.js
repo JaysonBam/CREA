@@ -729,13 +729,121 @@ exports.listForMyWards = async (req, res) => {
   }
 };
 
-
 exports.resolve = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    // Force the body to the desired new status and reuse updateStatus pipeline
-    req.body = { ...(req.body || {}), status: "RESOLVED" };
-    return exports.updateStatus(req, res);
+    // Find by token
+    const row = await IssueReport.findOne({
+      where: { token: req.params.token || req.body.token },
+      attributes: [
+        "id",
+        "status",
+        "title",
+        "category",
+        "description",
+        "user_id",
+        "location_id",
+        "ward_id",
+      ],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (!row) {
+      await t.rollback();
+      return res.status(404).json({ error: "Issue not found" });
+    }
+
+    const prevStatus = row.status;
+    const newStatus = "RESOLVED";
+
+    // Update status if needed
+    if (prevStatus !== newStatus) {
+      await row.update({ status: newStatus }, { transaction: t });
+    }
+
+    await t.commit();
+
+    // === EMAIL: always send after successful commit ===
+    const reporter = await User.findByPk(row.user_id, {
+      attributes: ["first_name", "last_name", "email"],
+    });
+
+    const location = row.location_id
+      ? await Location.findByPk(row.location_id, {
+          attributes: ["address", "latitude", "longitude"],
+        })
+      : null;
+
+    const ward = row.ward_id
+      ? await Ward.findByPk(row.ward_id, { attributes: ["code", "name"] })
+      : null;
+
+    const watchlist = await ReportIssueWatchlist.findAll({
+      where: { report_issue_id: row.id },
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["email", "first_name", "last_name"],
+        },
+      ],
+    });
+
+    const fmt = new Intl.DateTimeFormat("en-ZA", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+    const emailData = {
+      title: row.title,
+      category: row.category,
+      oldStatus: prevStatus || "UNKNOWN",
+      newStatus,
+      reporterName: reporter
+        ? `${reporter.first_name ?? ""} ${reporter.last_name ?? ""}`.trim() ||
+          "Unknown"
+        : "Unknown",
+      reporterEmail: reporter?.email ?? "unknown",
+      wardCode: ward?.code ?? ward?.name ?? "—",
+      description: row.description || "—",
+      address: location?.address ?? "—",
+      latitude: location?.latitude ?? "—",
+      longitude: location?.longitude ?? "—",
+      mapsLink:
+        location?.latitude && location?.longitude
+          ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+          : "",
+      changedAt: fmt.format(new Date()),
+    };
+
+    const html = await renderIssueStatusEmail(emailData);
+
+    const recipients = Array.from(
+      new Set(
+        (watchlist || [])
+          .map((w) => w.user?.email)
+          .filter((e) => typeof e === "string" && e.includes("@"))
+      )
+    );
+
+    if (recipients.length > 0) {
+      const subject = `Status updated: ${emailData.title} (${emailData.oldStatus} → ${emailData.newStatus})`;
+      await Promise.all(
+        recipients.map((to) =>
+          sendEmailAsync({
+            to,
+            subject,
+            html,
+          })
+        )
+      );
+    }
+    // === END EMAIL ===
+
+    return res.json(row);
   } catch (e) {
+    await t.rollback();
     console.error("[resolve] error:", e);
     return res.status(400).json({ error: e.message });
   }
