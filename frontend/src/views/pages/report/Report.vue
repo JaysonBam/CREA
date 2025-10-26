@@ -22,8 +22,8 @@
           <p class="mt-2">No records found.</p>
         </div>
 
-      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
-        <Card v-for="data in displayedRows" :key="data.token" class="relative" :class="rowClass(data)" style="width: 100%; height: 420px;">
+      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
+        <Card v-for="data in displayedRows" :key="data.token" class="relative" :class="rowClass(data)" style="min-width: 250px; width: 100%; height: 420px;">
           <!-- Menu Button (Top Right) -->
           <template #header>
             <div class="absolute top-2 right-2 z-10">
@@ -137,30 +137,6 @@
     <Menu ref="rowMenu" :model="rowMenuItems" :popup="true" />
 
     <!-- Dialogs and Modals -->
-    <Dialog v-model:visible="showDialog" modal :header="isEdit ? 'Edit Issue Report' : 'New Issue Report'" :style="{ width: '500px' }">
-      <div class="flex flex-col gap-4">
-        <div class="field">
-          <label for="title">Title</label>
-          <InputText id="title" v-model="form.title" required />
-        </div>
-        <div class="field">
-          <label for="description">Description</label>
-          <Textarea id="description" v-model="form.description" rows="5" />
-        </div>
-        <div class="field">
-          <label for="category">Category</label>
-          <Select id="category" v-model="form.category" :options="categoryOptions" placeholder="Select a Category" />
-        </div>
-        <div class="field">
-          <label for="status">Status</label>
-          <Select id="status" v-model="form.status" :options="statusOptions" placeholder="Select a Status" />
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" outlined @click="showDialog = false"></Button>
-        <Button label="Update" @click="save"></Button>
-      </template>
-    </Dialog>
 
     <Dialog v-model:visible="deleteDialogVisible" modal header="Confirmation" :style="{ width: '350px' }">
       <div class="flex items-center justify-center gap-4">

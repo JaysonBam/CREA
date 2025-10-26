@@ -34,7 +34,7 @@
       </div>
 
       <!-- Reports Grid -->
-      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
         <Card v-for="report in reports" :key="report.token" class="relative" style="width: 100%; height: 475px;">
           <!-- =================================================================== -->
           <!-- START: IMAGE GALLERY SECTION                                        -->
