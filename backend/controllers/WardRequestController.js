@@ -19,10 +19,13 @@ module.exports = {
       // Validate request body using Zod schema
       const parsed = wardRequestSchema.safeParse(request.body);
       if (!parsed.success) {
+        const issues = parsed.error.issues || [];
+        const firstMessage = issues.length ? issues[0].message : 'Validation failed';
         return response.status(422).json({
           success: false,
-          message: "Validation failed",
-          errors: zodIssuesToBag(parsed.error.issues),
+          message: firstMessage,
+          errors: zodIssuesToBag(issues),
+          details: issues.map(i => ({ path: i.path, message: i.message })),
         });
       }
 

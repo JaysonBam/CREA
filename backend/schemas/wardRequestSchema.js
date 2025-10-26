@@ -1,7 +1,6 @@
 const { z } = require("zod");
 
-// Reuse a safe text regex similar to other schemas
-const safeTextRegex = /^[a-zA-Z0-9\s.,'!?()\-]*$/;
+const safeTextRegex = /^[a-zA-Z0-9\s.,'!?()\-\/\\]*$/;
 
 const wardRequestSchema = z
   .object({
