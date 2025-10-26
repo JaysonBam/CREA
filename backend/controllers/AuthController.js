@@ -1,4 +1,11 @@
-const { User, Resident, Ward, Location, MunicipalStaff, CommunityLeader  } = require("../models");
+const {
+  User,
+  Resident,
+  Ward,
+  Location,
+  MunicipalStaff,
+  CommunityLeader,
+} = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
@@ -36,12 +43,12 @@ module.exports = {
       } else if (user.role === "staff") {
         // For staff, get MunicipalStaff profile and associated Ward
         const MunicipalStaff = require("../models").MunicipalStaff;
-         profile = await MunicipalStaff.findOne({
-        where: { user_id: user.id },
-        attributes: ["id", "token", "ward_id", "job_description"],
-        include: [{ model: Ward }], // yields profile.Ward
-      });
-      municipal_staff_token = profile?.token || null;
+        profile = await MunicipalStaff.findOne({
+          where: { user_id: user.id },
+          attributes: ["id", "token", "ward_id", "job_description"],
+          include: [{ model: Ward }], // yields profile.Ward
+        });
+        municipal_staff_token = profile?.token || null;
         if (profile && profile.Ward) ward = profile.Ward;
       } else if (user.role === "communityleader") {
         // For community leaders, get CommunityLeader profile and associated Ward
@@ -82,8 +89,10 @@ module.exports = {
           .json({ success: false, message: "Email and password are required" });
       }
 
+      const newEmail = email.toLowerCase();
+
       //Get user from email
-      const user = await User.findOne({ where: { email } });
+      const user = await User.findOne({ where: { email: newEmail } });
       if (!user) {
         return response.status(404).json({
           success: false,
@@ -119,6 +128,7 @@ module.exports = {
       //   `,
       // });
       // console.log("email sent async");
+      // Lower case email for consistency
 
       return response.status(200).json({
         success: true,
@@ -126,13 +136,14 @@ module.exports = {
         id: user.id,
         role: user.role,
         token: user.token,
-        email: user.email,
+        email: newEmail,
         first_name: user.first_name,
         last_name: user.last_name,
         jwt_token: jwtToken,
         appearance: user.appearance,
       });
     } catch (e) {
+      console.log("Login error:", e?.message, e?.stack);
       return response.status(500).json({
         success: false,
         message: "Login was not successful. Please try again",
@@ -152,9 +163,9 @@ module.exports = {
       if (!firstName || !lastName || !email || !password || !role) {
         return response.status(400).json({ error: "All fields are required" });
       }
-
+      const newEmail = email.toLowerCase();
       //Does user exist (cant assign same email to multiple accounts as it is unique)
-      const existingUser = await User.findOne({ where: { email } });
+      const existingUser = await User.findOne({ where: { newEmail } });
       if (existingUser) {
         return response.status(409).json({
           success: false,
