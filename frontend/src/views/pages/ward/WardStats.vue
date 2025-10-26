@@ -921,4 +921,93 @@ function formatSeconds(total) {
     justify-content: flex-start;
   }
 }
+
+/* Additional compacting for small devices (phones / small tablets) */
+@media (max-width: 767px) {
+  /* Hero: reduce paddings, icon and subtitle sizes, stack actions */
+  .hero {
+    padding: 0.6rem 0.75rem;
+    gap: 0.5rem;
+    border-radius: 10px;
+  }
+
+  .hero-icon {
+    font-size: 1.25rem;
+  }
+
+  .hero-sub {
+    font-size: 0.8rem;
+    margin-top: 0.125rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  /* KPI cards: smaller padding, tighter typography */
+  .kpi {
+    padding: 0.6rem;
+    border-radius: 10px;
+    gap: 0.25rem;
+  }
+  .kpi-title { font-size: 0.78rem; }
+  .kpi-value { font-size: 1.25rem; }
+  .kpi-value.small-text { font-size: 1rem; }
+  .kpi-subtitle { font-size: 0.72rem; }
+  .kpi-icon { font-size: 1rem; }
+
+  /* Panels: reduce padding and min-heights to fit mobile view */
+  .panel { padding: 0.75rem; }
+  .panel-large { min-height: 260px; }
+
+  /* Charts: reduce heights so they fit above the fold */
+  .chart-large { min-height: 220px; }
+  :deep(canvas) { max-height: 260px; }
+
+  /* Summary stats: tighten spacing and typographic scale */
+  .summary-stats { gap: 0.5rem; padding-top: 1rem; margin-top: 1rem; grid-template-columns: repeat(2, 1fr); }
+  .summary-label { font-size: 0.78rem; }
+  .summary-value { font-size: 1.25rem; }
+
+  /* Charts row: single column and smaller gaps */
+  .charts-row { grid-template-columns: 1fr; gap: 0.6rem; }
+
+  /* Sidebar: make KPI grid more compact */
+  .stats-sidebar {
+    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
+
+  /* Reduce global gaps on the main layout to save vertical space */
+  .stats-page { gap: 0.5rem; }
+  .main-layout { gap: 0.6rem; }
+
+  /* Make chart legend items line up horizontally and wrap as needed */
+  :deep(.chartjs-legend), :deep(.chart-legend), :deep(.legend) {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    list-style: none !important;
+  }
+
+  :deep(.chartjs-legend li), :deep(.chart-legend li), :deep(.legend li) {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin: 0 !important;
+    padding: 0.15rem 0.4rem !important;
+    white-space: nowrap !important;
+  }
+}
 </style>

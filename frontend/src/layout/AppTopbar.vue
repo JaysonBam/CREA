@@ -73,8 +73,7 @@ const toggleProfileMenu = (event) => {
         <img
           :src="logoSrc"
           alt="Logo"
-          class="block shrink-0"
-          style="width: 300px; height: 300px"
+          class="topbar-logo block shrink-0"
         />
       </router-link>
     </div>
@@ -93,12 +92,12 @@ const toggleProfileMenu = (event) => {
 
       <button
         type="button"
-        class="layout-topbar-action"
+        class="layout-topbar-action profile-button"
         @click="toggleProfileMenu"
         aria-label="Open profile menu"
       >
         <i class="pi pi-user"></i>
-        <span>Profile</span>
+        <span class="profile-label">Profile</span>
       </button>
 
       <Menu ref="menu" :model="overlayProfileMenuItems" :popup="true" />
@@ -135,5 +134,44 @@ const toggleProfileMenu = (event) => {
   background: transparent;
   padding: 0.5rem;
   cursor: pointer;
+}
+
+
+/* make logo and actions friendlier on small screens only; keep desktop unchanged */
+.topbar-logo {
+  /* Keep desktop logo large and readable (do not affect desktop layout) */
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.profile-label {
+  margin-left: 0.35rem;
+}
+
+@media (max-width: 767px) {
+  .layout-topbar {
+    padding-inline: 0.5rem;
+    height: 56px;
+  }
+  .layout-topbar-logo {
+    gap: 0.5rem;
+  }
+  .layout-topbar-logo .topbar-logo {
+    max-width: 120px;
+    height: 32px;
+  }
+  /* Hide profile text on small screens (use icon only) */
+  .profile-label {
+    display: none;
+  }
+  /* Reduce spacing for actions on mobile */
+  .layout-topbar-actions {
+    gap: 0.25rem;
+  }
+  .layout-topbar-action {
+    padding: 0.4rem;
+    font-size: 0.95rem;
+  }
 }
 </style>
