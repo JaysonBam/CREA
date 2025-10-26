@@ -728,3 +728,15 @@ exports.listForMyWards = async (req, res) => {
       .json({ success: false, message: "Failed to list ward-scoped reports" });
   }
 };
+
+
+exports.resolve = async (req, res) => {
+  try {
+    // Force the body to the desired new status and reuse updateStatus pipeline
+    req.body = { ...(req.body || {}), status: "RESOLVED" };
+    return exports.updateStatus(req, res);
+  } catch (e) {
+    console.error("[resolve] error:", e);
+    return res.status(400).json({ error: e.message });
+  }
+};
