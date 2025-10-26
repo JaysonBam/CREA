@@ -210,6 +210,19 @@
       </template>
     </Dialog>
 
+    <!-- Resolve Confirmation Dialog -->
+    <Dialog v-model:visible="resolveDialogVisible" modal header="Mark as Resolved" :style="{ width: '380px' }">
+      <div class="flex items-center justify-center gap-4">
+        <i class="pi pi-check-circle" style="font-size:2rem"></i>
+        <span>Mark this issue as <strong>RESOLVED</strong>?</span>
+      </div>
+      <template #footer>
+        <Button label="Cancel" icon="pi pi-times" text severity="secondary" @click="resolveDialogVisible = false" />
+        <Button label="Resolve" icon="pi pi-check" outlined severity="success" :loading="resolving" @click="resolveConfirmed" />
+      </template>
+    </Dialog>
+
+
     <!-- Maintenance Modal -->
     <MaintenanceSchedulesModal ref="maintModal" @changed="onMaintChanged" />
 
@@ -230,6 +243,7 @@ import {
   listIssueReportsForMyWards,
   updateIssueReport,
   deleteIssueReport,
+  updateIssueReportStatus,
   getIssueUnreadCounts,
   getIssueMessageRead,
   listIssueMessages,
@@ -241,6 +255,46 @@ import ChatRoom from "@/components/ChatRoom.vue";
 import MaintenanceSchedulesModal from "@/components/MaintenanceSchedulesModal.vue";
 import MunicipalStaffAssignmentsModal from "@/components/MunicipalStaffAssignmentsModal.vue";
 import { connectSocket } from "@/utils/socket";
+
+// ----- Resolve flow -----
+const resolveDialogVisible = ref(false);
+const resolveTarget = ref(null);
+const resolving = ref(false);
+
+function confirmResolve(row) {
+  resolveTarget.value = row;
+  resolveDialogVisible.value = true;
+}
+
+async function resolveConfirmed() {
+  const row = resolveTarget.value;
+  if (!row?.token) { resolveDialogVisible.value = false; return; }
+
+  if (row.status === "RESOLVED") {
+    toast.add({ severity: "info", summary: "Already resolved", life: 2000 });
+    resolveDialogVisible.value = false;
+    return;
+  }
+
+  try {
+    resolving.value = true;
+    await updateIssueReportStatus(row.token, { status: "RESOLVED" });
+    toast.add({ severity: "success", summary: "Issue resolved", detail: `${row.title} marked as RESOLVED`, life: 1800 });
+
+    // Optimistic local update (avoid flicker), then hard refresh to stay in sync.
+    const idx = rows.value.findIndex(r => r.token === row.token);
+    if (idx !== -1) rows.value[idx] = { ...rows.value[idx], status: "RESOLVED" };
+
+    await load();
+  } catch (e) {
+    toast.add({ severity: "error", summary: "Resolve failed", detail: e?.response?.data?.error || e.message, life: 3500 });
+  } finally {
+    resolving.value = false;
+    resolveDialogVisible.value = false;
+    resolveTarget.value = null;
+  }
+}
+
 
 /* ---------- Maintenance ---------- */
 const maintModal = ref(null);
@@ -634,6 +688,13 @@ function openRowMenu(event, row){
     { separator:true },
     { label:"Maintenance", icon:"pi pi-calendar", command:()=>openMaintenance(row) },
     { label:"Assign Staff", icon:"pi pi-users", command:()=>openStaff(row) },
+    { separator:true },
+   {
+     label: row.status === "RESOLVED" ? "Resolved" : "Mark as Resolved",
+     icon: "pi pi-check-circle",
+     command: () => confirmResolve(row),
+     disabled: row.status === "RESOLVED"
+   },
   ];
   rowMenu.value.toggle(event);
 }
