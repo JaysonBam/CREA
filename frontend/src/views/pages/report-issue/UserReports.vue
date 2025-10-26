@@ -148,8 +148,17 @@
       <div class="flex flex-col gap-6 py-4">
         <div class="field">
           <label for="title" class="font-semibold block mb-2">Title</label>
-          <InputText id="title" v-model="currentReport.title" class="w-full" />
+          <InputText
+            id="title"
+            v-model.trim="currentReport.title"
+            class="w-full"
+            :class="{ 'p-invalid': editTriedSave && !editTitleValid }"
+            required
+            @keyup.enter="saveReport"
+          />
+          <small v-if="editTriedSave && !editTitleValid" class="p-error">Title is required.</small>
         </div>
+
         <div class="field">
           <label for="description" class="font-semibold block mb-2">Description</label>
           <Textarea
@@ -201,7 +210,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useToast } from "primevue/usetoast";
 import {
   getUserReports,
@@ -298,6 +307,10 @@ const refreshUnread = async () => {
   }
 };
 
+const editTriedSave = ref(false);
+const editTitleValid = computed(() => !!(currentReport.title && currentReport.title.trim().length));
+
+
 // Prefill and open the Edit dialog
 const openEditDialog = (report) => {
   Object.assign(currentReport, {
@@ -306,12 +319,20 @@ const openEditDialog = (report) => {
     title: report.title,
     description: report.description,
   });
+  editTriedSave.value = false;
   showEditDialog.value = true;
 };
 
 // Save report title/description edits, then reload list
 const saveReport = async () => {
   if (!currentReport.token) return;
+
+  editTriedSave.value = true;
+
+  if (!editTitleValid.value) {
+    toast.add({ severity: "warn", summary: "Validation", detail: "Title is required.", life: 2000 });
+    return;
+  }
   try {
     const payload = {
       title: currentReport.title,
