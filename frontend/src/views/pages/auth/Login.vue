@@ -41,9 +41,9 @@ const handleLogin = async () => {
     console.log("JWT:", res.data.jwt_token);
     sessionStorage.setItem("lat", res.data.location?.latitude || "-25.757168");
     sessionStorage.setItem("long", res.data.location?.longitude || "28.231682");
-
+    sessionStorage.setItem("appearance", res.data.appearance || "light");
     console.log(res.data);
-    const redirect = router.currentRoute.value.query.redirect || "/reports";
+    const redirect = router.currentRoute.value.query.redirect || "/ward-stats";
 
     router.push(redirect);
   } catch (err) {
@@ -53,7 +53,7 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <FloatingConfigurator />
+  <!-- <FloatingConfigurator /> -->
   <div
     class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden"
   >

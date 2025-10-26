@@ -1,4 +1,3 @@
-
 // Test Output Meaning:
 //  - 401: Unauthorized — request missing or has invalid token.
 //  - 403: Forbidden — user is not allowed (either not a Leader, or Leader of a different ward).
@@ -16,13 +15,13 @@ const request = require('supertest');
 const { expect } = require('chai');
 const sinon = require('sinon');
 const jwt = require('jsonwebtoken');
-
-// Models + controller
-const models = require('../models');
-const { Ward } = models;
-const controller = require('../controllers/WardController');
+const { EventEmitter } = require('events');
 
 const JWT_SECRET = 'secret';
+
+// Lazy-loaded per test to avoid cross-file require-cache pollution
+let Ward;
+let controller;
 
 // Tiny auth + RBAC middlewares for the test app
 function auth(req, res, next) {
@@ -49,11 +48,11 @@ function ensureWardLeader(req, res, next) {
 }
 
 // Build a minimal app that mounts WardController with the RBAC middlewares
-function makeApp() {
+function makeApp(ctrl) {
   const app = express();
   app.use(bodyParser.json());
-  app.put('/api/wards/:id/staff', auth, ensureWardLeader, controller.setStaff);
-  app.put('/api/wards/:id/leader', auth, ensureWardLeader, controller.setLeader);
+  app.put('/api/wards/:id/staff', auth, ensureWardLeader, ctrl.setStaff);
+  app.put('/api/wards/:id/leader', auth, ensureWardLeader, ctrl.setLeader);
   // error surface
   app.use((err, req, res, next) => {
     // eslint-disable-next-line no-console
@@ -70,21 +69,50 @@ function tokenOf(payload) {
 describe('SCRUM 29 — RBAC (only Leader of a ward may manage it)', () => {
   let app;
   let wardFindByPk;
-  let destroyStaff, bulkCreateStaff;
+  let destroyStaff;
   let destroyLeader, createLeader;
   let userFindByPk;
 
   beforeEach(() => {
-    app = makeApp();
+    // ensure clean module instances for this file (other test files may inject caches)
+    const modelsPath = require.resolve('../models');
+    const controllerPath = require.resolve('../controllers/WardController');
+    delete require.cache[modelsPath];
+    delete require.cache[controllerPath];
+
+    // fresh models
+    const { Ward: WardModel, MunicipalStaff, CommunityLeader, User, sequelize } = require('../models');
+    Ward = WardModel;
 
     // Stubs for data layer used by setStaff + setLeader
     wardFindByPk = sinon.stub(Ward, 'findByPk').callsFake(async (id) => ({ id }));
-    const { MunicipalStaff, CommunityLeader, User } = require('../models');
+
+    // Allow controller to validate staff IDs by returning matching users
+    sinon.stub(User, 'findAll').callsFake(async (opts) => {
+      const Op = require('sequelize').Op;
+      const ids = (opts && opts.where && opts.where.id && opts.where.id[Op.in]) || [];
+      return ids.map((id) => ({ id }));
+    });
+
+    // Stub transaction wrapper used inside controller
+    sinon.stub(sequelize, 'transaction').callsFake(async (fnOrOpts) => {
+      const t = { commit: async () => {}, rollback: async () => {} };
+      if (typeof fnOrOpts === 'function') return fnOrOpts(t);
+      return t;
+    });
+
     destroyStaff = sinon.stub(MunicipalStaff, 'destroy').resolves(1);
-    bulkCreateStaff = sinon.stub(MunicipalStaff, 'bulkCreate').resolves([{ ward_id: 'w1', user_id: 'u1' }]);
+    sinon.stub(MunicipalStaff, 'findOrCreate').resolves([{ ward_id: 'w1', user_id: 'u1' }, true]);
+
     destroyLeader = sinon.stub(CommunityLeader, 'destroy').resolves(1);
     createLeader = sinon.stub(CommunityLeader, 'create').resolves({ ward_id: 'w1', user_id: 'L1' });
-    userFindByPk = sinon.stub(User, 'findByPk').callsFake(async (id) => ({ id })); // used by setLeader
+    userFindByPk = sinon.stub(User, 'findByPk').callsFake(async (id) => ({ id, role: 'CommunityLeader' })); // used by setLeader
+
+    // now require a fresh controller (after stubbing models/tx)
+    controller = require('../controllers/WardController');
+
+    // build app using this controller instance
+    app = makeApp(controller);
   });
 
   afterEach(() => sinon.restore());
@@ -113,12 +141,16 @@ describe('SCRUM 29 — RBAC (only Leader of a ward may manage it)', () => {
 
   it('200 when correct Leader updates staff for their ward', async () => {
     const token = tokenOf({ id: 'L', role: 'Leader', wardId: 'w1' });
-    const res = await request(app).put('/api/wards/w1/staff').set(as(token)).send({ staffUserIds: ['u1'] });
+    const res = await request(app)
+      .put('/api/wards/w1/staff')
+      .set(as(token))
+      .send({ staffUserIds: [11, 12] });
     expect(res.status).to.equal(200);
     // verify writes
     expect(wardFindByPk.calledWith('w1')).to.equal(true);
     expect(destroyStaff.called).to.equal(true);
-    expect(bulkCreateStaff.calledOnce).to.equal(true);
+    const { MunicipalStaff } = require('../models');
+    expect(MunicipalStaff.findOrCreate.called).to.equal(true);
   });
 
   // setLeader
@@ -141,11 +173,14 @@ describe('SCRUM 29 — RBAC (only Leader of a ward may manage it)', () => {
 
   it('200 when correct Leader sets leader for their ward', async () => {
     const token = tokenOf({ id: 'L', role: 'Leader', wardId: 'w1' });
-    const res = await request(app).put('/api/wards/w1/leader').set(as(token)).send({ leaderUserId: 'L1' });
+    const res = await request(app)
+      .put('/api/wards/w1/leader')
+      .set(as(token))
+      .send({ leaderUserId: 101, leaderId: 101, userId: 101 });
     expect(res.status).to.equal(200);
     expect(wardFindByPk.calledWith('w1')).to.equal(true);
     expect(destroyLeader.calledOnce).to.equal(true);
     expect(createLeader.calledOnce).to.equal(true);
-    expect(userFindByPk.calledWith('L1')).to.equal(true);
+    expect(userFindByPk.calledWith(101)).to.equal(true);
   });
 });

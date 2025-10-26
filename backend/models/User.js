@@ -70,6 +70,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: true,
       },
+
+      appearance: {
+        type: DataTypes.ENUM("light", "dark"),
+        allowNull: false,
+        defaultValue: "light",
+      },
     },
     {
       sequelize,

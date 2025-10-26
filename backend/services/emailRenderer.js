@@ -14,6 +14,7 @@ function registerHelpersOnce() {
 
 // ---- Cache the compiled template in memory ----
 let compiledTemplate = null;
+let compiledStatusTemplate = null;
 
 async function getCompiledTemplate() {
   if (compiledTemplate) return compiledTemplate;
@@ -27,6 +28,20 @@ async function getCompiledTemplate() {
   return compiledTemplate;
 }
 
+async function getCompiledStatusTemplate() {
+  if (compiledStatusTemplate) return compiledStatusTemplate;
+  const templatePath = require.resolve("../emails/issue_status_update.html");
+  const src = await fs.readFile(templatePath, "utf8");
+  compiledStatusTemplate = Handlebars.compile(src);
+  return compiledStatusTemplate;
+}
+
+async function renderIssueStatusEmail(data) {
+  registerHelpersOnce();
+  const tpl = await getCompiledStatusTemplate();
+  return tpl(data);
+}
+
 /**
  * Render the "issue leader" email HTML
  * @param {Object} data - Matches the placeholders in the template.
@@ -38,4 +53,4 @@ async function renderIssueLeaderEmail(data) {
   return tpl(data);
 }
 
-module.exports = { renderIssueLeaderEmail };
+module.exports = { renderIssueLeaderEmail, renderIssueStatusEmail };

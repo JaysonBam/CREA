@@ -1,4 +1,4 @@
-const { MaintenanceSchedule, IssueReport } = require("../models");
+const { sequelize,MaintenanceSchedule, IssueReport } = require("../models");
 
 function toISOOrNull(v) {
   if (!v) return null;
@@ -44,30 +44,62 @@ module.exports = {
   },
 //Function to create a new MaintenanceSchedule record
   async create(req, res) {
+    const t = await sequelize.transaction();
     try {
       const { issueToken, description, date_time_from, date_time_to } = req.body;
 
-      if (!issueToken) return res.status(400).json({ error: "issueToken is required" });
-      if (!description?.trim()) return res.status(400).json({ error: "description is required" });
-      if (!date_time_from || !date_time_to) return res.status(400).json({ error: "date_time_from and date_time_to are required" });
+      if (!issueToken)
+        return res.status(400).json({ error: "issueToken is required" });
+      if (!description?.trim())
+        return res.status(400).json({ error: "description is required" });
+      if (!date_time_from || !date_time_to)
+        return res
+          .status(400)
+          .json({ error: "date_time_from and date_time_to are required" });
 
       const from = new Date(date_time_from);
       const to = new Date(date_time_to);
-      if (isNaN(+from) || isNaN(+to)) return res.status(400).json({ error: "Invalid dates" });
-      if (to < from) return res.status(400).json({ error: "date_time_to must be after date_time_from" });
+      if (isNaN(+from) || isNaN(+to))
+        return res.status(400).json({ error: "Invalid dates" });
+      if (to < from)
+        return res
+          .status(400)
+          .json({ error: "date_time_to must be after date_time_from" });
 
-      const issue = await IssueReport.findOne({ where: { token: issueToken }, attributes: ["id"] });
-      if (!issue) return res.status(404).json({ error: "Issue not found" });
-
-      const created = await MaintenanceSchedule.create({
-        issueReportId: issue.id,
-        description: description.trim(),
-        date_time_from: from,
-        date_time_to: to,
+      // Lock the issue row so status change + schedule creation is atomic
+      const issue = await IssueReport.findOne({
+        where: { token: issueToken },
+        attributes: ["id", "status"],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
       });
+      if (!issue) {
+        await t.rollback();
+        return res.status(404).json({ error: "Issue not found" });
+      }
 
+      const created = await MaintenanceSchedule.create(
+        {
+          issueReportId: issue.id,
+          description: description.trim(),
+          date_time_from: from,
+          date_time_to: to,
+        },
+        { transaction: t }
+      );
+
+      // Promote to IN_PROGRESS unless already IN_PROGRESS or RESOLVED
+      if (issue.status !== "RESOLVED" && issue.status !== "IN_PROGRESS") {
+        await IssueReport.update(
+          { status: "IN_PROGRESS" },
+          { where: { id: issue.id }, transaction: t }
+        );
+      }
+
+      await t.commit();
       res.status(201).json(created);
     } catch (e) {
+      await t.rollback();
       console.error(e);
       res.status(500).json({ error: e.message });
     }

@@ -18,6 +18,12 @@ import WardRequests from '@/views/pages/ward/WardRequests.vue';
 import Wards from "@/views/pages/ward/Wards.vue";
 import WardProfile from "@/views/pages/ward/WardProfile.vue";
 import WardStats from "@/views/pages/ward/WardStats.vue";
+
+import StateChanges from "@/views/pages/stateMachine/StateChanges.vue";
+import ManageReportIssue from "@/views/pages/report/ManageReportIssue.vue";
+import StaffWorkloadDashboard from "@/views/pages/staff-workload/StaffWorkloadDashboard.vue";
+import StaffMyWork from "@/views/pages/staff-workload/StaffMyWork.vue";
+import LandingPage from "@/views/LandingPage.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -36,6 +42,18 @@ const router = createRouter({
     },
 
     {
+      path: "/",
+      name: "landing",
+      component: LandingPage,
+      meta: { public: true },
+      beforeEnter: (to, from, next) => {
+        const token = sessionStorage.getItem("JWT");
+        if (token) next({ name: "ward-stats" });
+        else next();
+      },
+    },
+
+    {
       path: "/register",
       name: "register",
       component: Register,
@@ -48,20 +66,22 @@ const router = createRouter({
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
-        // IMPORTANT: no leading slash for children
-        { path: "", redirect: { name: "report-issue" } },
+    // IMPORTANT: no leading slash for children
+    { path: "", redirect: { name: "ward-stats" } },
         { path: "test-crud", name: "test-crud", component: Testcrud },
-        { path: "report-issue", name: "report-issue", component: ReportIssue },
-        { path: "reports", name: "reports", component: Report },
+  { path: "report-issue", name: "report-issue", component: ReportIssue },
+  { path: "reports", name: "reports", component: Report },
         {path: "user-reports", name: "user-reports", component: UserReports},
         {path: "report-map", name: "report-map", component: ReportMap},
         { path: "profile", name: "profile", component: Profile },
+        { path: "my-ward-report-issues", name: "my-ward-report-issues", component: ManageReportIssue },
+        { path: "staff-workload", name: "staff-workload", component: StaffWorkloadDashboard },
 
         {
           path: "ward-requests",
           name: "ward-requests",
           component: WardRequests,
-          meta: { requiresAuth: true, adminOnly: true },
+          meta: { requiresAuth: true },
         },
 
         { path: "wards", name: "wards", component: Wards },
@@ -72,11 +92,34 @@ const router = createRouter({
           props: true,
         },
         {
-          path: "wards/:wardId/stats",
+          path: "ward-stats",
           name: "ward-stats",
+          // Trampoline that sends the user to their own ward's stats page
+          beforeEnter: async (to, from, next) => {
+            const token = sessionStorage.getItem("JWT");
+            if (!token) return next({ name: "login", query: { redirect: to.fullPath } });
+            try {
+              const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              const data = await res.json();
+              if (data.success && data.user && data.user.ward_id) {
+                return next({ name: 'ward-stats-id', params: { wardId: data.user.ward_id } });
+              }
+            } catch (e) {}
+            // Fallback if user has no ward
+            return next({ name: 'wards' });
+          }
+        },
+        {
+          path: "wards/:wardId/stats",
+          name: "ward-stats-id",
           component: WardStats,
           props: true,
         },
+
+        {path: "state-updates", name: "state-updates", component: StateChanges},
+        {path: "staff-my-work", name: "staff-my-work", component: StaffMyWork},
 
       ],
     },
@@ -86,22 +129,34 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = sessionStorage.getItem("JWT");
   const isAuthenticated = !!token;
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
   const guestOnly = to.matched.some((r) => r.meta.guestOnly);
-  const adminOnly = to.matched.some((r) => r.meta.adminOnly);
 
   let userRole = null;
+  let userWardAssigned = false;
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       userRole = payload.role;
+      // Fetch user info from API for accurate ward assignment check
+      let userInfo = null;
+      try {
+        const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          userInfo = data.user;
+        }
+      } catch {}
+      userWardAssigned = userInfo && userInfo.ward_id && userInfo.ward_name && userInfo.ward_code;
       const isExpired = Date.now() >= payload.exp * 1000;
       if (isExpired) {
         sessionStorage.removeItem("JWT");
-        return { name: "login", query: { redirect: to.fullPath } };
+        return { name: "landing", query: { redirect: to.fullPath } };
       }
     } catch (e) {
       console.error("Invalid JWT:", e);
@@ -114,9 +169,10 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (guestOnly && isAuthenticated) {
-    return { name: "reports" };
+    return { name: "ward-stats" };
   }
-  if (adminOnly && userRole !== "admin") {
+  // Ward Requests: allow admin OR communityleader with assigned ward
+  if (to.name === 'ward-requests' && !(userRole === 'admin' || (userRole === 'communityleader' && userWardAssigned))) {
     return { name: "reports" };
   }
 });

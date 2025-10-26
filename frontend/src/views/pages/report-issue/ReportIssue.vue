@@ -5,9 +5,9 @@
       <h1 class="text-2xl font-bold mb-6 border-b pb-4">Report a New Issue</h1>
 
       <div class="report-layout">
-        <!-- Left Panel: Form Details -->
-        <div class="form-panel p-fluid">
-          <!-- Panel for inputting report title, description and category -->
+        <!-- ===== LEFT COLUMN: Form Details + Upload ===== -->
+        <div class="form-panel p-fluid flex flex-col gap-6">
+          <!-- 1. Describe the Issue -->
           <Panel header="1. Describe the Issue">
             <div class="flex flex-col gap-6">
               <div class="field">
@@ -21,6 +21,7 @@
                   class="w-full"
                 />
               </div>
+
               <div class="field">
                 <label for="description" class="font-semibold block mb-2"
                   >Description</label
@@ -34,6 +35,7 @@
                   class="w-full"
                 />
               </div>
+
               <div class="field">
                 <label for="category" class="font-semibold block mb-2"
                   >Category</label
@@ -47,15 +49,37 @@
               </div>
             </div>
           </Panel>
+
+          <!-- 3. Upload Attachments (Optional) -->
+          <Panel header="3. Upload Attachments (Optional)">
+            <FileUpload
+              ref="fileUploader"
+              name="attachments"
+              :multiple="true"
+              :auto="false"
+              :customUpload="true"
+              accept="image/*"
+              :maxFileSize="5000000"
+              :showUploadButton="false"
+              :showCancelButton="false"
+              @select="onFileSelect"
+              @clear="selectedFiles = []"
+            >
+              <template #empty>
+                <p>
+                  Drag and drop files here. Files will be uploaded when you
+                  submit the report.
+                </p>
+              </template>
+            </FileUpload>
+          </Panel>
         </div>
 
-        <!-- Map and Location + Ward -->
+        <!-- ===== RIGHT COLUMN: Map and Location ===== -->
         <div class="map-panel">
           <Panel header="2. Pinpoint the Location">
             <div class="flex flex-col gap-4">
-              <!-- Address + Ward (side by side on larger screens) -->
               <div class="grid gap-4 md:grid-cols-2">
-                <!-- Address geocoding -->
                 <div class="field">
                   <label for="address" class="font-semibold block mb-2"
                     >Address</label
@@ -77,12 +101,11 @@
                   </div>
                 </div>
 
-                <!-- Ward dropdown -->
                 <div class="field">
                   <label for="ward" class="font-semibold block mb-2"
                     >Ward</label
                   >
-                  <Dropdown
+                  <Select
                     id="ward"
                     class="w-full"
                     :options="wards"
@@ -116,14 +139,13 @@
                         }}</span>
                       </div>
                     </template>
-                  </Dropdown>
+                  </Select>
                   <small class="text-red-500 block" v-if="wardsError">{{
                     wardsError
                   }}</small>
                 </div>
               </div>
 
-              <!-- Leaflet Map Container -->
               <div class="map-wrapper">
                 <div v-if="mapLoading" class="map-loading-overlay">
                   <ProgressSpinner />
@@ -146,42 +168,15 @@
                     :lat-lng="selectedLocation"
                     :draggable="true"
                     @dragend="handleMarkerDrag"
-                  >
-                  </l-marker>
+                  />
                 </l-map>
               </div>
             </div>
           </Panel>
         </div>
-
-        <!-- Attachment uploading -->
-        <div class="map-panel">
-          <Panel header="3. Upload Attachments (Optional)" class="mt-6">
-            <FileUpload
-              ref="fileUploader"
-              name="attachments"
-              :multiple="true"
-              :auto="false"
-              :customUpload="true"
-              accept="image/*"
-              :maxFileSize="5000000"
-              :showUploadButton="false"
-              :showCancelButton="false"
-              @select="onFileSelect"
-              @clear="selectedFiles = []"
-            >
-              <template #empty>
-                <p>
-                  Drag and drop files here. Files will be uploaded when you
-                  submit the report.
-                </p>
-              </template>
-            </FileUpload>
-          </Panel>
-        </div>
       </div>
 
-      <!-- Submission Button -->
+      <!-- Submit -->
       <div class="mt-6 text-right">
         <Button
           label="Submit Report"
@@ -201,21 +196,19 @@ import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { debounce } from "lodash-es";
+import { z } from "zod";
 import {
   createLocation,
   createIssueReport,
   createFileAttachment,
 } from "@/utils/backend_helper";
 import { getAllWards } from "@/utils/ward_helper";
-
-// --- Leaflet Imports ---
 import "leaflet/dist/leaflet.css";
 import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 
-// --- State Management ---
+// --- State ---
 const router = useRouter();
 const toast = useToast();
-
 const issueDetails = reactive({ title: "", description: "", category: null });
 const categoryOptions = ref([
   "POTHOLE",
@@ -231,16 +224,51 @@ const submitting = ref(false);
 const selectedFiles = ref([]);
 const address = ref("");
 const zoom = ref(15);
-const mapCenter = ref([-25.7546, 28.2314]); // Default: Pretoria [lat, lng]
-const selectedLocation = ref(null); // [lat, lng]
+const mapCenter = ref([-25.7546, 28.2314]);
+const selectedLocation = ref(null);
 
-// --- Wards state ---
 const wards = ref([]);
 const wardsLoading = ref(false);
 const wardsError = ref("");
-const wardCode = ref(null); // we will send this as ward_code to backend
+const wardCode = ref(null);
 
-// --- Computed Properties ---
+// --- Zod Schema ---
+const safeTextRegex = /^[a-zA-Z0-9\s.,'!?()-]*$/;
+const categoryEnum = z.enum([
+  "POTHOLE",
+  "WATER_LEAK",
+  "POWER_OUTAGE",
+  "STREETLIGHT_FAILURE",
+  "OTHER",
+]);
+
+const issueReportSchema = z.object({
+  title: z
+    .string()
+    .min(5, "Title must be at least 5 characters long.")
+    .max(100, "Title cannot be longer than 100 characters.")
+    .regex(safeTextRegex, "Title contains invalid characters."),
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters long.")
+    .max(1000, "Description cannot be longer than 1000 characters.")
+    .regex(safeTextRegex, "Description contains invalid characters."),
+  category: categoryEnum,
+  ward_code: z
+    .string()
+    .min(1, "Ward is required.")
+    .max(32, "Ward code is too long."),
+  address: z
+    .string()
+    .min(3, "Address is required.")
+    .max(255, "Address cannot exceed 255 characters."),
+  location: z.tuple([
+    z.number().refine((v) => v >= -90 && v <= 90, "Invalid latitude"),
+    z.number().refine((v) => v >= -180 && v <= 180, "Invalid longitude"),
+  ]),
+});
+
+// --- Computed ---
 const isFormInvalid = computed(() => {
   return (
     !issueDetails.title ||
@@ -250,18 +278,15 @@ const isFormInvalid = computed(() => {
   );
 });
 
-// --- Geocoding and Map Logic ---
+// --- Map & Geocode ---
 let geocoder;
 onMounted(async () => {
-  // Initialize the geocoder once the Google Maps script is loaded
   geocoder = new window.google.maps.Geocoder();
   getUserLocation();
 
-  // Load wards
   try {
     wardsLoading.value = true;
     const res = await getAllWards();
-    // expecting shape: { data: { data: [ { id, code, name, ...}, ... ] } }
     wards.value = Array.isArray(res?.data?.data) ? res.data.data : [];
   } catch (e) {
     wardsError.value =
@@ -271,7 +296,6 @@ onMounted(async () => {
   }
 });
 
-//  Get user's current location using Geolocation API
 const getUserLocation = () => {
   mapLoading.value = true;
   navigator.geolocation?.getCurrentPosition(
@@ -298,9 +322,10 @@ const geocodeAddress = () => {
   geocoder.geocode({ address: address.value }, (results, status) => {
     geocoding.value = false;
     if (status === "OK" && results[0]) {
-      const location = results[0].geometry.location;
-      // Convert Google's format to Leaflet's format [lat, lng]
-      const pos = [location.lat(), location.lng()];
+      const pos = [
+        results[0].geometry.location.lat(),
+        results[0].geometry.location.lng(),
+      ];
       updateLocation(pos);
     } else {
       toast.add({
@@ -316,7 +341,6 @@ const geocodeAddress = () => {
 const reverseGeocode = (latLngArray) => {
   if (!geocoder) return;
   geocoding.value = true;
-  // Convert Leaflet's array format to Google's object format
   const googleLatLng = { lat: latLngArray[0], lng: latLngArray[1] };
   geocoder.geocode({ location: googleLatLng }, (results, status) => {
     geocoding.value = false;
@@ -331,27 +355,21 @@ const debouncedGeocodeAddress = debounce(geocodeAddress, 700);
 const updateLocation = async (posArray) => {
   selectedLocation.value = posArray;
   mapCenter.value = posArray;
-  // nextTick ensures the map has recentered before we try to geocode
   await nextTick();
   reverseGeocode(posArray);
 };
 
-//  Update location when marker is dragged
 const handleMarkerDrag = (event) => {
   const latLng = event.target.getLatLng();
-  const newPos = [latLng.lat, latLng.lng];
-  updateLocation(newPos);
+  updateLocation([latLng.lat, latLng.lng]);
 };
 
-//  Update location when map is clicked
 const handleMapClick = (event) => {
-  const newPos = [event.latlng.lat, event.latlng.lng];
-  updateLocation(newPos);
+  updateLocation([event.latlng.lat, event.latlng.lng]);
 };
 
-// --- File Upload Logic ---
+// --- File Upload ---
 const onFileSelect = (event) => {
-  // Run each time the user selects files
   selectedFiles.value = event.files;
 };
 
@@ -379,32 +397,41 @@ const uploadFiles = async (event, reportToken) => {
       detail: "Could not upload attachments.",
       life: 3000,
     });
-    console.error("File upload error:", uploadError);
   }
 };
 
-// --- Form Submission ---
+// --- Submit ---
 const submitReport = async () => {
-  if (isFormInvalid.value) {
+  const candidate = {
+    title: issueDetails.title,
+    description: issueDetails.description,
+    category: issueDetails.category,
+    ward_code: wardCode.value,
+    address: address.value,
+    location: selectedLocation.value,
+  };
+
+  const result = issueReportSchema.safeParse(candidate);
+  if (!result.success) {
+    const firstError = result.error.issues[0];
     toast.add({
       severity: "warn",
       summary: "Validation Error",
-      detail: "Please fill all required fields and select a location and ward.",
+      detail: firstError?.message || "Please fix the invalid fields.",
       life: 3000,
     });
     return;
   }
+
   submitting.value = true;
   try {
-    // Format request payloads
     const locationPayload = {
       address: address.value,
-      latitude: selectedLocation.value[0], // Use array index 0 for latitude
-      longitude: selectedLocation.value[1], // Use array index 1 for longitude
+      latitude: selectedLocation.value[0],
+      longitude: selectedLocation.value[1],
     };
-    // Create location first to get its ID
     const { data: newLocation } = await createLocation(locationPayload);
-    // Then create the issue report with the new location ID and selected ward
+
     const reportPayload = {
       ...issueDetails,
       location_id: newLocation.id,
@@ -413,7 +440,6 @@ const submitReport = async () => {
     };
     const { data: newReport } = await createIssueReport(reportPayload);
 
-    // Trigger the file upload process if there are files
     if (selectedFiles.value.length > 0) {
       const uploadEvent = { files: selectedFiles.value };
       await uploadFiles(uploadEvent, newReport.token);
@@ -425,7 +451,6 @@ const submitReport = async () => {
       detail: "Issue reported successfully!",
       life: 3000,
     });
-    // Redirect to user reports page
     router.push("/user-reports");
   } catch (e) {
     toast.add({
@@ -443,14 +468,8 @@ const submitReport = async () => {
 <style scoped>
 .report-layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-}
-
-@media (min-width: 1024px) {
-  .report-layout {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .map-wrapper {
@@ -470,7 +489,7 @@ const submitReport = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* High z-index for Leaflet */
+  z-index: 1000;
   border-radius: 6px;
   color: #6c757d;
 }
