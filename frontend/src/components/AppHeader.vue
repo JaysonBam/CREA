@@ -4,17 +4,16 @@
       <!-- Left: logo -->
       <div class="brand cursor-pointer" @click="goHome" aria-label="CREA home">
         <img src="/logo_light.svg" alt="CREA" class="brand-logo" />
+        <!-- mobile hamburger tucked into the brand so header grid keeps three columns -->
+        <button
+          class="mobile-menu-button md:hidden"
+          @click.stop="toggleMobileMenu"
+          aria-label="Open menu"
+          :aria-expanded="showMobileMenu"
+        >
+          <i class="pi pi-bars"></i>
+        </button>
       </div>
-
-      <!-- Mobile: hamburger (keeps desktop nav unchanged) -->
-      <button
-        class="mobile-menu-button md:hidden"
-        @click="toggleMobileMenu"
-        aria-label="Open menu"
-        :aria-expanded="showMobileMenu"
-      >
-        <i class="pi pi-bars"></i>
-      </button>
 
       <!-- Middle: nav (desktop only) -->
       <nav class="main-nav hidden md:flex" aria-label="Primary">
@@ -163,8 +162,10 @@ const closeMobileMenu = () => (showMobileMenu.value = false);
 }
 
 /* ---------- Mobile nav ---------- */
+/* Hidden by default; shown only on small screens via the media query below.
+   This avoids depending on utility classes being available at build time. */
 .mobile-menu-button {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -253,6 +254,10 @@ const closeMobileMenu = () => (showMobileMenu.value = false);
   .header-inner {
     gap: 0.75rem;
     height: 4.25rem;
+  }
+  /* show hamburger on small screens */
+  .mobile-menu-button {
+    display: inline-flex;
   }
 }
 </style>
