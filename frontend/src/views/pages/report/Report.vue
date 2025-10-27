@@ -22,8 +22,8 @@
           <p class="mt-2">No records found.</p>
         </div>
 
-      <div v-else class="reports-grid grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
-        <Card v-for="data in displayedRows" :key="data.token" class="report-card relative" :class="rowClass(data)" style="min-width: 250px; width: 100%; height: 420px;">
+      <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fit, 280px);">
+        <Card v-for="data in displayedRows" :key="data.token" class="relative" :class="rowClass(data)" style="min-width: 250px; width: 100%; height: 420px;">
           <!-- Menu Button (Top Right) -->
           <template #header>
             <div class="absolute top-2 right-2 z-10">
@@ -49,17 +49,17 @@
                 <img
                   :src="slotProps.item.file_link"
                   :alt="slotProps.item.description || 'Report image'"
-                  class="report-image"
+                  style="width: 100%; display: block; height: 200px; object-fit: cover;"
                 />
               </template>
             </Galleria>
 
             <!-- Default image for reports without attachments -->
-            <div v-else class="default-image-wrap w-full">
+            <div v-else class="h-[250px] w-full">
               <img 
                 :src="`${apiUrl}/default-report-image.png`"
                 alt="Default report image"
-                class="report-image"
+                style="width: 100%; display: block; height: 250px; object-fit: cover;"
               />
             </div>
           </template>
@@ -97,7 +97,7 @@
                 />
                 <span
                   v-if="unread[data.token] > 0"
-                  class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow unread-badge"
+                  class="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-2 py-0.5 shadow"
                 >
                   {{ unread[data.token] }}
                 </span>
@@ -799,35 +799,6 @@ function openRowMenu(event, row) {
   rowMenu.value.toggle(event);
 }
 </script>
-
-<style scoped>
-/* Mobile-first compacting for Report list */
-@media (max-width: 767px) {
-  /* Stack filters and make inputs full width */
-  .card-body .flex.flex-wrap { flex-direction: column; gap: 0.6rem; }
-  .card-body .w-full.md\:w-auto, .card-body .md\:w-auto { width: 100% !important; max-width: 100% !important; }
-
-  /* Grid: single column and center cards */
-
-  .reports-grid { grid-template-columns: 1fr !important; gap: 0.5rem; justify-items: center; }
-  /* Let the card size to its content on mobile so they aren't excessively tall */
-  .report-card { width: 94% !important; max-width: 520px; height: auto !important; min-height: 260px; display: flex; flex-direction: column; }
-
-  /* Make images smaller but show full image (no cropping) */
-  .report-image { width: 100%; display: block; height: auto !important; max-height: 120px !important; object-fit: contain !important; background: var(--surface-100); border-radius: 6px; }
-
-  /* Tighter footer buttons and badges */
-  .report-card .p-button { padding: 0.35rem 0.5rem !important; font-size: 0.9rem !important; }
-  .unread-badge { padding: 0 0.35rem; font-size: 0.7rem; }
-
-  /* Reduce card paddings and header spacing */
-  :deep(.p-card .p-card-content) { padding: 0.5rem !important; }
-  :deep(.p-card .p-card-footer) { padding: 0.45rem !important; }
-
-  /* Dialog width on mobile */
-  :deep(.p-dialog) { width: 95vw !important; max-width: 680px !important; }
-}
-</style>
 <style scoped>
 .escalated-row {
   border-left: 4px solid;
